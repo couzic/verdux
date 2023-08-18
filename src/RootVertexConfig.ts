@@ -4,5 +4,5 @@ import { VertexInternalState } from "./VertexInternalState";
 import { VertexType } from "./VertexType";
 
 export interface RootVertexConfig<Type extends VertexType> extends VertexConfig<Type> {
-  createInternalStateStreamFromRedux(reduxState$: Observable<any>): ReplaySubject<VertexInternalState<Type>>
+  createInternalStateStreamFromRedux(reduxState$: Observable<any>, dependencies: Type['dependencies']): ReplaySubject<VertexInternalState<Type>>
 }

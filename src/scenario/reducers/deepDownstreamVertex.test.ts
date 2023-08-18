@@ -4,12 +4,16 @@ import { Graph } from '../../Graph'
 import { createGraph } from '../../createGraph'
 import { configureRootVertex } from '../../configureRootVertex'
 
-describe('Downstream vertex', () => {
+describe('deepDownstreamVertex reducers', () => {
 
+  let graph: Graph
   const rootSlice = createSlice({
     name: 'root',
     initialState: { username: '' },
     reducers: {}
+  })
+  const rootVertexConfig = configureRootVertex({
+    slice: rootSlice
   })
   const downstreamSlice = createSlice({
     name: 'ds',
@@ -18,14 +22,11 @@ describe('Downstream vertex', () => {
       setFriend: (state, action: PayloadAction<string>) => { state.friend = action.payload }
     }
   })
+  const downstreamVertexConfig = rootVertexConfig.configureDownstreamVertex({
+    slice: downstreamSlice
+  })
 
   describe('from slice', () => {
-    const rootVertexConfig = configureRootVertex({
-      slice: rootSlice
-    })
-    const downstreamVertexConfig = rootVertexConfig.configureDownstreamVertex({
-      slice: downstreamSlice
-    })
     const deepDownstreamSlice = createSlice({
       name: 'deep',
       initialState: { otherFriend: '' },
@@ -36,7 +37,6 @@ describe('Downstream vertex', () => {
     const deepDownstreamVertexConfig = downstreamVertexConfig.configureDownstreamVertex({
       slice: deepDownstreamSlice
     })
-    let graph: Graph
     it('creates graph without specifying upstream vertex configs', () => {
       const graph = createGraph({ vertices: [deepDownstreamVertexConfig] })
       const deepVertex = graph.getInstance(deepDownstreamVertexConfig)
@@ -59,19 +59,12 @@ describe('Downstream vertex', () => {
   })
 
   describe('from reducer', () => {
-    const rootVertexConfig = configureRootVertex({
-      slice: rootSlice
-    })
-    const downstreamVertexConfig = rootVertexConfig.configureDownstreamVertex({
-      slice: downstreamSlice
-    })
     const setOtherFriend = createAction<string>('setOtherFriend')
     const deepDownstreamReducer = createReducer({ otherFriend: '' }, builder => builder.addCase(setOtherFriend, (state, action) => { state.otherFriend = action.payload }))
     const deepDownstreamVertexConfig = downstreamVertexConfig.configureDownstreamVertex({
       name: 'deep',
       reducer: deepDownstreamReducer
     })
-    let graph: Graph
     beforeEach(() => {
       graph = createGraph({
         vertices: [rootVertexConfig, downstreamVertexConfig, deepDownstreamVertexConfig]

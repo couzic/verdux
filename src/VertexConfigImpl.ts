@@ -2,6 +2,7 @@ import { Slice } from "@reduxjs/toolkit";
 import { ReducerWithInitialState } from "@reduxjs/toolkit/dist/createReducer";
 import { Reducer } from "redux";
 import { Observable, ReplaySubject, map } from "rxjs";
+import { DependencyProviders } from "./DependencyProviders";
 import { DownstreamVertexConfig } from "./DownstreamVertexConfig";
 import { PickedLoadedVertexState } from "./PickedLoadedVertexState";
 import { RootVertexConfig } from "./RootVertexConfig";
@@ -10,12 +11,15 @@ import { VertexInternalState } from "./VertexInternalState";
 import { VertexStateKey } from "./VertexState";
 import { VertexType } from "./VertexType";
 import { fromInternalState } from "./fromInternalState";
+import { VertexRuntimeConfig } from "./VertexRuntimeConfig";
 
 
 export abstract class VertexConfigImpl<Type extends VertexType> implements VertexConfig<Type> {
   readonly id: symbol
 
-  protected readonly internalStateTransformations: Array<(internalState$: Observable<VertexInternalState<any>>) => Observable<VertexInternalState<any>>> = []
+  protected readonly internalStateTransformations: Array<
+    (dependencies: Type['dependencies']) => (internalState$: Observable<VertexInternalState<any>>) => Observable<VertexInternalState<any>>
+  > = []
 
   abstract readonly rootVertex: RootVertexConfig<any>
 
@@ -23,55 +27,82 @@ export abstract class VertexConfigImpl<Type extends VertexType> implements Verte
     public readonly name: string,
     public readonly getInitialState: () => Type["reduxState"],
     public readonly reducer: Reducer<Type['reduxState']>,
-    public readonly upstreamVertex: VertexConfig<any> | undefined
+    public readonly upstreamVertex: VertexConfig<any> | undefined,
+    public readonly dependencyProviders: DependencyProviders
   ) {
     this.id = Symbol(`Vertex ${name}`)
   }
 
-  configureDownstreamVertex<ReduxState extends object, UpstreamField extends VertexStateKey<Type> = never, LoadableFields extends object = {}>(
-    options: ({
-      slice: Slice<ReduxState>,
-    } | {
-      name: string,
-      reducer: ReducerWithInitialState<ReduxState>,
-    }) & {
-      upstreamFields?: UpstreamField[]
-    }): any {
+  configureDownstreamVertex<
+    ReduxState extends object,
+    UpstreamField extends VertexStateKey<Type> = never,
+  >(options: ({
+    slice: Slice<ReduxState>,
+  } | {
+    name: string,
+    reducer: ReducerWithInitialState<ReduxState>,
+  }) & {
+    upstreamFields?: UpstreamField[],
+    dependencies?: DependencyProviders<Type>
+  }): any {
     const upstreamFields = options.upstreamFields || []
     const downstreamConfig = 'slice' in options
-      ? new DownstreamVertexConfigImpl(options.slice.name, options.slice.getInitialState, options.slice.reducer as Reducer<any>, this as any, upstreamFields as any)
-      : new DownstreamVertexConfigImpl(options.name, options.reducer.getInitialState, options.reducer as Reducer<any>, this as any, upstreamFields as any)
+      ? new DownstreamVertexConfigImpl(options.slice.name, options.slice.getInitialState, options.slice.reducer as Reducer<any>, this as any, upstreamFields as any, options.dependencies || {})
+      : new DownstreamVertexConfigImpl(options.name, options.reducer.getInitialState, options.reducer as Reducer<any>, this as any, upstreamFields as any, options.dependencies || {})
     return downstreamConfig
+  }
+
+  injectedWith(dependencies: Partial<Type['dependencies']>): VertexRuntimeConfig<Type> {
+    return {
+      config: this,
+      dependencies
+    }
   }
 
   computeFromFields<
     K extends VertexStateKey<Type>,
     Computers extends Record<
       string,
-      (pickedFields: { [PK in keyof PickedLoadedVertexState<Type, K>]: PickedLoadedVertexState<Type, K>[PK]; }) => any
+      (pickedFields: { [PK in keyof PickedLoadedVertexState<Type, K>]: PickedLoadedVertexState<Type, K>[PK]; }, dependencies: Type['dependencies']) => any
     >
   >(
     fields: K[],
-    computers: Computers
+    computers: Computers,
   ): any {
-    this.internalStateTransformations.push(
-      map((internalState: VertexInternalState<any>) => {
-        // TODO make sure recomputing only occurs when picked fields change
-        const state = fromInternalState(internalState)
-        const picked: any = {}
-        fields.forEach(field => picked[field] = state[field])
+    this.internalStateTransformations.push(dependencies => map((internalState) => {
+      // TODO make sure recomputing only occurs when picked fields change
+      const state = fromInternalState(internalState)
+      const picked: any = {}
+      fields.forEach(field => picked[field] = state[field])
 
-        const computedValues: any = {}
-        const computedFields = Object.keys(computers)
-        computedFields.forEach(computedField => {
-          computedValues[computedField] = computers[computedField](picked) // TODO catch errors ?
-        })
-        return {
-          ...internalState,
-          readonlyFields: { ...internalState.readonlyFields, ...computedValues }
-        }
-      }))
+      const computedValues: any = {}
+      const computedFields = Object.keys(computers)
+      computedFields.forEach(computedField => {
+        computedValues[computedField] = computers[computedField](picked, dependencies) // TODO catch errors ?
+      })
+      return {
+        ...internalState,
+        readonlyFields: { ...internalState.readonlyFields, ...computedValues }
+      }
+    }))
     return this
+  }
+
+  loadFromFields<K extends VertexStateKey<Type>, LoadableValues>(
+    fields: K[],
+    loaders: {
+      [LVK in keyof LoadableValues]: (fields: {
+        [FK in K]: FK extends keyof Type['loadableFields']
+        ? Type['loadableFields'][FK]
+        : FK extends keyof Type['readonlyFields']
+        ? Type['loadableFields'][FK]
+        : FK extends keyof Type['reduxState']
+        ? Type['reduxState'][FK]
+        : never
+      }) => Observable<LoadableValues[LVK]>
+    }
+  ): any {
+
   }
 }
 
@@ -87,11 +118,12 @@ export class DownstreamVertexConfigImpl<Type extends VertexType> extends VertexC
     reducer: Reducer<Type['reduxState']>,
     upstreamVertex: VertexConfig<any>,
     private readonly upstreamFields: string[],
+    dependencyProviders: Record<string, (dependencies: Type['dependencies']) => any>
   ) {
-    super(name, getInitialState, reducer, upstreamVertex)
+    super(name, getInitialState, reducer, upstreamVertex, dependencyProviders)
   }
 
-  createInternalStateStreamFromUpstream(upstreamInternalState$: Observable<VertexInternalState<any>>): any {
+  createInternalStateStreamFromUpstream(upstreamInternalState$: Observable<VertexInternalState<any>>, dependencies: Type['dependencies']): any {
     const internalState$ = new ReplaySubject<VertexInternalState<any>>(1)
     const originalInternalState$ = upstreamInternalState$.pipe(
       map((upstream) => {
@@ -116,7 +148,7 @@ export class DownstreamVertexConfigImpl<Type extends VertexType> extends VertexC
         } as VertexInternalState<any>
       }))
     this.internalStateTransformations
-      .reduce((observable, transformation) => transformation(observable), originalInternalState$)
+      .reduce((observable, transformation) => transformation(dependencies)(observable), originalInternalState$)
       .subscribe(internalState$)
     return internalState$
   }

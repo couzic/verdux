@@ -6,6 +6,7 @@ import { configureRootVertex } from '../../configureRootVertex'
 
 describe('rootVertex.computeFromFields()', () => {
 
+  let graph: Graph
   const slice = createSlice({
     name: 'root',
     initialState: { username: '' },
@@ -21,7 +22,6 @@ describe('rootVertex.computeFromFields()', () => {
     .computeFromFields(['username'], {
       lowercaseUsername: ({ username }) => username.toLowerCase()
     })
-  let graph: Graph
   beforeEach(() => {
     graph = createGraph({
       vertices: [rootVertexConfig],

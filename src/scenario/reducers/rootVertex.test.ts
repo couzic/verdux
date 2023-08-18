@@ -4,7 +4,9 @@ import { Graph } from '../../Graph'
 import { createGraph } from '../../createGraph'
 import { configureRootVertex } from '../../configureRootVertex'
 
-describe('Root vertex', () => {
+describe('rootVertex reducers', () => {
+
+  let graph: Graph
 
   describe('from slice', () => {
     const slice = createSlice({
@@ -19,7 +21,6 @@ describe('Root vertex', () => {
     const rootVertexConfig = configureRootVertex({
       slice
     })
-    let graph: Graph
     beforeEach(() => {
       graph = createGraph({
         vertices: [rootVertexConfig],
@@ -43,7 +44,6 @@ describe('Root vertex', () => {
       name: 'root',
       reducer
     })
-    let graph: Graph
     beforeEach(() => {
       graph = createGraph({
         vertices: [rootVertexConfig],

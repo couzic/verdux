@@ -4,8 +4,9 @@ import { Graph } from '../../Graph'
 import { createGraph } from '../../createGraph'
 import { configureRootVertex } from '../../configureRootVertex'
 
-describe('Downstream vertex', () => {
+describe('downstreamVertex upstreamFields', () => {
 
+  let graph: Graph
   const rootSlice = createSlice({
     name: 'root',
     initialState: { username: '' },
@@ -27,7 +28,6 @@ describe('Downstream vertex', () => {
     slice: downstreamSlice,
     upstreamFields: ['username']
   })
-  let graph: Graph
   beforeEach(() => {
     graph = createGraph({
       vertices: [rootVertexConfig, downstreamVertexConfig]

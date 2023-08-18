@@ -4,18 +4,19 @@ import { Graph } from '../../Graph'
 import { createGraph } from '../../createGraph'
 import { configureRootVertex } from '../../configureRootVertex'
 
-describe('Downstream vertex', () => {
+describe('downstreamVertex reducers', () => {
 
+  let graph: Graph
   const rootSlice = createSlice({
     name: 'root',
     initialState: { username: '' },
     reducers: {}
   })
+  const rootVertexConfig = configureRootVertex({
+    slice: rootSlice
+  })
 
   describe('from slice', () => {
-    const rootVertexConfig = configureRootVertex({
-      slice: rootSlice
-    })
     const downstreamSlice = createSlice({
       name: 'ds',
       initialState: { friend: '' },
@@ -26,7 +27,6 @@ describe('Downstream vertex', () => {
     const downstreamVertexConfig = rootVertexConfig.configureDownstreamVertex({
       slice: downstreamSlice
     })
-    let graph: Graph
     it('creates graph without specifying root vertex config', () => {
       const graph = createGraph({ vertices: [downstreamVertexConfig] })
       expect(graph.getInstance(rootVertexConfig).currentState.username).to.equal('')
@@ -48,16 +48,12 @@ describe('Downstream vertex', () => {
   })
 
   describe('from reducer', () => {
-    const rootVertexConfig = configureRootVertex({
-      slice: rootSlice
-    })
     const setFriend = createAction<string>('setFriend')
     const downstreamReducer = createReducer({ friend: '' }, builder => builder.addCase(setFriend, (state, action) => { state.friend = action.payload }))
     const downstreamVertexConfig = rootVertexConfig.configureDownstreamVertex({
       name: 'ds',
       reducer: downstreamReducer
     })
-    let graph: Graph
     beforeEach(() => {
       graph = createGraph({
         vertices: [rootVertexConfig, downstreamVertexConfig]

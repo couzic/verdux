@@ -19,5 +19,6 @@ export interface Vertex<Type extends VertexType> {
   readonly internalState$: Observable<{
     [K in keyof VertexInternalState<Type>]: VertexInternalState<Type>[K]
   }>
+  readonly dependencies: Type['dependencies']
   dispatch(action: AnyAction): void
 }

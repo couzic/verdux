@@ -7,20 +7,24 @@ import { RootVertexConfig } from "./RootVertexConfig";
 import { Vertex } from "./Vertex";
 import { VertexConfig } from "./VertexConfig";
 import { VertexInternalState } from "./VertexInternalState";
+import { VertexRuntimeConfig } from './VertexRuntimeConfig';
 import { VertexType } from "./VertexType";
 import { fromInternalState } from "./fromInternalState";
 
 export const createGraph = (options: {
-  vertices: Array<VertexConfig<any>>
+  vertices: Array<VertexRuntimeConfig<any>>
 }) => {
 
-  const inputVertexConfigs = options.vertices
-  if (inputVertexConfigs.length === 0) throw new Error('createGraph() does not accept an empty vertices array')
+  const runtimeConfigs = options.vertices
+  if (runtimeConfigs.length === 0) throw new Error('createGraph() does not accept an empty vertices array')
 
   const uniqueVertexIds: Array<symbol> = []
   const vertexConfigById: Record<symbol, VertexConfig<any>> = {}
+  const injectedDependenciesByVertexId: Record<symbol, any> = {}
 
-  const indexById = (config: VertexConfig<any>) => {
+  const indexById = (runtimeConfig: VertexRuntimeConfig<any>) => {
+    const dependencies = 'config' in runtimeConfig ? runtimeConfig.dependencies : null
+    const config = 'config' in runtimeConfig ? runtimeConfig.config : runtimeConfig
     const upstreamConfig = config.upstreamVertex
     if (upstreamConfig) {
       indexById(upstreamConfig)
@@ -28,9 +32,12 @@ export const createGraph = (options: {
     if (!vertexConfigById[config.id]) {
       uniqueVertexIds.push(config.id)
       vertexConfigById[config.id] = config
+      if (dependencies) {
+        injectedDependenciesByVertexId[config.id] = dependencies
+      }
     }
   }
-  inputVertexConfigs.forEach(indexById)
+  runtimeConfigs.forEach(indexById)
 
   const uniqueVertexConfigs = uniqueVertexIds
     .map(id => vertexConfigById[id])
@@ -79,7 +86,25 @@ export const createGraph = (options: {
   let rootCurrentState = reduxStore.getState()
   const rootState$ = new ReplaySubject<any>(1)
   let rootCurrentInternalState = null as any
-  const rootInternalState$ = rootVertexConfig.createInternalStateStreamFromRedux(reduxState$)
+
+  const buildVertexDependencies = (config: VertexConfig<any>) => {
+    const providers = rootVertexConfig.dependencyProviders
+    const dependencyNames = Object.keys(providers)
+    const injectedDependencies = injectedDependenciesByVertexId[config.id] || {}
+    const dependencies = {} as any
+    dependencyNames.forEach(depName => {
+      const injectedDep = injectedDependencies[depName]
+      if (injectedDep) {
+        dependencies[depName] = injectedDep
+      } else {
+        dependencies[depName] = providers[depName]({})
+      }
+    })
+    return dependencies
+  }
+
+  const rootDependencies = buildVertexDependencies(rootVertexConfig)
+  const rootInternalState$ = rootVertexConfig.createInternalStateStreamFromRedux(reduxState$, rootDependencies)
   rootInternalState$.subscribe(internalState => {
     rootCurrentInternalState = internalState
     rootCurrentState = fromInternalState(internalState)
@@ -92,6 +117,7 @@ export const createGraph = (options: {
     get state$() { return rootState$ },
     get currentInternalState() { return rootCurrentInternalState },
     get internalState$() { return rootInternalState$ },
+    get dependencies() { return rootDependencies },
     dispatch
   }
 
@@ -112,7 +138,8 @@ export const createGraph = (options: {
     let currentState: Type['reduxState']
     const state$ = new ReplaySubject<Type['reduxState']>(1)
     let currentInternalState: VertexInternalState<Type> = null as any
-    const internalState$ = config.createInternalStateStreamFromUpstream(upstreamVertex.internalState$ as any)
+    const dependencies = buildVertexDependencies(config)
+    const internalState$ = config.createInternalStateStreamFromUpstream(upstreamVertex.internalState$ as any, dependencies)
     internalState$.subscribe(internalState => {
       currentInternalState = internalState
       currentState = fromInternalState(internalState)
@@ -125,6 +152,7 @@ export const createGraph = (options: {
       get state$() { return state$ },
       get currentInternalState() { return currentInternalState },
       get internalState$() { return internalState$ },
+      get dependencies() { return dependencies },
       dispatch
     }
     vertexById[config.id] = vertex
