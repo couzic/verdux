@@ -1,0 +1,70 @@
+{
+   "name": "verdux",
+   "version": "0.0.1",
+   "description": "Type-safe, reactive, immutable state management",
+   "keywords": [
+      "typescript",
+      "redux",
+      "rxjs",
+      "state"
+   ],
+   "license": "MIT",
+   "repository": {
+      "type": "git",
+      "url": "git://github.com/couzic/verdux.git"
+   },
+   "homepage": "https://github.com/couzic/verdux#readme",
+   "bugs": {
+      "url": "https://github.com/couzic/verdux/issues"
+   },
+   "author": {
+      "name": "Mikael Couzic",
+      "email": "mikaelcouzic@gmail.com",
+      "url": "https://github.com/couzic"
+   },
+   "scripts": {
+      "prebuild": "npm run test && shx rm -rf ./lib",
+      "build": "tsc && npm run doctoc",
+      "prepare": "npm run build",
+      "doctoc": "doctoc . --notitle --maxlevel 4",
+      "test": "clear && mocha",
+      "tdd": "clear && mocha --watch"
+   },
+   "files": [
+      "lib",
+      "src"
+   ],
+   "main": "lib/index.js",
+   "types": "lib/index.d.ts",
+   "mocha": {
+      "require": "ts-node/register",
+      "extension": [
+         "ts"
+      ],
+      "spec": [
+         "src/**/*.test.ts"
+      ],
+      "reporter": "dot"
+   },
+   "peerDependencies": {
+      "@reduxjs/toolkit": "^1.0.0",
+      "rxjs": "^7.0.0"
+   },
+   "devDependencies": {
+      "@reduxjs/toolkit": "^1.9.5",
+      "@types/chai": "^4.3.4",
+      "@types/mocha": "^10.0.1",
+      "@types/sinon": "^10.0.13",
+      "@types/sinon-chai": "^3.2.9",
+      "chai": "^4.3.7",
+      "doctoc": "^2.2.1",
+      "mocha": "^10.2.0",
+      "prettier": "^3.0.2",
+      "rxjs": "^7.8.0",
+      "shx": "^0.3.4",
+      "sinon": "^15.0.3",
+      "sinon-chai": "^3.7.0",
+      "ts-node": "^10.9.1",
+      "typescript": "^5.0.4"
+   }
+}

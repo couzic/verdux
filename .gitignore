@@ -1,0 +1,8 @@
+/lib
+/node_modules
+npm-debug.log
+
+# IDE #
+.vscode
+.idea
+*.swp
