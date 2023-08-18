@@ -101,7 +101,8 @@ export interface VertexConfig<Type extends VertexType> {
         : FK extends keyof Type['reduxState']
         ? Type['reduxState'][FK]
         : never
-      }) => Observable<LoadableValues[LVK]>
+      }, dependencies: Type['dependencies']
+      ) => Observable<LoadableValues[LVK]>
     }
   ): IsPlainObject<LoadableValues> extends true
     ? VertexConfig<{

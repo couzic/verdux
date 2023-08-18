@@ -1,9 +1,9 @@
 import { AnyAction } from "redux";
-import { Vertex } from "./Vertex";
 import { VertexConfig } from "./VertexConfig";
+import { VertexInstance } from "./VertexInstance";
 import { VertexType } from "./VertexType";
 
 export interface Graph {
-  getInstance<Type extends VertexType>(vertexConfig: VertexConfig<Type>): Vertex<Type>
+  getInstance<Type extends VertexType>(vertexConfig: VertexConfig<Type>): VertexInstance<Type>
   dispatch(action: AnyAction): void
 }

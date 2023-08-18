@@ -11,7 +11,7 @@ export const pickInternalState = <
   keys: K[]
 ): PickedInternalState<Type, K> => {
   const { status, errors } = internalState
-  const reduxState: any = {}
+  const reduxState = { vertex: {} as any }
   const readonlyFields: any = {}
   const loadableFields: any = {}
   keys.forEach(key => {
@@ -20,7 +20,7 @@ export const pickInternalState = <
     } else if (key in internalState.readonlyFields) {
       readonlyFields[key] = internalState.readonlyFields[key]
     } else if (key in internalState.reduxState.vertex) {
-      reduxState[key] = internalState.reduxState.vertex[key]
+      reduxState.vertex[key] = internalState.reduxState.vertex[key]
     }
   })
   return {

@@ -4,12 +4,12 @@ import { ReplaySubject, Subject } from "rxjs";
 import { DownstreamVertexConfig } from "./DownstreamVertexConfig";
 import { Graph } from "./Graph";
 import { RootVertexConfig } from "./RootVertexConfig";
-import { Vertex } from "./Vertex";
 import { VertexConfig } from "./VertexConfig";
 import { VertexInternalState } from "./VertexInternalState";
 import { VertexRuntimeConfig } from './VertexRuntimeConfig';
 import { VertexType } from "./VertexType";
 import { fromInternalState } from "./fromInternalState";
+import { VertexInstance } from "./VertexInstance";
 
 export const createGraph = (options: {
   vertices: Array<VertexRuntimeConfig<any>>
@@ -107,10 +107,11 @@ export const createGraph = (options: {
   const rootInternalState$ = rootVertexConfig.createInternalStateStreamFromRedux(reduxState$, rootDependencies)
   rootInternalState$.subscribe(internalState => {
     rootCurrentInternalState = internalState
+    // TODO Make sure state$ is not emitted too many times
     rootCurrentState = fromInternalState(internalState)
     rootState$.next(rootCurrentState)
   })
-  const rootVertex: Vertex<any> = {
+  const rootVertexInstance: VertexInstance<any> = {
     get id() { return rootVertexConfig.id },
     get name() { return rootVertexConfig.name },
     get currentState() { return rootCurrentState },
@@ -121,31 +122,31 @@ export const createGraph = (options: {
     dispatch
   }
 
-  const vertexById: Record<symbol, Vertex<any>> = { [rootVertexConfig.id]: rootVertex }
+  const vertexInstanceById: Record<symbol, VertexInstance<any>> = { [rootVertexConfig.id]: rootVertexInstance }
 
-  const createVertex = <Type extends VertexType>(
+  const createVertexInstance = <Type extends VertexType>(
     config: DownstreamVertexConfig<Type>,
   ) => {
-    const alreadyCreatedVertex = vertexById[config.id]
-    if (alreadyCreatedVertex) return alreadyCreatedVertex
-    const upstreamConfig = config.upstreamVertex!
-    if (vertexById[upstreamConfig.id] === undefined) {
-      const upstreamVertex = createVertex(upstreamConfig as DownstreamVertexConfig<any>)
-      vertexById[upstreamVertex.id] = upstreamVertex
+    const alreadyCreatedVertexInstance = vertexInstanceById[config.id]
+    if (alreadyCreatedVertexInstance) return alreadyCreatedVertexInstance
+    const upstreamVertexConfig = config.upstreamVertex!
+    if (vertexInstanceById[upstreamVertexConfig.id] === undefined) {
+      const upstreamVertexInstance = createVertexInstance(upstreamVertexConfig as DownstreamVertexConfig<any>)
+      vertexInstanceById[upstreamVertexInstance.id] = upstreamVertexInstance
     }
 
-    const upstreamVertex = vertexById[upstreamConfig.id]
+    const upstreamVertexInstance = vertexInstanceById[upstreamVertexConfig.id]
     let currentState: Type['reduxState']
     const state$ = new ReplaySubject<Type['reduxState']>(1)
     let currentInternalState: VertexInternalState<Type> = null as any
     const dependencies = buildVertexDependencies(config)
-    const internalState$ = config.createInternalStateStreamFromUpstream(upstreamVertex.internalState$ as any, dependencies)
+    const internalState$ = config.createInternalStateStreamFromUpstream(upstreamVertexInstance.internalState$ as any, dependencies)
     internalState$.subscribe(internalState => {
       currentInternalState = internalState
       currentState = fromInternalState(internalState)
       state$.next(currentState)
     })
-    const vertex: Vertex<Type> = {
+    const vertexInstance: VertexInstance<Type> = {
       get id() { return config.id },
       get name() { return config.name },
       get currentState() { return currentState },
@@ -155,17 +156,17 @@ export const createGraph = (options: {
       get dependencies() { return dependencies },
       dispatch
     }
-    vertexById[config.id] = vertex
-    return vertex
+    vertexInstanceById[config.id] = vertexInstance
+    return vertexInstance
   }
 
-  uniqueVertexConfigs.forEach(config => createVertex(config as any))
+  uniqueVertexConfigs.forEach(config => createVertexInstance(config as any))
 
   reduxState$.next(reduxStore.getState())
   reduxStore.subscribe(() => reduxState$.next(reduxStore.getState()))
 
   const graph: Graph = {
-    getInstance: (config) => vertexById[config.id],
+    getInstance: (config) => vertexInstanceById[config.id],
     dispatch
   }
 

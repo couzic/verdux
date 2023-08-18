@@ -1,18 +1,20 @@
 import { Slice } from "@reduxjs/toolkit";
 import { ReducerWithInitialState } from "@reduxjs/toolkit/dist/createReducer";
 import { Reducer } from "redux";
-import { Observable, ReplaySubject, map } from "rxjs";
+import { Observable, ReplaySubject, catchError, combineLatest, distinctUntilChanged, filter, map, merge, mergeAll, of, scan, switchMap, tap } from "rxjs";
 import { DependencyProviders } from "./DependencyProviders";
 import { DownstreamVertexConfig } from "./DownstreamVertexConfig";
 import { PickedLoadedVertexState } from "./PickedLoadedVertexState";
 import { RootVertexConfig } from "./RootVertexConfig";
 import { VertexConfig } from "./VertexConfig";
 import { VertexInternalState } from "./VertexInternalState";
-import { VertexStateKey } from "./VertexState";
+import { VertexState, VertexStateKey } from "./VertexState";
 import { VertexType } from "./VertexType";
 import { fromInternalState } from "./fromInternalState";
 import { VertexRuntimeConfig } from "./VertexRuntimeConfig";
-
+import { pickInternalState } from './pickInternalState'
+import { isLoaded } from './isLoaded'
+import { internalStateEquals } from './internalStateEquals'
 
 export abstract class VertexConfigImpl<Type extends VertexType> implements VertexConfig<Type> {
   readonly id: symbol
@@ -82,7 +84,7 @@ export abstract class VertexConfigImpl<Type extends VertexType> implements Verte
       })
       return {
         ...internalState,
-        readonlyFields: { ...internalState.readonlyFields, ...computedValues }
+        readonlyFields: { ...internalState.readonlyFields, ...computedValues } // TODO values computed from loadable fields go to loadable fields
       }
     }))
     return this
@@ -99,10 +101,78 @@ export abstract class VertexConfigImpl<Type extends VertexType> implements Verte
         : FK extends keyof Type['reduxState']
         ? Type['reduxState'][FK]
         : never
-      }) => Observable<LoadableValues[LVK]>
+      }, dependencies: Type['dependencies']) => Observable<LoadableValues[LVK]>
     }
   ): any {
+    this.internalStateTransformations.push(dependencies => inputInternalState$ => {
 
+      const loadableKeys = Object.keys(loaders) as (keyof LoadableValues)[]
+      const loadingValues = {} as Record<keyof LoadableValues, any>
+      loadableKeys.forEach(key => {
+        loadingValues[key] = {
+          status: 'loading',
+          error: undefined,
+          value: undefined
+        }
+      })
+
+      const pickedInternalState$ = inputInternalState$.pipe(
+        map(state => pickInternalState(state, fields)),
+        distinctUntilChanged(internalStateEquals)
+      )
+      const loading$ = pickedInternalState$.pipe(map(() => loadingValues))
+
+      const loadedOrError$ = pickedInternalState$.pipe(
+        filter(isLoaded),
+        map(fromInternalState),
+        // TODO Logger
+        // tap(data => this.context.dispatchLoading(this as any, data)), 
+        switchMap((state) =>
+          merge(
+            loadableKeys.map(key =>
+              loaders[key](state as any, dependencies).pipe(
+                map(result => ({
+                  [key]: {
+                    status: 'loaded',
+                    value: result,
+                    error: undefined
+                  }
+                })),
+                catchError((error: Error) =>
+                  of({
+                    [key]: { status: 'error', value: undefined, error }
+                  })
+                ) // TODO Recover from Error
+              )
+            )
+          ).pipe(
+            mergeAll(),
+            scan((acc, loadableValues) => {
+              return { ...acc, ...loadableValues } as any
+            }, loadingValues)
+          )
+        ),
+        // TODO Logger
+        // tap(loadedValues =>
+        //   this.context.dispatchLoaded(this as any, loadedValues)
+        // )
+      )
+      const outputInternalState$ = new ReplaySubject<VertexInternalState<any>>(1)
+
+      const outputLoadableFields$ = merge(loading$, loadedOrError$)
+
+      combineLatest([inputInternalState$, outputLoadableFields$])
+        .pipe(
+          map(([inputInternalState, loadableFields]) => ({
+            ...inputInternalState,
+            loadableFields: { ...inputInternalState.loadableFields, ...loadableFields }
+          }))
+        )
+        .subscribe(outputInternalState$)
+
+      return outputInternalState$
+    })
+    return this
   }
 }
 
