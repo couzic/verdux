@@ -3,7 +3,6 @@ import { ReducerWithInitialState } from "@reduxjs/toolkit/dist/createReducer";
 import { IsPlainObject } from "./IsPlainObject";
 import { Match } from "./Match";
 import { PickedLoadedVertexState } from "./PickedLoadedVertexState";
-import { RootVertexConfig } from "./RootVertexConfig";
 import { VertexStateKey } from "./VertexState";
 import { VertexType } from "./VertexType";
 import { Observable } from "rxjs";
@@ -11,7 +10,7 @@ import { DependencyProviders } from "./DependencyProviders";
 import { VertexRuntimeConfig } from "./VertexRuntimeConfig";
 
 export interface VertexConfig<Type extends VertexType> {
-  readonly rootVertex: RootVertexConfig<any>
+  readonly rootVertex: VertexConfig<any>
   readonly name: string
   readonly id: symbol
   readonly getInitialState: () => Readonly<Type['reduxState']>

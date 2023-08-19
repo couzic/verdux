@@ -1,35 +1,38 @@
 import { Slice } from "@reduxjs/toolkit";
 import { ReducerWithInitialState } from "@reduxjs/toolkit/dist/createReducer";
 import { Reducer } from "redux";
-import { Observable, ReplaySubject, catchError, combineLatest, distinctUntilChanged, filter, map, merge, mergeAll, of, scan, switchMap, tap } from "rxjs";
+import { Observable, ReplaySubject, catchError, combineLatest, distinctUntilChanged, filter, map, merge, mergeAll, of, scan, switchMap } from "rxjs";
 import { DependencyProviders } from "./DependencyProviders";
-import { DownstreamVertexConfig } from "./DownstreamVertexConfig";
 import { PickedLoadedVertexState } from "./PickedLoadedVertexState";
-import { RootVertexConfig } from "./RootVertexConfig";
 import { VertexConfig } from "./VertexConfig";
 import { VertexInternalState } from "./VertexInternalState";
-import { VertexState, VertexStateKey } from "./VertexState";
+import { VertexRuntimeConfig } from "./VertexRuntimeConfig";
+import { VertexStateKey } from "./VertexState";
 import { VertexType } from "./VertexType";
 import { fromInternalState } from "./fromInternalState";
-import { VertexRuntimeConfig } from "./VertexRuntimeConfig";
-import { pickInternalState } from './pickInternalState'
-import { isLoaded } from './isLoaded'
-import { internalStateEquals } from './internalStateEquals'
+import { internalStateEquals } from './internalStateEquals';
+import { isLoaded } from './isLoaded';
+import { pickInternalState } from './pickInternalState';
 
-export abstract class VertexConfigImpl<Type extends VertexType> implements VertexConfig<Type> {
+export class VertexConfigImpl<Type extends VertexType> implements VertexConfig<Type> {
   readonly id: symbol
 
   protected readonly internalStateTransformations: Array<
     (dependencies: Type['dependencies']) => (internalState$: Observable<VertexInternalState<any>>) => Observable<VertexInternalState<any>>
   > = []
 
-  abstract readonly rootVertex: RootVertexConfig<any>
+  get rootVertex(): VertexConfig<any> {
+    if (this.inputRootVertex === null) return this as any
+    return this.inputRootVertex
+  }
 
   constructor(
     public readonly name: string,
     public readonly getInitialState: () => Type["reduxState"],
     public readonly reducer: Reducer<Type['reduxState']>,
     public readonly upstreamVertex: VertexConfig<any> | undefined,
+    public readonly upstreamFields: string[],
+    private readonly inputRootVertex: VertexConfig<any> | null,
     public readonly dependencyProviders: DependencyProviders
   ) {
     this.id = Symbol(`Vertex ${name}`)
@@ -49,9 +52,13 @@ export abstract class VertexConfigImpl<Type extends VertexType> implements Verte
   }): any {
     const upstreamFields = options.upstreamFields || []
     const downstreamConfig = 'slice' in options
-      ? new DownstreamVertexConfigImpl(options.slice.name, options.slice.getInitialState, options.slice.reducer as Reducer<any>, this as any, upstreamFields as any, options.dependencies || {})
-      : new DownstreamVertexConfigImpl(options.name, options.reducer.getInitialState, options.reducer as Reducer<any>, this as any, upstreamFields as any, options.dependencies || {})
+      ? new VertexConfigImpl(options.slice.name, options.slice.getInitialState, options.slice.reducer as Reducer<any>, this as any, upstreamFields as any, this.rootVertex, options.dependencies || {})
+      : new VertexConfigImpl(options.name, options.reducer.getInitialState, options.reducer as Reducer<any>, this as any, upstreamFields as any, this.rootVertex, options.dependencies || {})
     return downstreamConfig
+  }
+
+  applyInternalStateTransformations(internalState$: Observable<VertexInternalState<any>>, dependencies: Type['dependencies']) {
+    return this.internalStateTransformations.reduce((observable, transformation) => transformation(dependencies)(observable), internalState$)
   }
 
   injectedWith(dependencies: Partial<Type['dependencies']>): VertexRuntimeConfig<Type> {
@@ -173,53 +180,5 @@ export abstract class VertexConfigImpl<Type extends VertexType> implements Verte
       return outputInternalState$
     })
     return this
-  }
-}
-
-export class DownstreamVertexConfigImpl<Type extends VertexType> extends VertexConfigImpl<Type> implements DownstreamVertexConfig<Type>{
-
-  get rootVertex() {
-    return this.upstreamVertex!.rootVertex
-  }
-
-  constructor(
-    name: string,
-    getInitialState: () => Type["reduxState"],
-    reducer: Reducer<Type['reduxState']>,
-    upstreamVertex: VertexConfig<any>,
-    private readonly upstreamFields: string[],
-    dependencyProviders: Record<string, (dependencies: Type['dependencies']) => any>
-  ) {
-    super(name, getInitialState, reducer, upstreamVertex, dependencyProviders)
-  }
-
-  createInternalStateStreamFromUpstream(upstreamInternalState$: Observable<VertexInternalState<any>>, dependencies: Type['dependencies']): any {
-    const internalState$ = new ReplaySubject<VertexInternalState<any>>(1)
-    const originalInternalState$ = upstreamInternalState$.pipe(
-      map((upstream) => {
-        const reduxState = upstream.reduxState.downstream[this.name]
-        const readonlyFields: any = {}
-        this.upstreamFields.forEach(field => {
-          // TODO Define priorities between reduxState, readonlyFields and loadableFields
-          // TODO Print warning / throw Error when field on more than one of upstream reduxState/readonlyFields/loadableFields
-          if (field in upstream.reduxState.vertex) {
-            readonlyFields[field] = upstream.reduxState.vertex[field]
-          } else if (field in upstream.readonlyFields) {
-            readonlyFields[field] = upstream.readonlyFields[field]
-          }
-          // TODO handle case when field is loadable fields
-        })
-        return {
-          status: 'loaded',
-          errors: [],
-          reduxState,
-          readonlyFields,
-          loadableFields: {} as any // TODO
-        } as VertexInternalState<any>
-      }))
-    this.internalStateTransformations
-      .reduce((observable, transformation) => transformation(dependencies)(observable), originalInternalState$)
-      .subscribe(internalState$)
-    return internalState$
   }
 }

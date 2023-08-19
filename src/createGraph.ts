@@ -1,15 +1,14 @@
 import { AnyAction, combineReducers, configureStore } from "@reduxjs/toolkit";
 import { Reducer } from "redux";
-import { ReplaySubject, Subject } from "rxjs";
-import { DownstreamVertexConfig } from "./DownstreamVertexConfig";
+import { Observable, ReplaySubject, Subject, map } from "rxjs";
 import { Graph } from "./Graph";
-import { RootVertexConfig } from "./RootVertexConfig";
 import { VertexConfig } from "./VertexConfig";
+import { VertexConfigImpl } from "./VertexConfigImpl";
+import { VertexInstance } from "./VertexInstance";
 import { VertexInternalState } from "./VertexInternalState";
 import { VertexRuntimeConfig } from './VertexRuntimeConfig';
 import { VertexType } from "./VertexType";
 import { fromInternalState } from "./fromInternalState";
-import { VertexInstance } from "./VertexInstance";
 
 export const createGraph = (options: {
   vertices: Array<VertexRuntimeConfig<any>>
@@ -42,7 +41,7 @@ export const createGraph = (options: {
   const uniqueVertexConfigs = uniqueVertexIds
     .map(id => vertexConfigById[id])
 
-  const vertexConfigsByUpstreamId: Record<symbol, Array<DownstreamVertexConfig<any>>> = {}
+  const vertexConfigsByUpstreamId: Record<symbol, Array<VertexConfig<any>>> = {}
 
   uniqueVertexConfigs.forEach(config => {
     const upstreamConfig = config.upstreamVertex
@@ -50,14 +49,14 @@ export const createGraph = (options: {
       if (!vertexConfigsByUpstreamId[upstreamConfig.id]) {
         vertexConfigsByUpstreamId[upstreamConfig.id] = []
       }
-      vertexConfigsByUpstreamId[upstreamConfig.id].push(config as DownstreamVertexConfig<any>)
+      vertexConfigsByUpstreamId[upstreamConfig.id].push(config)
     }
   })
 
   // TODO Make sure all upstream vertex configs are indexed by ID, even if they were not explicitely passed to the vertices array in options
   // TODO print warning if upstream vertex is not passed in vertices array
 
-  const rootVertexConfig = uniqueVertexConfigs[0].rootVertex as RootVertexConfig<any>
+  const rootVertexConfig: VertexConfigImpl<any> = uniqueVertexConfigs[0].rootVertex as any
 
   const createReduxReducer = (vertexConfig: VertexConfig<any>): Reducer<any> => {
     const downstreamVertexConfigs = vertexConfigsByUpstreamId[vertexConfig.id] || []
@@ -81,11 +80,29 @@ export const createGraph = (options: {
 
   const dispatch = (action: AnyAction) => reduxStore.dispatch(action)
 
-  const reduxState$ = new Subject()
 
-  let rootCurrentState = reduxStore.getState()
-  const rootState$ = new ReplaySubject<any>(1)
-  let rootCurrentInternalState = null as any
+  const createVertexInstance = <Type extends VertexType>(
+    config: VertexConfig<Type>, internalState$: Observable<VertexInternalState<Type>>, dependencies: Type['dependencies']
+  ): VertexInstance<Type> => {
+    let currentState: Type['reduxState']
+    const state$ = new ReplaySubject<Type['reduxState']>(1)
+    let currentInternalState: VertexInternalState<Type> = null as any
+    internalState$.subscribe(internalState => {
+      currentInternalState = internalState
+      currentState = fromInternalState(internalState)
+      state$.next(currentState)
+    })
+    return {
+      get id() { return config.id },
+      get name() { return config.name },
+      get currentState() { return currentState },
+      get state$() { return state$ },
+      get currentInternalState() { return currentInternalState },
+      get internalState$() { return internalState$ },
+      get dependencies() { return dependencies },
+      dispatch
+    }
+  }
 
   const buildVertexDependencies = (config: VertexConfig<any>) => {
     const providers = rootVertexConfig.dependencyProviders
@@ -104,69 +121,75 @@ export const createGraph = (options: {
   }
 
   const rootDependencies = buildVertexDependencies(rootVertexConfig)
-  const rootInternalState$ = rootVertexConfig.createInternalStateStreamFromRedux(reduxState$, rootDependencies)
-  rootInternalState$.subscribe(internalState => {
-    rootCurrentInternalState = internalState
-    // TODO Make sure state$ is not emitted too many times
-    rootCurrentState = fromInternalState(internalState)
-    rootState$.next(rootCurrentState)
-  })
-  const rootVertexInstance: VertexInstance<any> = {
-    get id() { return rootVertexConfig.id },
-    get name() { return rootVertexConfig.name },
-    get currentState() { return rootCurrentState },
-    get state$() { return rootState$ },
-    get currentInternalState() { return rootCurrentInternalState },
-    get internalState$() { return rootInternalState$ },
-    get dependencies() { return rootDependencies },
-    dispatch
+
+  const reduxState$ = new Subject<any>()
+
+  const originalRootInternalState$ = reduxState$.pipe(
+    map((reduxState): VertexInternalState<any> => ({
+      status: 'loaded',
+      errors: [],
+      reduxState,
+      readonlyFields: {},
+      loadableFields: {}
+    }))
+  );
+  const rootInternalState$ = rootVertexConfig.applyInternalStateTransformations(originalRootInternalState$, rootDependencies)
+
+  const rootVertexInstance = createVertexInstance(rootVertexConfig, rootInternalState$, rootDependencies)
+
+  const vertexById: Record<symbol, { instance: VertexInstance<any>, internalState$: Observable<VertexInternalState<any>> }> = { [rootVertexConfig.id]: { instance: rootVertexInstance, internalState$: rootInternalState$ } }
+
+  const createInternalStateStream = (config: VertexConfigImpl<any>, upstreamInternalState$: Observable<VertexInternalState<any>>, dependencies: any) => {
+    const originalInternalState$ = upstreamInternalState$.pipe(
+      map((upstream): VertexInternalState<any> => {
+        const reduxState = upstream.reduxState.downstream[config.name]
+        const readonlyFields: any = {}
+        config.upstreamFields.forEach(field => {
+          // TODO Define priorities between reduxState, readonlyFields and loadableFields
+          // TODO Print warning / throw Error when field on more than one of upstream reduxState/readonlyFields/loadableFields
+          if (field in upstream.reduxState.vertex) {
+            readonlyFields[field] = upstream.reduxState.vertex[field]
+          } else if (field in upstream.readonlyFields) {
+            readonlyFields[field] = upstream.readonlyFields[field]
+          }
+          // TODO handle case when field is loadable fields
+        })
+        return {
+          status: 'loaded',
+          errors: [],
+          reduxState,
+          readonlyFields,
+          loadableFields: {} as any // TODO
+        }
+      })
+    )
+    return config.applyInternalStateTransformations(originalInternalState$, dependencies)
   }
 
-  const vertexInstanceById: Record<symbol, VertexInstance<any>> = { [rootVertexConfig.id]: rootVertexInstance }
-
-  const createVertexInstance = <Type extends VertexType>(
-    config: DownstreamVertexConfig<Type>,
-  ) => {
-    const alreadyCreatedVertexInstance = vertexInstanceById[config.id]
-    if (alreadyCreatedVertexInstance) return alreadyCreatedVertexInstance
+  const createVertex = <Type extends VertexType>(
+    config: VertexConfig<Type>,
+  ): void => {
+    if (vertexById[config.id]) return
     const upstreamVertexConfig = config.upstreamVertex!
-    if (vertexInstanceById[upstreamVertexConfig.id] === undefined) {
-      const upstreamVertexInstance = createVertexInstance(upstreamVertexConfig as DownstreamVertexConfig<any>)
-      vertexInstanceById[upstreamVertexInstance.id] = upstreamVertexInstance
+    if (vertexById[upstreamVertexConfig.id] === undefined) {
+      createVertex(upstreamVertexConfig)
     }
 
-    const upstreamVertexInstance = vertexInstanceById[upstreamVertexConfig.id]
-    let currentState: Type['reduxState']
-    const state$ = new ReplaySubject<Type['reduxState']>(1)
-    let currentInternalState: VertexInternalState<Type> = null as any
+    const upstreamVertex = vertexById[upstreamVertexConfig.id]
     const dependencies = buildVertexDependencies(config)
-    const internalState$ = config.createInternalStateStreamFromUpstream(upstreamVertexInstance.internalState$ as any, dependencies)
-    internalState$.subscribe(internalState => {
-      currentInternalState = internalState
-      currentState = fromInternalState(internalState)
-      state$.next(currentState)
-    })
-    const vertexInstance: VertexInstance<Type> = {
-      get id() { return config.id },
-      get name() { return config.name },
-      get currentState() { return currentState },
-      get state$() { return state$ },
-      get currentInternalState() { return currentInternalState },
-      get internalState$() { return internalState$ },
-      get dependencies() { return dependencies },
-      dispatch
-    }
-    vertexInstanceById[config.id] = vertexInstance
-    return vertexInstance
+
+    const internalState$: Observable<VertexInternalState<Type>> = createInternalStateStream(config as any, upstreamVertex.internalState$, dependencies) as any
+    const instance = createVertexInstance(config, internalState$, dependencies)
+    vertexById[config.id] = { instance, internalState$ }
   }
 
-  uniqueVertexConfigs.forEach(config => createVertexInstance(config as any))
+  uniqueVertexConfigs.forEach(createVertex)
 
   reduxState$.next(reduxStore.getState())
   reduxStore.subscribe(() => reduxState$.next(reduxStore.getState()))
 
   const graph: Graph = {
-    getInstance: (config) => vertexInstanceById[config.id],
+    getInstance: (config) => vertexById[config.id].instance,
     dispatch
   }
 
