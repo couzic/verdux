@@ -23,8 +23,8 @@ import { VertexRuntimeConfig } from './VertexRuntimeConfig'
 import { VertexStateKey } from './VertexState'
 import { VertexType } from './VertexType'
 import { fromInternalState } from './fromInternalState'
-import { internalStateEquals } from './internalStateEquals'
 import { pickInternalState } from './pickInternalState'
+import { shallowEquals } from './shallowEquals'
 
 export class VertexConfigImpl<Type extends VertexType>
    implements VertexConfig<Type>
@@ -186,25 +186,31 @@ export class VertexConfigImpl<Type extends VertexType>
                // TODO this logs too many identical internal states, investigate
                // tap(console.log),
                map(internalState => {
-                  const picked = pickInternalState(internalState, fields)
-                  return { internalState, picked, pickedHasChanged: true }
+                  const pickedState = fromInternalState(
+                     pickInternalState(internalState, fields)
+                  )
+                  return {
+                     internalState,
+                     pickedState,
+                     pickedStateHasChanged: true
+                  }
                }),
-               scan((previous, { internalState, picked }) => ({
+               scan((previous, { internalState, pickedState }) => ({
                   internalState,
-                  picked,
-                  pickedHasChanged: !internalStateEquals(
-                     previous.picked,
-                     picked
+                  pickedState,
+                  pickedStateHasChanged: !shallowEquals(
+                     previous.pickedState,
+                     pickedState
                   )
                }))
             )
 
             const pickedNotChanged$ = internalStatePicked$.pipe(
-               filter(({ pickedHasChanged }) => !pickedHasChanged)
+               filter(({ pickedStateHasChanged }) => !pickedStateHasChanged)
             )
 
             const pickedChanged$ = internalStatePicked$.pipe(
-               filter(({ pickedHasChanged }) => pickedHasChanged)
+               filter(({ pickedStateHasChanged }) => pickedStateHasChanged)
             )
 
             const loading$ = pickedChanged$.pipe(
@@ -215,14 +221,10 @@ export class VertexConfigImpl<Type extends VertexType>
             )
 
             const loadedOrError$ = pickedChanged$.pipe(
-               map(({ internalState, picked }) => ({
-                  internalState,
-                  state: fromInternalState(picked)
-               })),
-               switchMap(({ internalState, state }) =>
+               switchMap(({ internalState, pickedState }) =>
                   merge(
                      loadableKeys.map(key =>
-                        loaders[key](state as any, dependencies).pipe(
+                        loaders[key](pickedState as any, dependencies).pipe(
                            map(result => ({
                               [key]: {
                                  status: 'loaded',

@@ -3,6 +3,7 @@ import { VertexLoadableFields } from './VertexLoadableFields'
 import { VertexType } from './VertexType'
 import { shallowEquals } from './shallowEquals'
 
+// TODO Delete if no use can be found
 export const internalStateEquals = <Type extends VertexType>(
    previous: VertexInternalState<Type>,
    next: VertexInternalState<Type>
