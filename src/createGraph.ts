@@ -10,6 +10,7 @@ import { VertexLoadableState } from './VertexLoadableState'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
 import { VertexType } from './VertexType'
 import { loadableFromInternalState } from './loadableFromInternalState'
+import { pickLoadableState } from './pickLoadableState'
 
 export const createGraph = (options: {
    vertices: Array<VertexRuntimeConfig<any>>
@@ -128,7 +129,11 @@ export const createGraph = (options: {
          get dependencies() {
             return dependencies
          },
-         dispatch
+         dispatch,
+         pick: fields =>
+            loadableState$.pipe(
+               map(loadableState => pickLoadableState(loadableState, fields))
+            )
       }
    }
 
@@ -251,7 +256,7 @@ export const createGraph = (options: {
    reduxStore.subscribe(() => reduxState$.next(reduxStore.getState()))
 
    const graph: Graph = {
-      getInstance: config => vertexById[config.id].instance,
+      getVertexInstance: config => vertexById[config.id].instance,
       dispatch
    }
 

@@ -33,7 +33,7 @@ describe('rootVertex reducers', () => {
          graph = createGraph({
             vertices: [rootVertexConfig]
          })
-         rootVertex = graph.getInstance(rootVertexConfig)
+         rootVertex = graph.getVertexInstance(rootVertexConfig)
          loadableStateEmissions = 0
          stateEmissions = 0
          rootVertex.loadableState$.subscribe(() => loadableStateEmissions++)
@@ -79,11 +79,11 @@ describe('rootVertex reducers', () => {
          })
       })
       it('creates simplest vertex', () => {
-         const rootVertex = graph.getInstance(rootVertexConfig)
+         const rootVertex = graph.getVertexInstance(rootVertexConfig)
          expect(rootVertex.currentState.username).to.equal('')
       })
       it('updates vertex state', () => {
-         const rootVertex = graph.getInstance(rootVertexConfig)
+         const rootVertex = graph.getVertexInstance(rootVertexConfig)
          rootVertex.dispatch(setUsername('new name'))
          expect(rootVertex.currentState.username).to.equal('new name')
       })

@@ -1,9 +1,9 @@
 import { AnyAction } from '@reduxjs/toolkit'
 import { Observable } from 'rxjs'
-import { VertexInternalState } from './VertexInternalState'
-import { VertexState } from './VertexState'
-import { VertexType } from './VertexType'
+import { PickedLoadableState } from './PickedLoadableState'
 import { VertexLoadableState } from './VertexLoadableState'
+import { VertexState, VertexStateKey } from './VertexState'
+import { VertexType } from './VertexType'
 
 export interface VertexInstance<Type extends VertexType> {
    readonly name: string
@@ -22,4 +22,7 @@ export interface VertexInstance<Type extends VertexType> {
    }>
    readonly dependencies: Type['dependencies']
    dispatch(action: AnyAction): void
+   pick<K extends VertexStateKey<Type>>(
+      fields: K[]
+   ): Observable<PickedLoadableState<Type, K>>
 }

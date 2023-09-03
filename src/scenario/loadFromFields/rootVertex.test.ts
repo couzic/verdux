@@ -44,7 +44,7 @@ describe('rootVertex.loadFromFields()', () => {
          graph = createGraph({
             vertices: [rootVertexConfig]
          })
-         rootVertex = graph.getInstance(rootVertexConfig)
+         rootVertex = graph.getVertexInstance(rootVertexConfig)
       })
       it('loads from initial value', () => {
          expect(rootVertex.currentState.username).to.equal('')
@@ -71,7 +71,7 @@ describe('rootVertex.loadFromFields()', () => {
          graph = createGraph({
             vertices: [rootVertexConfig.injectedWith({ userProfileService })]
          })
-         rootVertex = graph.getInstance(rootVertexConfig)
+         rootVertex = graph.getVertexInstance(rootVertexConfig)
       })
       it('is initially loading', () => {
          expect(rootVertex.currentLoadableState.status).to.equal('loading')

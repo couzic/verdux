@@ -5,50 +5,57 @@ import { configureRootVertex } from '../../configureRootVertex'
 import { createGraph } from '../../createGraph'
 
 describe('rootVertex dependencies', () => {
-
-  const slice = createSlice({
-    name: 'root',
-    initialState: { username: '' },
-    reducers: {
-      setUsername: (state, action: PayloadAction<string>) => {
-        state.username = action.payload
+   const slice = createSlice({
+      name: 'root',
+      initialState: { username: '' },
+      reducers: {
+         setUsername: (state, action: PayloadAction<string>) => {
+            state.username = action.payload
+         }
       }
-    },
-  })
-  const rootVertexConfig = configureRootVertex({
-    slice,
-    dependencies: {
-      usernameTransformer: () => (username: string) => username.toLowerCase()
-    }
-  })
-    .computeFromFields(['username'], {
-      transformedUsername: ({ username }, dependencies) => dependencies.usernameTransformer(username)
-    })
-  let graph: Graph
-  describe('when using default provider', () => {
-    beforeEach(() => {
-      graph = createGraph({
-        vertices: [rootVertexConfig],
+   })
+   const rootVertexConfig = configureRootVertex({
+      slice,
+      dependencies: {
+         usernameTransformer: () => (username: string) => username.toLowerCase()
+      }
+   }).computeFromFields(['username'], {
+      transformedUsername: ({ username }, dependencies) =>
+         dependencies.usernameTransformer(username)
+   })
+   let graph: Graph
+   describe('when using default provider', () => {
+      beforeEach(() => {
+         graph = createGraph({
+            vertices: [rootVertexConfig]
+         })
       })
-    })
-    it('uses default dependency', () => {
-      const rootVertex = graph.getInstance(rootVertexConfig)
-      rootVertex.dispatch(slice.actions.setUsername('NeW nAmE'))
-      expect(rootVertex.currentState.username).to.equal('NeW nAmE')
-      expect(rootVertex.currentState.transformedUsername).to.equal('new name')
-    })
-  })
-  describe('when injecting dependency', () => {
-    beforeEach(() => {
-      graph = createGraph({
-        vertices: [rootVertexConfig.injectedWith({ usernameTransformer: (name) => name.toUpperCase() })],
+      it('uses default dependency', () => {
+         const rootVertex = graph.getVertexInstance(rootVertexConfig)
+         rootVertex.dispatch(slice.actions.setUsername('NeW nAmE'))
+         expect(rootVertex.currentState.username).to.equal('NeW nAmE')
+         expect(rootVertex.currentState.transformedUsername).to.equal(
+            'new name'
+         )
       })
-    })
-    it('uses injected dependency', () => {
-      const rootVertex = graph.getInstance(rootVertexConfig)
-      rootVertex.dispatch(slice.actions.setUsername('NeW nAmE'))
-      expect(rootVertex.currentState.username).to.equal('NeW nAmE')
-      expect(rootVertex.currentState.transformedUsername).to.equal('NEW NAME')
-    })
-  })
+   })
+   describe('when injecting dependency', () => {
+      beforeEach(() => {
+         graph = createGraph({
+            vertices: [
+               rootVertexConfig.injectedWith({
+                  usernameTransformer: name => name.toUpperCase()
+               })
+            ]
+         })
+      })
+      it('uses injected dependency', () => {
+         const rootVertex = graph.getVertexInstance(rootVertexConfig)
+         rootVertex.dispatch(slice.actions.setUsername('NeW nAmE'))
+         expect(rootVertex.currentState.username).to.equal('NeW nAmE')
+         expect(rootVertex.currentState.transformedUsername).to.equal(
+            'NEW NAME'
+         )
+      })
+   })
 })
