@@ -1,21 +1,27 @@
 import { map } from 'rxjs'
+import { Dependable } from '../Dependable'
 import { fromInternalState } from '../fromInternalState'
 import { pickInternalState } from '../pickInternalState'
 
 export const computeFromFieldsTransformation =
-   (fields: string[], computers: any) => (dependencies: any) =>
-      map((internalState: any) => {
+   (
+      fields: string[],
+      computers: Dependable<any, Record<string, (state: any) => any>>
+   ) =>
+   (dependencies: any) => {
+      const injectedComputers =
+         typeof computers === 'function' ? computers(dependencies) : computers
+      return map((internalState: any) => {
          // TODO make sure recomputing only occurs when picked fields change
          const picked = fromInternalState(
             pickInternalState(internalState, fields as any)
          )
 
          const computedValues: any = {}
-         const computedFields = Object.keys(computers)
+         const computedFields = Object.keys(injectedComputers)
          computedFields.forEach(computedField => {
-            computedValues[computedField] = computers[computedField](
-               picked as any,
-               dependencies
+            computedValues[computedField] = injectedComputers[computedField](
+               picked as any
             ) // TODO catch errors ?
          })
          return {
@@ -26,3 +32,4 @@ export const computeFromFieldsTransformation =
             } // TODO values computed from loadable fields go to loadable fields
          }
       })
+   }

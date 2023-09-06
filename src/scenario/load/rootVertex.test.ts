@@ -24,9 +24,9 @@ describe('rootVertex.load()', () => {
             getLoggedInUser: () => of({ name: 'bob' })
          })
       }
-   }).load({
-      user: deps => deps.userService.getLoggedInUser()
-   })
+   }).load(deps => ({
+      user: deps.userService.getLoggedInUser()
+   }))
    let graph: Graph
    let rootVertex: Vertex<typeof rootVertexConfig>
 

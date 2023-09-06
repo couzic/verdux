@@ -1,6 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import * as chai from 'chai'
-import { Observable, Subject, of } from 'rxjs'
+import { Observable, Subject, of, switchMap } from 'rxjs'
 import { SinonStub, stub } from 'sinon'
 import sinonChai from 'sinon-chai'
 import { Graph } from '../../Graph'
@@ -11,7 +11,7 @@ import { createGraph } from '../../createGraph'
 chai.use(sinonChai)
 const { expect } = chai
 
-describe('rootVertex.loadFromFields()', () => {
+describe('rootVertex.loadFromFields$()', () => {
    const slice = createSlice({
       name: 'root',
       initialState: { username: '', flag: false },
@@ -31,10 +31,10 @@ describe('rootVertex.loadFromFields()', () => {
             getUserProfile: (username: string) => of({ name: username })
          })
       }
-   }).loadFromFields(['username'], ({ userProfileService }) => ({
-      userProfile: state => {
-         return userProfileService.getUserProfile(state.username)
-      }
+   }).loadFromFields$(['username'], ({ userProfileService }) => ({
+      userProfile: switchMap(state =>
+         userProfileService.getUserProfile(state.username)
+      )
    }))
    let graph: Graph
    let rootVertex: Vertex<typeof rootVertexConfig>

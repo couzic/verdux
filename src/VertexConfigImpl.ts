@@ -11,6 +11,7 @@ import { VertexType } from './VertexType'
 import { computeFromFieldsTransformation } from './transformations/computeFromFields'
 import { loadTransformation } from './transformations/load'
 import { loadFromFieldsTransformation } from './transformations/loadFromFields'
+import { loadFromFieldsStreamTransformation } from './transformations/loadFromFields$'
 
 export class VertexConfigImpl<Type extends VertexType>
    implements VertexConfig<Type>
@@ -111,6 +112,13 @@ export class VertexConfigImpl<Type extends VertexType>
 
    load(loaders: any): any {
       this.internalStateTransformations.push(loadTransformation(loaders))
+      return this
+   }
+
+   loadFromFields$(fields: any[], loaders: any): any {
+      this.internalStateTransformations.push(
+         loadFromFieldsStreamTransformation(fields, loaders)
+      )
       return this
    }
 }

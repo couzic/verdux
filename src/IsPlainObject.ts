@@ -1,3 +1,5 @@
+import { Dependable } from './Dependable'
+
 export type IsPlainObject<T> = T extends any[]
    ? false
    : T extends (...args: any[]) => any
@@ -7,3 +9,8 @@ export type IsPlainObject<T> = T extends any[]
    : T extends object
    ? true
    : false
+
+export type IsDependablePlainObject<
+   Dependencies extends {},
+   T
+> = T extends Dependable<Dependencies, any> ? true : IsPlainObject<T>

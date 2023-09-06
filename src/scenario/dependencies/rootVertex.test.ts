@@ -19,10 +19,9 @@ describe('rootVertex dependencies', () => {
       dependencies: {
          usernameTransformer: () => (username: string) => username.toLowerCase()
       }
-   }).computeFromFields(['username'], {
-      transformedUsername: ({ username }, dependencies) =>
-         dependencies.usernameTransformer(username)
-   })
+   }).computeFromFields(['username'], ({ usernameTransformer }) => ({
+      transformedUsername: ({ username }) => usernameTransformer(username)
+   }))
    let graph: Graph
    describe('when using default provider', () => {
       beforeEach(() => {
