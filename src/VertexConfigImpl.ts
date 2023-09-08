@@ -12,6 +12,7 @@ import { computeFromFieldsTransformation } from './transformations/computeFromFi
 import { loadTransformation } from './transformations/load'
 import { loadFromFieldsTransformation } from './transformations/loadFromFields'
 import { loadFromFieldsStreamTransformation } from './transformations/loadFromFields$'
+import { loadFromStreamTransformation } from './transformations/loadFromStream'
 
 export class VertexConfigImpl<Type extends VertexType>
    implements VertexConfig<Type>
@@ -88,11 +89,11 @@ export class VertexConfigImpl<Type extends VertexType>
    }
 
    injectedWith(
-      dependencies: Partial<Type['dependencies']>
+      injectedDependencies: Partial<Type['dependencies']>
    ): VertexRuntimeConfig<Type> {
       return {
          config: this,
-         dependencies
+         injectedDependencies
       }
    }
 
@@ -118,6 +119,13 @@ export class VertexConfigImpl<Type extends VertexType>
    loadFromFields$(fields: any[], loaders: any): any {
       this.internalStateTransformations.push(
          loadFromFieldsStreamTransformation(fields, loaders)
+      )
+      return this
+   }
+
+   loadFromStream(input$: Observable<any>, loaders: any): any {
+      this.internalStateTransformations.push(
+         loadFromStreamTransformation(input$, loaders)
       )
       return this
    }

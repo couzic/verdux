@@ -24,8 +24,8 @@ export const createGraph = (options: {
    const injectedDependenciesByVertexId: Record<symbol, any> = {}
 
    const indexById = (runtimeConfig: VertexRuntimeConfig<any>) => {
-      const dependencies =
-         'config' in runtimeConfig ? runtimeConfig.dependencies : null
+      const injectedDependencies =
+         'config' in runtimeConfig ? runtimeConfig.injectedDependencies : null
       const config =
          'config' in runtimeConfig ? runtimeConfig.config : runtimeConfig
       const upstreamConfig = config.upstreamVertex
@@ -35,8 +35,8 @@ export const createGraph = (options: {
       if (!vertexConfigById[config.id]) {
          uniqueVertexIds.push(config.id)
          vertexConfigById[config.id] = config
-         if (dependencies) {
-            injectedDependenciesByVertexId[config.id] = dependencies
+         if (injectedDependencies) {
+            injectedDependenciesByVertexId[config.id] = injectedDependencies
          }
       }
    }
@@ -148,7 +148,7 @@ export const createGraph = (options: {
          if (injectedDep) {
             dependencies[depName] = injectedDep
          } else {
-            dependencies[depName] = providers[depName]({})
+            dependencies[depName] = providers[depName]({}) // TODO Inject upstream dependencies
          }
       })
       return dependencies
