@@ -10,7 +10,9 @@ export type VertexLoadableState<
 > = {
    status: Status
    errors: Status extends 'error' ? Error[] : []
-   state: VertexState<Type>
+   state: {
+      [K in keyof VertexState<Type>]: VertexState<Type>[K]
+   }
    reduxState: Type['reduxState']
    readonlyFields: Status extends 'error'
       ? {

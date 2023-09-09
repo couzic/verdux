@@ -12,8 +12,11 @@ export type PickedLoadableState<
    >
    readonlyFields: Pick<
       Type['readonlyFields'],
-      Exclude<K, keyof Type['loadableFields']>
+      Exclude<K & keyof Type['readonlyFields'], keyof Type['loadableFields']>
    >
-   loadableFields: Pick<Type['loadableFields'], K>
+   loadableFields: Pick<
+      Type['loadableFields'],
+      K & keyof Type['loadableFields']
+   >
    dependencies: Type['dependencies']
 }>
