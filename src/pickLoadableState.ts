@@ -25,11 +25,7 @@ export const pickLoadableState = <
       }
    })
    const { status, errors } = statusAndErrorsFromLoadableFields(loadableFields)
-   const state: VertexState<any> = combineState(
-      reduxState,
-      readonlyFields,
-      loadableFields
-   )
+   const state: any = combineState(reduxState, readonlyFields, loadableFields)
    return {
       status,
       errors,

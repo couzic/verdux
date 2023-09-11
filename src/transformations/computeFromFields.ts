@@ -16,6 +16,7 @@ export const computeFromFieldsTransformation =
          const picked = fromInternalState(
             pickInternalState(internalState, fields as any)
          )
+         // TODO only compute when all fields are loaded
 
          const computedValues: any = {}
          const computedFields = Object.keys(injectedComputers)

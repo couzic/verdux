@@ -62,7 +62,7 @@ describe('rootVertex.loadFromFields() - parallel', () => {
          expect(
             rootVertex.currentLoadableState.loadableFields.uppercaseUsername
                .status
-         ).to.equal('loaded')
+         ).to.equal('loading')
       })
    })
 })

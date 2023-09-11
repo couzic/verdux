@@ -59,6 +59,13 @@ export const loadFromFieldsTransformation =
          )
 
          const loadedOrError$ = pickedChanged$.pipe(
+            filter(
+               // All picked loadable fields are loaded
+               ({ internalState: { loadableFields } }) =>
+                  Object.values(loadableFields).filter(
+                     value => value.status !== 'loaded'
+                  ).length === 0
+            ),
             switchMap(({ internalState, pickedState }) =>
                merge(
                   ...loadableKeys.map(key =>

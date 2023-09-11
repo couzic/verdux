@@ -44,7 +44,6 @@ describe('rootVertex.loadFromStream()', () => {
          rootVertex = graph.getVertexInstance(rootVertexConfig)
       })
       it('is initially loading', () => {
-         usernameSubject.subscribe(console.log)
          expect(rootVertex.currentLoadableState.status).to.equal('loading')
       })
       describe('when an input is received', () => {
