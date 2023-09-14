@@ -6,19 +6,26 @@ import { createGraph } from '../../createGraph'
 
 describe('rootVertex.computeFromFields()', () => {
    let graph: Graph
+   let computations = 0
    const slice = createSlice({
       name: 'root',
-      initialState: { username: '' },
+      initialState: { username: '', flag: false },
       reducers: {
          setUsername: (state, action: PayloadAction<string>) => {
             state.username = action.payload
+         },
+         setFlag: (state, action: PayloadAction<boolean>) => {
+            state.flag = action.payload
          }
       }
    })
    const rootVertexConfig = configureRootVertex({
       slice
    }).computeFromFields(['username'], {
-      lowercaseUsername: ({ username }) => username.toLowerCase()
+      lowercaseUsername: ({ username }) => {
+         ++computations
+         return username.toLowerCase()
+      }
    })
    beforeEach(() => {
       graph = createGraph({
@@ -35,5 +42,10 @@ describe('rootVertex.computeFromFields()', () => {
       rootVertex.dispatch(slice.actions.setUsername('NeW nAmE'))
       expect(rootVertex.currentState.username).to.equal('NeW nAmE')
       expect(rootVertex.currentState.lowercaseUsername).to.equal('new name')
+   })
+   it('ignores change in other irrelevant part of state', () => {
+      const initialComputations = computations
+      graph.dispatch(slice.actions.setFlag(true))
+      expect(computations).to.equal(initialComputations)
    })
 })
