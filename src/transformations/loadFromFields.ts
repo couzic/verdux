@@ -7,15 +7,12 @@ import {
    of,
    scan,
    share,
-   startWith,
    switchMap,
    withLatestFrom
 } from 'rxjs'
 import { Dependable } from '../Dependable'
 import { VertexInternalState } from '../VertexInternalState'
 import { toInternalStatePicked$ } from './util/toInternalStatePicked$'
-
-// TODO Remove duplication with "load()"
 
 export const loadFromFieldsTransformation =
    (
@@ -25,9 +22,8 @@ export const loadFromFieldsTransformation =
    (dependencies: any) => {
       const injectedLoaders =
          typeof loaders === 'function' ? loaders(dependencies) : loaders
-      return (
-         inputInternalState$: Observable<VertexInternalState<any>>
-      ): any => {
+      return (internalState$: Observable<VertexInternalState<any>>): any => {
+         const inputInternalState$ = internalState$.pipe(share())
          const loadableKeys = Object.keys(injectedLoaders)
          const loadingValues = {} as Record<string, any>
          loadableKeys.forEach(key => {
@@ -43,30 +39,23 @@ export const loadFromFieldsTransformation =
             fields
          )
 
-         const pickedNotChanged$ = internalStatePicked$.pipe(
-            filter(({ pickedStateHasChanged }) => !pickedStateHasChanged)
-         )
-
          const pickedChanged$ = internalStatePicked$.pipe(
             filter(({ pickedStateHasChanged }) => pickedStateHasChanged)
          )
 
-         const loading$ = pickedChanged$.pipe(
-            map(({ internalState }) => ({
-               internalState,
-               loadableFields: loadingValues
-            }))
-         )
+         const loading$ = pickedChanged$.pipe(map(() => loadingValues))
 
          const loadedOrError$ = pickedChanged$.pipe(
             filter(
                // All picked loadable fields are loaded
-               ({ internalState: { loadableFields } }) =>
-                  Object.values(loadableFields).filter(
-                     value => value.status !== 'loaded'
-                  ).length === 0
+               ({ pickedInternalState: { loadableFields } }) => {
+                  for (let key in loadableFields) {
+                     if (loadableFields[key].status !== 'loaded') return false
+                  }
+                  return true
+               }
             ),
-            switchMap(({ internalState, pickedState }) =>
+            switchMap(({ pickedState }) =>
                merge(
                   ...loadableKeys.map(key =>
                      injectedLoaders[key](pickedState as any).pipe(
@@ -91,37 +80,38 @@ export const loadFromFieldsTransformation =
                ).pipe(
                   scan((acc, loadableValues: any) => {
                      return { ...acc, ...loadableValues }
-                  }, loadingValues),
-                  map(loadableFields => ({ internalState, loadableFields }))
+                  })
                )
             )
          )
 
-         const internalStateWithChangedLoadableFields$ = merge(
-            loading$,
-            loadedOrError$
-         ).pipe(share())
-
-         const internalStateWithLatestLoadableFields$ = pickedNotChanged$.pipe(
-            withLatestFrom(
-               internalStateWithChangedLoadableFields$.pipe(
-                  startWith({ loadableFields: loadingValues })
-               )
-            ),
-            map(([{ internalState }, { loadableFields }]) => ({
-               internalState,
-               loadableFields
+         const loadableFields$ = merge(loading$, loadedOrError$).pipe(share())
+         const loadableFieldsWithLatestInternalState$ = loadableFields$.pipe(
+            withLatestFrom(inputInternalState$),
+            map(([loadableFields, inputInternalState]) => ({
+               loadableFields,
+               inputInternalState
             }))
          )
 
+         const internalStateWithLatestLoadableFields$ =
+            internalStatePicked$.pipe(
+               filter(({ pickedStateHasChanged }) => !pickedStateHasChanged),
+               withLatestFrom(loadableFields$),
+               map(([{ inputInternalState }, loadableFields]) => ({
+                  inputInternalState,
+                  loadableFields
+               }))
+            )
+
          return merge(
-            internalStateWithChangedLoadableFields$,
+            loadableFieldsWithLatestInternalState$,
             internalStateWithLatestLoadableFields$
          ).pipe(
-            map(({ internalState, loadableFields }) => ({
-               ...internalState,
+            map(({ inputInternalState, loadableFields }) => ({
+               ...inputInternalState,
                loadableFields: {
-                  ...internalState.loadableFields,
+                  ...inputInternalState.loadableFields,
                   ...loadableFields
                }
             }))

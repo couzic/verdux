@@ -1,31 +1,40 @@
 import { Observable, map, scan, share } from 'rxjs'
 import { VertexInternalState } from '../../VertexInternalState'
 import { fromInternalState } from '../../fromInternalState'
+import { internalStateEquals } from '../../internalStateEquals'
 import { pickInternalState } from '../../pickInternalState'
-import { shallowEquals } from '../../shallowEquals'
 
 export const toInternalStatePicked$ = (
-   internalState$: Observable<VertexInternalState<any>>,
+   inputInternalState$: Observable<VertexInternalState<any>>,
    fields: string[]
 ) =>
-   internalState$.pipe(
-      map(internalState => {
-         const pickedState = fromInternalState(
-            pickInternalState(internalState, fields)
+   inputInternalState$.pipe(
+      map(inputInternalState => {
+         const pickedInternalState = pickInternalState(
+            inputInternalState,
+            fields
          )
+         const pickedState = fromInternalState(pickedInternalState)
          return {
-            internalState,
+            inputInternalState,
+            pickedInternalState,
             pickedState,
             pickedStateHasChanged: true
          }
       }),
-      scan((previous, { internalState, pickedState }) => ({
-         internalState,
-         pickedState,
-         pickedStateHasChanged: !shallowEquals(
-            previous.pickedState,
-            pickedState
-         )
-      })),
+      scan(
+         (
+            previous,
+            { inputInternalState, pickedInternalState, pickedState }
+         ) => ({
+            inputInternalState,
+            pickedInternalState,
+            pickedState,
+            pickedStateHasChanged: !internalStateEquals(
+               previous.pickedInternalState,
+               pickedInternalState
+            )
+         })
+      ),
       share()
    )

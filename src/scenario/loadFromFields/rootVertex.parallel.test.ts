@@ -14,7 +14,7 @@ const { expect } = chai
 describe('rootVertex.loadFromFields() - parallel', () => {
    const slice = createSlice({
       name: 'root',
-      initialState: { username: '' },
+      initialState: { username: 'bob' },
       reducers: {
          setUsername: (state, action: PayloadAction<string>) => {
             state.username = action.payload
@@ -54,15 +54,19 @@ describe('rootVertex.loadFromFields() - parallel', () => {
          })
          rootVertex = graph.getVertexInstance(rootVertexConfig)
       })
-      it('is initially loading', () => {
+      it('loads received fields independently from each other', () => {
          expect(rootVertex.currentLoadableState.status).to.equal('loading')
          expect(
-            rootVertex.currentLoadableState.loadableFields.userProfile.status
-         ).to.equal('loading')
+            rootVertex.currentLoadableState.loadableFields.userProfile
+         ).to.deep.equal({
+            status: 'loading',
+            value: undefined,
+            error: undefined
+         })
+
          expect(
             rootVertex.currentLoadableState.loadableFields.uppercaseUsername
-               .status
-         ).to.equal('loading')
+         ).to.deep.equal({ status: 'loaded', value: 'BOB', error: undefined })
       })
    })
 })
