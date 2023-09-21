@@ -8,6 +8,7 @@ import { VertexInstance } from './VertexInstance'
 import { VertexInternalState } from './VertexInternalState'
 import { VertexLoadableState } from './VertexLoadableState'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
+import { VertexState } from './VertexState'
 import { VertexType } from './VertexType'
 import { loadableFromInternalState } from './loadableFromInternalState'
 import { pickLoadableState } from './pickLoadableState'
@@ -96,7 +97,7 @@ export const createGraph = (options: {
       internalState$: Observable<VertexInternalState<Type>>,
       dependencies: Type['dependencies']
    ): VertexInstance<Type> => {
-      let currentState: Type['reduxState']
+      let currentState: VertexState<Type>
       let loadableState$ = new ReplaySubject<VertexLoadableState<Type>>(1)
       const state$ = loadableState$.pipe(map(_ => _.state))
       let currentLoadableState: VertexLoadableState<Type> = null as any
@@ -137,24 +138,27 @@ export const createGraph = (options: {
       }
    }
 
-   const buildVertexDependencies = (config: VertexConfig<any>) => {
-      const providers = rootVertexConfig.dependencyProviders
+   const buildVertexDependencies = (
+      config: VertexConfig<any>,
+      upstreamDependencies: any
+   ) => {
+      const providers = config.dependencyProviders
       const dependencyNames = Object.keys(providers)
       const injectedDependencies =
          injectedDependenciesByVertexId[config.id] || {}
-      const dependencies = {} as any
+      const dependencies = { ...upstreamDependencies }
       dependencyNames.forEach(depName => {
          const injectedDep = injectedDependencies[depName]
          if (injectedDep) {
             dependencies[depName] = injectedDep
          } else {
-            dependencies[depName] = providers[depName]({}) // TODO Inject upstream dependencies
+            dependencies[depName] = providers[depName](dependencies)
          }
       })
       return dependencies
    }
 
-   const rootDependencies = buildVertexDependencies(rootVertexConfig)
+   const rootDependencies = buildVertexDependencies(rootVertexConfig, {})
 
    const reduxState$ = new Subject<any>()
 
@@ -201,6 +205,7 @@ export const createGraph = (options: {
          map((upstream): VertexInternalState<any> => {
             const reduxState = upstream.reduxState.downstream[config.name]
             const readonlyFields: any = {}
+            const loadableFields: any = {}
             config.upstreamFields.forEach(field => {
                // TODO Define priorities between reduxState, readonlyFields and loadableFields
                // TODO Print warning / throw Error when field on more than one of upstream reduxState/readonlyFields/loadableFields
@@ -208,13 +213,14 @@ export const createGraph = (options: {
                   readonlyFields[field] = upstream.reduxState.vertex[field]
                } else if (field in upstream.readonlyFields) {
                   readonlyFields[field] = upstream.readonlyFields[field]
+               } else if (field in upstream.loadableFields) {
+                  loadableFields[field] = upstream.loadableFields[field]
                }
-               // TODO handle case when field is loadable fields
             })
             return {
                reduxState,
                readonlyFields,
-               loadableFields: {} as any // TODO
+               loadableFields
             }
          })
       )
@@ -234,7 +240,10 @@ export const createGraph = (options: {
       }
 
       const upstreamVertex = vertexById[upstreamVertexConfig.id]
-      const dependencies = buildVertexDependencies(config)
+      const dependencies = buildVertexDependencies(
+         config,
+         upstreamVertex.instance.dependencies
+      )
 
       const internalState$: Observable<VertexInternalState<Type>> =
          createInternalStateStream(

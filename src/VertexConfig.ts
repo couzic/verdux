@@ -22,7 +22,6 @@ export interface VertexConfig<Type extends VertexType> {
    configureDownstreamVertex<
       ReduxState extends object,
       UpstreamField extends VertexStateKey<Type> = never,
-      LoadableFields extends object = {},
       Dependencies extends Record<string, () => any> = {}
    >(
       options: (
@@ -35,17 +34,40 @@ export interface VertexConfig<Type extends VertexType> {
            }
       ) & {
          upstreamFields?: UpstreamField[]
-         dependencies?: Dependencies
+         dependencies?: {
+            [K in keyof Dependencies]: (
+               upstreamDependencies: Type['dependencies']
+            ) => Dependencies[K]
+         }
       }
    ): VertexConfig<{
       reduxState: ReduxState
       readonlyFields: {
-         [K in UpstreamField]: K extends keyof Type['reduxState']
-            ? Type['reduxState'][K] // TODO readonlyFields & loadableFields
+         [K in UpstreamField &
+            (
+               | keyof Type['reduxState']
+               | keyof Type['readonlyFields']
+            )]: K extends keyof Type['readonlyFields']
+            ? Type['readonlyFields'][K]
+            : K extends keyof Type['reduxState']
+            ? Type['reduxState'][K]
             : never
       }
-      loadableFields: LoadableFields
-      dependencies: Type['dependencies']
+      loadableFields: {
+         [K in UpstreamField &
+            keyof Type['loadableFields']]: K extends keyof Type['loadableFields']
+            ? Type['loadableFields'][K]
+            : never
+      }
+      dependencies: {
+         [D in
+            | keyof Type['dependencies']
+            | keyof Dependencies]: D extends keyof Dependencies
+            ? Dependencies[D]
+            : D extends keyof Type['dependencies']
+            ? Type['dependencies'][D]
+            : never
+      }
    }>
 
    injectedWith(

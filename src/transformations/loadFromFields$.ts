@@ -55,7 +55,18 @@ export const loadFromFieldsStreamTransformation =
 
          const loading$ = pickedChanged$.pipe(map(() => loadingValues))
 
-         const changedFields$ = pickedChanged$.pipe(map(_ => _.pickedState))
+         const changedFields$ = pickedChanged$.pipe(
+            filter(
+               // All picked loadable fields are loaded
+               ({ pickedInternalState: { loadableFields } }) => {
+                  for (let key in loadableFields) {
+                     if (loadableFields[key].status !== 'loaded') return false
+                  }
+                  return true
+               }
+            ),
+            map(_ => _.pickedState)
+         )
 
          const loadedOrError$ = merge(
             ...loadableKeys.map(key =>
@@ -99,7 +110,7 @@ export const loadFromFieldsStreamTransformation =
 
          const internalStateWithLoadableFieldsWhenPickedFieldsDidNotChange$ =
             pickedNotChanged$.pipe(
-               map(_ => _.internalState),
+               map(_ => _.inputInternalState),
                withLatestFrom(
                   loadable$.pipe(startWith(loadingValues)),
                   (internalState, loadableFields) => ({

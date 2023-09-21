@@ -8,7 +8,7 @@ import { createGraph } from '../../createGraph'
 
 const username$: Subject<string> = new Subject()
 
-describe('loadFromFields from loading field', () => {
+describe('loadFromFields from loadable field', () => {
    const vertexConfig = configureRootVertex({
       slice: createSlice({ name: 'root', initialState: {}, reducers: {} })
    })
