@@ -50,7 +50,7 @@ describe('rootVertex.pick()', () => {
       })
       describe('when username is updated', () => {
          beforeEach(() => {
-            rootVertex.dispatch(slice.actions.setUsername('new name'))
+            graph.dispatch(slice.actions.setUsername('new name'))
          })
          it('emits new state', () => {
             expect(pickEmissions).to.equal(2)

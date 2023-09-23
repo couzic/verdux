@@ -39,7 +39,7 @@ describe('rootVertex.computeFromFields()', () => {
    })
    it('updates vertex state', () => {
       const rootVertex = graph.getVertexInstance(rootVertexConfig)
-      rootVertex.dispatch(slice.actions.setUsername('NeW nAmE'))
+      graph.dispatch(slice.actions.setUsername('NeW nAmE'))
       expect(rootVertex.currentState.username).to.equal('NeW nAmE')
       expect(rootVertex.currentState.lowercaseUsername).to.equal('new name')
    })

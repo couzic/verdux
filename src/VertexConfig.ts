@@ -1,4 +1,10 @@
-import { Reducer, Slice } from '@reduxjs/toolkit'
+import {
+   ActionCreatorWithPayload,
+   AnyAction,
+   Reducer,
+   Slice
+} from '@reduxjs/toolkit'
+import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
 import { Dependable } from './Dependable'
@@ -6,6 +12,7 @@ import { DependencyProviders } from './DependencyProviders'
 import { IsDependablePlainObject, IsPlainObject } from './IsPlainObject'
 import { Match } from './Match'
 import { PickedLoadedVertexState } from './PickedLoadedVertexState'
+import { VertexInstance } from './VertexInstance'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
 import { VertexStateKey } from './VertexState'
 import { VertexType } from './VertexType'
@@ -234,6 +241,18 @@ export interface VertexConfig<Type extends VertexType> {
            dependencies: Type['dependencies']
         }>
       : never
+
+   reaction<ActionCreator extends BaseActionCreator<any, any>>(
+      actionCreator: ActionCreator,
+      operation: (
+         payload$: Observable<
+            ActionCreator extends ActionCreatorWithPayload<infer P, any>
+               ? P
+               : never
+         >,
+         vertex: VertexInstance<Type>
+      ) => Observable<AnyAction>
+   ): this
 
    // TODO
    // computeFromLoadableFields()

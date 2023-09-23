@@ -31,7 +31,7 @@ describe('rootVertex dependencies', () => {
       })
       it('uses default dependency', () => {
          const rootVertex = graph.getVertexInstance(rootVertexConfig)
-         rootVertex.dispatch(slice.actions.setUsername('NeW nAmE'))
+         graph.dispatch(slice.actions.setUsername('NeW nAmE'))
          expect(rootVertex.currentState.username).to.equal('NeW nAmE')
          expect(rootVertex.currentState.transformedUsername).to.equal(
             'new name'
@@ -50,7 +50,7 @@ describe('rootVertex dependencies', () => {
       })
       it('uses injected dependency', () => {
          const rootVertex = graph.getVertexInstance(rootVertexConfig)
-         rootVertex.dispatch(slice.actions.setUsername('NeW nAmE'))
+         graph.dispatch(slice.actions.setUsername('NeW nAmE'))
          expect(rootVertex.currentState.username).to.equal('NeW nAmE')
          expect(rootVertex.currentState.transformedUsername).to.equal(
             'NEW NAME'

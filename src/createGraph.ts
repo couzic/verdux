@@ -1,5 +1,6 @@
 import { AnyAction, combineReducers, configureStore } from '@reduxjs/toolkit'
 import { Reducer } from 'redux'
+import { combineEpics, createEpicMiddleware, ofType } from 'redux-observable'
 import { Observable, ReplaySubject, Subject, map } from 'rxjs'
 import { Graph } from './Graph'
 import { VertexConfig } from './VertexConfig'
@@ -20,7 +21,7 @@ export const createGraph = (options: {
    if (runtimeConfigs.length === 0)
       throw new Error('createGraph() does not accept an empty vertices array')
 
-   const uniqueVertexIds: Array<symbol> = []
+   const uniqueVertexIds: symbol[] = []
    const vertexConfigById: Record<symbol, VertexConfig<any>> = {}
    const injectedDependenciesByVertexId: Record<symbol, any> = {}
 
@@ -65,6 +66,13 @@ export const createGraph = (options: {
 
    const rootVertexConfig: VertexConfigImpl<any> = uniqueVertexConfigs[0]
       .rootVertex as any
+   uniqueVertexConfigs.forEach(config => {
+      if (config.rootVertex.id !== rootVertexConfig.id) {
+         throw new Error(
+            `Error creating graph: impossible to create graph with multiple root vertices ("${config.id.description}" has root "${config.rootVertex.id.description}" but another root "${rootVertexConfig.id.description}" exists)`
+         )
+      }
+   })
 
    const createReduxReducer = (
       vertexConfig: VertexConfig<any>
@@ -86,9 +94,15 @@ export const createGraph = (options: {
 
    const rootReducer = createReduxReducer(rootVertexConfig)
 
+   const epicMiddleware = createEpicMiddleware()
+
    const reduxStore = configureStore({
-      reducer: rootReducer
+      reducer: rootReducer,
+      middleware: getDefaultMiddleware =>
+         getDefaultMiddleware().concat(epicMiddleware) // TODO Remove thunk ?
    })
+
+   const epics = [] as any[]
 
    const dispatch = (action: AnyAction) => reduxStore.dispatch(action)
 
@@ -98,8 +112,8 @@ export const createGraph = (options: {
       dependencies: Type['dependencies']
    ): VertexInstance<Type> => {
       let currentState: VertexState<Type>
-      let loadableState$ = new ReplaySubject<VertexLoadableState<Type>>(1)
-      const state$ = loadableState$.pipe(map(_ => _.state))
+      let loadableState$ = new ReplaySubject<VertexLoadableState<Type>>(1) // TODO use some kind of StateObservable ?
+      const state$ = loadableState$.pipe(map(_ => _.state)) // TODO use some kind of StateObservable ?
       let currentLoadableState: VertexLoadableState<Type> = null as any
       internalState$
          .pipe(map(loadableFromInternalState))
@@ -108,7 +122,7 @@ export const createGraph = (options: {
             currentState = loadableState.state
             loadableState$.next(loadableState)
          })
-      return {
+      const vertex: VertexInstance<Type> = {
          get id() {
             return config.id
          },
@@ -130,12 +144,20 @@ export const createGraph = (options: {
          get dependencies() {
             return dependencies
          },
-         dispatch,
          pick: fields =>
             loadableState$.pipe(
                map(loadableState => pickLoadableState(loadableState, fields))
             )
       }
+      ;(config as VertexConfigImpl<Type>).reactions.forEach(reaction => {
+         const epic = (action$: Observable<AnyAction>) =>
+            reaction.operation(
+               action$.pipe(ofType(reaction.actionCreator.type)),
+               vertex
+            )
+         epics.push(epic)
+      })
+      return vertex
    }
 
    const buildVertexDependencies = (
@@ -268,6 +290,8 @@ export const createGraph = (options: {
       getVertexInstance: config => vertexById[config.id].instance,
       dispatch
    }
+
+   epicMiddleware.run(combineEpics(...epics))
 
    return graph
 }

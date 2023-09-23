@@ -21,7 +21,6 @@ export interface VertexInstance<Type extends VertexType> {
       [K in keyof VertexLoadableState<Type>]: VertexLoadableState<Type>[K]
    }>
    readonly dependencies: Type['dependencies']
-   dispatch(action: AnyAction): void
    pick<K extends VertexStateKey<Type>>(
       fields: K[]
    ): Observable<PickedLoadableState<Type, K>>

@@ -100,7 +100,7 @@ describe('rootVertex.loadFromFields$()', () => {
          describe('when another unrelated part of the state is updated', () => {
             beforeEach(() => {
                ;(userProfileService.getUserProfile as SinonStub).resetHistory()
-               rootVertex.dispatch(slice.actions.setFlag(true))
+               graph.dispatch(slice.actions.setFlag(true))
             })
             it('does NOT load data again', () => {
                expect(rootVertex.currentState.flag).to.be.true

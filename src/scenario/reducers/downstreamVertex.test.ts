@@ -52,9 +52,7 @@ describe('downstreamVertex reducers', () => {
       })
       it('updates downstream vertex', () => {
          const downsteamVertex = graph.getVertexInstance(downstreamVertexConfig)
-         downsteamVertex.dispatch(
-            downstreamSlice.actions.setFriend('new friend')
-         )
+         graph.dispatch(downstreamSlice.actions.setFriend('new friend'))
          expect(downsteamVertex.currentState.friend).to.equal('new friend')
       })
    })
@@ -83,7 +81,7 @@ describe('downstreamVertex reducers', () => {
       })
       it('updates downstream vertex', () => {
          const downsteamVertex = graph.getVertexInstance(downstreamVertexConfig)
-         downsteamVertex.dispatch(setFriend('new friend'))
+         graph.dispatch(setFriend('new friend'))
          expect(downsteamVertex.currentState.friend).to.equal('new friend')
       })
    })

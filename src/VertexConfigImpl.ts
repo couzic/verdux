@@ -1,9 +1,11 @@
 import { Slice } from '@reduxjs/toolkit'
+import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
-import { Reducer } from 'redux'
+import { AnyAction, Reducer } from 'redux'
 import { Observable } from 'rxjs'
 import { DependencyProviders } from './DependencyProviders'
 import { VertexConfig } from './VertexConfig'
+import { VertexInstance } from './VertexInstance'
 import { VertexInternalState } from './VertexInternalState'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
 import { VertexStateKey } from './VertexState'
@@ -18,6 +20,13 @@ export class VertexConfigImpl<Type extends VertexType>
    implements VertexConfig<Type>
 {
    readonly id: symbol
+   readonly reactions: Array<{
+      actionCreator: BaseActionCreator<any, any>
+      operation: (
+         payload$: Observable<any>,
+         vertex: VertexInstance<Type>
+      ) => Observable<AnyAction>
+   }> = []
 
    protected readonly internalStateTransformations: Array<
       (
@@ -127,6 +136,17 @@ export class VertexConfigImpl<Type extends VertexType>
       this.internalStateTransformations.push(
          loadFromStreamTransformation(input$, loaders)
       )
+      return this
+   }
+
+   reaction(
+      actionCreator: BaseActionCreator<any, any>,
+      operation: (
+         payload$: Observable<any>,
+         vertex: VertexInstance<Type>
+      ) => Observable<AnyAction>
+   ): this {
+      this.reactions.push({ actionCreator, operation })
       return this
    }
 }

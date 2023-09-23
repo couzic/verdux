@@ -70,7 +70,7 @@ describe('deepDownstreamVertex reducers', () => {
          const deepDownsteamVertex = graph.getVertexInstance(
             deepDownstreamVertexConfig
          )
-         deepDownsteamVertex.dispatch(
+         graph.dispatch(
             deepDownstreamSlice.actions.setOtherFriend('new other friend')
          )
          expect(deepDownsteamVertex.currentState.otherFriend).to.equal(
@@ -112,7 +112,7 @@ describe('deepDownstreamVertex reducers', () => {
          const deepDownsteamVertex = graph.getVertexInstance(
             deepDownstreamVertexConfig
          )
-         deepDownsteamVertex.dispatch(setOtherFriend('new other friend'))
+         graph.dispatch(setOtherFriend('new other friend'))
          expect(deepDownsteamVertex.currentState.otherFriend).to.equal(
             'new other friend'
          )

@@ -50,7 +50,7 @@ describe('rootVertex reducers', () => {
       })
       describe('when username is updated', () => {
          beforeEach(() => {
-            rootVertex.dispatch(slice.actions.setUsername('new name'))
+            graph.dispatch(slice.actions.setUsername('new name'))
          })
          it('updates vertex state', () => {
             expect(rootVertex.currentState.username).to.equal('new name')
@@ -84,7 +84,7 @@ describe('rootVertex reducers', () => {
       })
       it('updates vertex state', () => {
          const rootVertex = graph.getVertexInstance(rootVertexConfig)
-         rootVertex.dispatch(setUsername('new name'))
+         graph.dispatch(setUsername('new name'))
          expect(rootVertex.currentState.username).to.equal('new name')
       })
    })
