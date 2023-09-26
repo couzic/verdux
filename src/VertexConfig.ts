@@ -254,7 +254,24 @@ export interface VertexConfig<Type extends VertexType> {
       ) => Observable<AnyAction>
    ): this
 
+   fieldsReaction<K extends VertexStateKey<Type>>(
+      fields: K[],
+      operation: (fields: {
+         [FK in K]: FK extends keyof Type['loadableFields']
+            ? Type['loadableFields'][FK]
+            : FK extends keyof Type['readonlyFields']
+            ? Type['loadableFields'][FK]
+            : FK extends keyof Type['reduxState']
+            ? Type['reduxState'][FK]
+            : never
+      }) => AnyAction
+   ): this
+
    // TODO
    // computeFromLoadableFields()
    // Compute from fields even if they are not loaded yet. Allows more low level, manual handling.
+
+   // TODO
+   // loadableFieldsReaction()
+   // react to loadable fields even when status is not loaded. In this case the operation input is a LoadableState, not a State
 }

@@ -29,7 +29,7 @@ describe('rootVertex.reaction()', () => {
    describe('with simple reaction', () => {
       const rootVertexConfig = configureRootVertex({ slice }).reaction(
          setUsername,
-         map(username => increment(1))
+         map(() => increment(1))
       )
       let rootVertex: Vertex<typeof rootVertexConfig>
       beforeEach(() => {

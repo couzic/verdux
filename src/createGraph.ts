@@ -1,7 +1,15 @@
 import { AnyAction, combineReducers, configureStore } from '@reduxjs/toolkit'
 import { Reducer } from 'redux'
 import { combineEpics, createEpicMiddleware, ofType } from 'redux-observable'
-import { Observable, ReplaySubject, Subject, map } from 'rxjs'
+import {
+   Observable,
+   ReplaySubject,
+   Subject,
+   distinctUntilChanged,
+   filter,
+   map,
+   skip
+} from 'rxjs'
 import { Graph } from './Graph'
 import { VertexConfig } from './VertexConfig'
 import { VertexConfigImpl } from './VertexConfigImpl'
@@ -11,7 +19,10 @@ import { VertexLoadableState } from './VertexLoadableState'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
 import { VertexState } from './VertexState'
 import { VertexType } from './VertexType'
+import { fromLoadableState } from './fromLoadableState'
+import { internalStateEquals } from './internalStateEquals'
 import { loadableFromInternalState } from './loadableFromInternalState'
+import { pickInternalState } from './pickInternalState'
 import { pickLoadableState } from './pickLoadableState'
 
 export const createGraph = (options: {
@@ -122,6 +133,28 @@ export const createGraph = (options: {
             currentState = loadableState.state
             loadableState$.next(loadableState)
          })
+
+      ///////////////////////
+      // fieldsReaction() //
+      /////////////////////
+      ;(config as VertexConfigImpl<Type>).fieldsReactions.forEach(reaction => {
+         internalState$
+            .pipe(
+               map(internalState =>
+                  pickInternalState(internalState, reaction.fields)
+               ),
+               distinctUntilChanged(internalStateEquals),
+               skip(1),
+               map(loadableFromInternalState),
+               filter(_ => _.status === 'loaded')
+            )
+            .subscribe(pickedLoadableState => {
+               const fields = fromLoadableState(pickedLoadableState)
+               const action = reaction.operation(fields)
+               graph.dispatch(action)
+            })
+      })
+
       const vertex: VertexInstance<Type> = {
          get id() {
             return config.id
@@ -149,6 +182,10 @@ export const createGraph = (options: {
                map(loadableState => pickLoadableState(loadableState, fields))
             )
       }
+
+      /////////////////
+      // reaction() //
+      ///////////////
       ;(config as VertexConfigImpl<Type>).reactions.forEach(reaction => {
          const epic = (action$: Observable<AnyAction>) =>
             reaction.operation(
@@ -157,6 +194,7 @@ export const createGraph = (options: {
             )
          epics.push(epic)
       })
+
       return vertex
    }
 

@@ -27,6 +27,10 @@ export class VertexConfigImpl<Type extends VertexType>
          vertex: VertexInstance<Type>
       ) => Observable<AnyAction>
    }> = []
+   readonly fieldsReactions: Array<{
+      fields: any[]
+      operation: (fields: any) => AnyAction
+   }> = []
 
    protected readonly internalStateTransformations: Array<
       (
@@ -145,8 +149,24 @@ export class VertexConfigImpl<Type extends VertexType>
          payload$: Observable<any>,
          vertex: VertexInstance<Type>
       ) => Observable<AnyAction>
-   ): this {
+   ) {
       this.reactions.push({ actionCreator, operation })
+      return this
+   }
+
+   fieldsReaction<K extends VertexStateKey<Type>>(
+      fields: K[],
+      operation: (fields: {
+         [FK in K]: FK extends keyof Type['loadableFields']
+            ? Type['loadableFields'][FK]
+            : FK extends keyof Type['readonlyFields']
+            ? Type['loadableFields'][FK]
+            : FK extends keyof Type['reduxState']
+            ? Type['reduxState'][FK]
+            : never
+      }) => AnyAction
+   ) {
+      this.fieldsReactions.push({ fields, operation })
       return this
    }
 }
