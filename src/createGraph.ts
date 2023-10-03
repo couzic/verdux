@@ -11,58 +11,60 @@ import {
    skip
 } from 'rxjs'
 import { Graph } from './Graph'
-import { VertexConfig } from './VertexConfig'
-import { VertexConfigImpl } from './VertexConfigImpl'
 import { VertexInstance } from './VertexInstance'
-import { VertexInternalState } from './VertexInternalState'
-import { VertexLoadableState } from './VertexLoadableState'
-import { VertexRuntimeConfig } from './VertexRuntimeConfig'
-import { VertexState } from './VertexState'
 import { VertexType } from './VertexType'
-import { fromLoadableState } from './fromLoadableState'
-import { internalStateEquals } from './internalStateEquals'
-import { loadableFromInternalState } from './loadableFromInternalState'
-import { pickInternalState } from './pickInternalState'
-import { pickLoadableState } from './pickLoadableState'
+import { SingleUpstreamVertexConfig } from './config/SingleUpstreamVertexConfig'
+import { VertexConfig } from './config/VertexConfig'
+import { VertexRuntimeConfig } from './config/VertexRuntimeConfig'
+import { VertexInternalState } from './state/VertexInternalState'
+import { VertexLoadableState } from './state/VertexLoadableState'
+import { VertexState } from './state/VertexState'
+import { fromLoadableState } from './util/fromLoadableState'
+import { internalStateEquals } from './util/internalStateEquals'
+import { loadableFromInternalState } from './util/loadableFromInternalState'
+import { pickInternalState } from './util/pickInternalState'
+import { pickLoadableState } from './util/pickLoadableState'
 
 export const createGraph = (options: {
    vertices: Array<VertexRuntimeConfig<any>>
+   devtools?: (params: any) => void
 }) => {
    const runtimeConfigs = options.vertices
    if (runtimeConfigs.length === 0)
       throw new Error('createGraph() does not accept an empty vertices array')
 
-   const uniqueVertexIds: symbol[] = []
+   const exhaustiveVertexIds: symbol[] = []
    const vertexConfigById: Record<symbol, VertexConfig<any>> = {}
    const injectedDependenciesByVertexId: Record<symbol, any> = {}
 
    const indexById = (runtimeConfig: VertexRuntimeConfig<any>) => {
-      const injectedDependencies =
-         'config' in runtimeConfig ? runtimeConfig.injectedDependencies : null
       const config =
          'config' in runtimeConfig ? runtimeConfig.config : runtimeConfig
+      if (vertexConfigById[config.id]) return
+      const injectedDependencies =
+         'config' in runtimeConfig ? runtimeConfig.injectedDependencies : null
       const upstreamConfig = config.upstreamVertex
       if (upstreamConfig) {
          indexById(upstreamConfig)
       }
-      if (!vertexConfigById[config.id]) {
-         uniqueVertexIds.push(config.id)
-         vertexConfigById[config.id] = config
-         if (injectedDependencies) {
-            injectedDependenciesByVertexId[config.id] = injectedDependencies
-         }
+      exhaustiveVertexIds.push(config.id)
+      vertexConfigById[config.id] = config
+      if (injectedDependencies) {
+         injectedDependenciesByVertexId[config.id] = injectedDependencies
       }
    }
    runtimeConfigs.forEach(indexById)
 
-   const uniqueVertexConfigs = uniqueVertexIds.map(id => vertexConfigById[id])
+   const exhaustiveVertexConfigs = exhaustiveVertexIds.map(
+      id => vertexConfigById[id]
+   )
 
    const vertexConfigsByUpstreamId: Record<
       symbol,
       Array<VertexConfig<any>>
    > = {}
 
-   uniqueVertexConfigs.forEach(config => {
+   exhaustiveVertexConfigs.forEach(config => {
       const upstreamConfig = config.upstreamVertex
       if (upstreamConfig !== undefined) {
          if (!vertexConfigsByUpstreamId[upstreamConfig.id]) {
@@ -72,12 +74,9 @@ export const createGraph = (options: {
       }
    })
 
-   // TODO Make sure all upstream vertex configs are indexed by ID, even if they were not explicitely passed to the vertices array in options
-   // TODO print warning if upstream vertex is not passed in vertices array
-
-   const rootVertexConfig: VertexConfigImpl<any> = uniqueVertexConfigs[0]
-      .rootVertex as any
-   uniqueVertexConfigs.forEach(config => {
+   const rootVertexConfig: SingleUpstreamVertexConfig<any> =
+      exhaustiveVertexConfigs[0].rootVertex as any
+   exhaustiveVertexConfigs.forEach(config => {
       if (config.rootVertex.id !== rootVertexConfig.id) {
          throw new Error(
             `Error creating graph: impossible to create graph with multiple root vertices ("${config.id.description}" has root "${config.rootVertex.id.description}" but another root "${rootVertexConfig.id.description}" exists)`
@@ -137,23 +136,25 @@ export const createGraph = (options: {
       ///////////////////////
       // fieldsReaction() //
       /////////////////////
-      ;(config as VertexConfigImpl<Type>).fieldsReactions.forEach(reaction => {
-         internalState$
-            .pipe(
-               map(internalState =>
-                  pickInternalState(internalState, reaction.fields)
-               ),
-               distinctUntilChanged(internalStateEquals),
-               skip(1),
-               map(loadableFromInternalState),
-               filter(_ => _.status === 'loaded')
-            )
-            .subscribe(pickedLoadableState => {
-               const fields = fromLoadableState(pickedLoadableState)
-               const action = reaction.operation(fields)
-               graph.dispatch(action)
-            })
-      })
+      ;(config as SingleUpstreamVertexConfig<Type>).fieldsReactions.forEach(
+         reaction => {
+            internalState$
+               .pipe(
+                  map(internalState =>
+                     pickInternalState(internalState, reaction.fields)
+                  ),
+                  distinctUntilChanged(internalStateEquals),
+                  skip(1),
+                  map(loadableFromInternalState),
+                  filter(_ => _.status === 'loaded')
+               )
+               .subscribe(pickedLoadableState => {
+                  const fields = fromLoadableState(pickedLoadableState)
+                  const action = reaction.operation(fields)
+                  graph.dispatch(action)
+               })
+         }
+      )
 
       const vertex: VertexInstance<Type> = {
          get id() {
@@ -186,14 +187,16 @@ export const createGraph = (options: {
       /////////////////
       // reaction() //
       ///////////////
-      ;(config as VertexConfigImpl<Type>).reactions.forEach(reaction => {
-         const epic = (action$: Observable<AnyAction>) =>
-            reaction.operation(
-               action$.pipe(ofType(reaction.actionCreator.type)),
-               vertex
-            )
-         epics.push(epic)
-      })
+      ;(config as SingleUpstreamVertexConfig<Type>).reactions.forEach(
+         reaction => {
+            const epic = (action$: Observable<AnyAction>) =>
+               reaction.operation(
+                  action$.pipe(ofType(reaction.actionCreator.type)),
+                  vertex
+               )
+            epics.push(epic)
+         }
+      )
 
       return vertex
    }
@@ -257,7 +260,7 @@ export const createGraph = (options: {
    }
 
    const createInternalStateStream = (
-      config: VertexConfigImpl<any>,
+      config: SingleUpstreamVertexConfig<any>,
       upstreamInternalState$: Observable<VertexInternalState<any>>,
       dependencies: any
    ) => {
@@ -319,7 +322,7 @@ export const createGraph = (options: {
       vertexById[config.id] = { instance, internalState$ }
    }
 
-   uniqueVertexConfigs.forEach(createVertex)
+   exhaustiveVertexConfigs.forEach(createVertex)
 
    reduxState$.next(reduxStore.getState())
    reduxStore.subscribe(() => reduxState$.next(reduxStore.getState()))
@@ -330,6 +333,13 @@ export const createGraph = (options: {
    }
 
    epicMiddleware.run(combineEpics(...epics))
+
+   if (options.devtools) {
+      options.devtools({
+         graph,
+         exhaustiveVertexConfigs
+      })
+   }
 
    return graph
 }

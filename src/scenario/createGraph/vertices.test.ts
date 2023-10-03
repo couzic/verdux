@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 import { createGraph } from '../../createGraph'
 
 const rootSlice = createSlice({

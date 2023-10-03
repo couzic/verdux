@@ -1,7 +1,7 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { Graph } from '../../Graph'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 import { createGraph } from '../../createGraph'
 
 describe('rootVertex dependencies', () => {

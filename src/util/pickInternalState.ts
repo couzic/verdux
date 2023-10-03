@@ -1,7 +1,7 @@
-import { PickedInternalState } from './PickedInternalState'
-import { VertexInternalState } from './VertexInternalState'
-import { VertexStateKey } from './VertexState'
-import { VertexType } from './VertexType'
+import { VertexType } from '../VertexType'
+import { PickedInternalState } from '../state/PickedInternalState'
+import { VertexInternalState } from '../state/VertexInternalState'
+import { VertexStateKey } from '../state/VertexState'
 
 export const pickInternalState = <
    Type extends VertexType,

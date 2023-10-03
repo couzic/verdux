@@ -1,6 +1,6 @@
-import { VertexInternalState } from './VertexInternalState'
-import { VertexLoadableState } from './VertexLoadableState'
-import { VertexType } from './VertexType'
+import { VertexType } from '../VertexType'
+import { VertexInternalState } from '../state/VertexInternalState'
+import { VertexLoadableState } from '../state/VertexLoadableState'
 import { combineState } from './combineState'
 import { statusAndErrorsFromLoadableFields } from './statusAndErrorsFromLoadableFields'
 

@@ -6,7 +6,7 @@ import {
 } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { Graph } from '../../Graph'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 import { createGraph } from '../../createGraph'
 
 describe('deepDownstreamVertex reducers', () => {

@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import { Subject, of } from 'rxjs'
 import { Graph } from '../../Graph'
 import { Vertex } from '../../Vertex'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 import { createGraph } from '../../createGraph'
 
 describe('rootVertex.fieldsReaction() from redux field', () => {

@@ -1,6 +1,6 @@
-import { VertexInternalState } from './VertexInternalState'
-import { VertexLoadableFields } from './VertexLoadableFields'
-import { VertexType } from './VertexType'
+import { VertexType } from '../VertexType'
+import { VertexInternalState } from '../state/VertexInternalState'
+import { VertexLoadableFields } from '../state/VertexLoadableFields'
 import { shallowEquals } from './shallowEquals'
 
 export const internalStateEquals = <Type extends VertexType>(

@@ -1,8 +1,8 @@
 import { Observable, map, scan, share } from 'rxjs'
-import { VertexInternalState } from '../../VertexInternalState'
-import { fromInternalState } from '../../fromInternalState'
-import { internalStateEquals } from '../../internalStateEquals'
-import { pickInternalState } from '../../pickInternalState'
+import { VertexInternalState } from '../state/VertexInternalState'
+import { fromInternalState } from './fromInternalState'
+import { internalStateEquals } from './internalStateEquals'
+import { pickInternalState } from './pickInternalState'
 
 export const toInternalStatePicked$ = (
    inputInternalState$: Observable<VertexInternalState<any>>,

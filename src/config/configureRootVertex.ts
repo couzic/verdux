@@ -1,8 +1,8 @@
 import { Reducer, Slice } from '@reduxjs/toolkit'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
-import { IsPlainObject } from './IsPlainObject'
+import { IsPlainObject } from '../util/IsPlainObject'
 import { VertexConfig } from './VertexConfig'
-import { VertexConfigImpl } from './VertexConfigImpl'
+import { SingleUpstreamVertexConfig } from './SingleUpstreamVertexConfig'
 
 export const configureRootVertex = <
    ReduxState extends object,
@@ -29,7 +29,7 @@ export const configureRootVertex = <
    : never => {
    if ('slice' in options) {
       const { slice } = options
-      return new VertexConfigImpl(
+      return new SingleUpstreamVertexConfig( // TODO NOW NOW return new RootVertexConfig
          slice.name,
          slice.getInitialState,
          slice.reducer as Reducer<any>,
@@ -39,7 +39,7 @@ export const configureRootVertex = <
          options.dependencies || {}
       ) as any
    } else {
-      return new VertexConfigImpl(
+      return new SingleUpstreamVertexConfig( // TODO NOW NOW return new RootVertexConfig
          options.name || 'root',
          options.reducer.getInitialState,
          options.reducer as Reducer<any>,

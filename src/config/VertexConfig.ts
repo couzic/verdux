@@ -7,15 +7,15 @@ import {
 import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
+import { VertexInstance } from '../VertexInstance'
+import { VertexType } from '../VertexType'
+import { PickedLoadedVertexState } from '../state/PickedLoadedVertexState'
+import { VertexStateKey } from '../state/VertexState'
+import { IsDependablePlainObject, IsPlainObject } from '../util/IsPlainObject'
+import { Match } from '../util/Match'
 import { Dependable } from './Dependable'
 import { DependencyProviders } from './DependencyProviders'
-import { IsDependablePlainObject, IsPlainObject } from './IsPlainObject'
-import { Match } from './Match'
-import { PickedLoadedVertexState } from './PickedLoadedVertexState'
-import { VertexInstance } from './VertexInstance'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
-import { VertexStateKey } from './VertexState'
-import { VertexType } from './VertexType'
 
 export interface VertexConfig<Type extends VertexType> {
    readonly rootVertex: VertexConfig<any>
@@ -29,7 +29,7 @@ export interface VertexConfig<Type extends VertexType> {
    configureDownstreamVertex<
       ReduxState extends object,
       UpstreamField extends VertexStateKey<Type> = never,
-      Dependencies extends Record<string, () => any> = {}
+      Dependencies extends object = {}
    >(
       options: (
          | {

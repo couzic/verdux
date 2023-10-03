@@ -1,7 +1,7 @@
-import { PickedLoadableState } from './PickedLoadableState'
-import { VertexLoadableState } from './VertexLoadableState'
-import { VertexState, VertexStateKey } from './VertexState'
-import { VertexType } from './VertexType'
+import { VertexType } from '../VertexType'
+import { PickedLoadableState } from '../state/PickedLoadableState'
+import { VertexLoadableState } from '../state/VertexLoadableState'
+import { VertexStateKey } from '../state/VertexState'
 import { combineState } from './combineState'
 import { statusAndErrorsFromLoadableFields } from './statusAndErrorsFromLoadableFields'
 

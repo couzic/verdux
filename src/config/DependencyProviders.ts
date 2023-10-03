@@ -1,4 +1,4 @@
-import { VertexType } from './VertexType'
+import { VertexType } from '../VertexType'
 
 export type DependencyProviders<Type extends VertexType = any> = Record<
    string,

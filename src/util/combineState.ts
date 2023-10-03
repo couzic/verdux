@@ -1,6 +1,6 @@
-import { VertexLoadableFields } from './VertexLoadableFields'
-import { VertexState } from './VertexState'
-import { VertexType } from './VertexType'
+import { VertexLoadableFields } from '../state/VertexLoadableFields'
+import { VertexState } from '../state/VertexState'
+import { VertexType } from '../VertexType'
 
 export const combineState = <Type extends VertexType>(
    reduxState: Type['reduxState'],

@@ -3,20 +3,20 @@ import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { AnyAction, Reducer } from 'redux'
 import { Observable } from 'rxjs'
+import { VertexInstance } from '../VertexInstance'
+import { VertexType } from '../VertexType'
+import { VertexInternalState } from '../state/VertexInternalState'
+import { VertexStateKey } from '../state/VertexState'
+import { computeFromFieldsTransformation } from '../transformations/computeFromFields'
+import { loadTransformation } from '../transformations/load'
+import { loadFromFieldsTransformation } from '../transformations/loadFromFields'
+import { loadFromFieldsStreamTransformation } from '../transformations/loadFromFields$'
+import { loadFromStreamTransformation } from '../transformations/loadFromStream'
 import { DependencyProviders } from './DependencyProviders'
 import { VertexConfig } from './VertexConfig'
-import { VertexInstance } from './VertexInstance'
-import { VertexInternalState } from './VertexInternalState'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
-import { VertexStateKey } from './VertexState'
-import { VertexType } from './VertexType'
-import { computeFromFieldsTransformation } from './transformations/computeFromFields'
-import { loadTransformation } from './transformations/load'
-import { loadFromFieldsTransformation } from './transformations/loadFromFields'
-import { loadFromFieldsStreamTransformation } from './transformations/loadFromFields$'
-import { loadFromStreamTransformation } from './transformations/loadFromStream'
 
-export class VertexConfigImpl<Type extends VertexType>
+export class SingleUpstreamVertexConfig<Type extends VertexType>
    implements VertexConfig<Type>
 {
    readonly id: symbol
@@ -78,7 +78,7 @@ export class VertexConfigImpl<Type extends VertexType>
          'slice' in options ? options.slice : { ...options, ...options.reducer }
       const upstreamFields: string[] =
          (options.upstreamFields as string[]) || []
-      const downstreamConfig = new VertexConfigImpl(
+      const downstreamConfig = new SingleUpstreamVertexConfig(
          name,
          getInitialState,
          reducer as Reducer<any>,

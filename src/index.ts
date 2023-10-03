@@ -1,9 +1,8 @@
 export * from './Graph'
 export * from './Vertex'
-export * from './VertexConfig'
 export * from './VertexInstance'
-export * from './VertexLoadableState'
-export * from './VertexState'
-export * from './configureRootVertex'
+export * from './config/VertexConfig'
+export * from './config/configureRootVertex'
 export * from './createGraph'
-
+export * from './state/VertexLoadableState'
+export * from './state/VertexState'

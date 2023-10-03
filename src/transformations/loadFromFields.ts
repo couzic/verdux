@@ -10,9 +10,9 @@ import {
    switchMap,
    withLatestFrom
 } from 'rxjs'
-import { Dependable } from '../Dependable'
-import { VertexInternalState } from '../VertexInternalState'
-import { toInternalStatePicked$ } from './util/toInternalStatePicked$'
+import { Dependable } from '../config/Dependable'
+import { VertexInternalState } from '../state/VertexInternalState'
+import { toInternalStatePicked$ } from '../util/toInternalStatePicked$'
 
 export const loadFromFieldsTransformation =
    (

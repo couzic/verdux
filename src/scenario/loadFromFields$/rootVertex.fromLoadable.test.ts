@@ -4,7 +4,7 @@ import { Observable, Subject, of, switchMap } from 'rxjs'
 import { stub } from 'sinon'
 import { Graph } from '../../Graph'
 import { Vertex } from '../../Vertex'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 import { createGraph } from '../../createGraph'
 
 describe('loadFromFields$ from loadable field', () => {

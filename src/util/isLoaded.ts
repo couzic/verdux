@@ -1,5 +1,5 @@
-import { VertexInternalState } from './VertexInternalState'
-import { VertexType } from './VertexType'
+import { VertexType } from '../VertexType'
+import { VertexInternalState } from '../state/VertexInternalState'
 
 export const isLoaded = <Type extends VertexType>(
    internalState: VertexInternalState<Type>

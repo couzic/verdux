@@ -1,9 +1,9 @@
 import { filter, map, pipe, scan } from 'rxjs'
-import { Dependable } from '../Dependable'
-import { VertexInternalState } from '../VertexInternalState'
-import { fromInternalState } from '../fromInternalState'
-import { internalStateEquals } from '../internalStateEquals'
-import { pickInternalState } from '../pickInternalState'
+import { Dependable } from '../config/Dependable'
+import { VertexInternalState } from '../state/VertexInternalState'
+import { fromInternalState } from '../util/fromInternalState'
+import { internalStateEquals } from '../util/internalStateEquals'
+import { pickInternalState } from '../util/pickInternalState'
 
 const INITIAL_VALUE = Symbol('COMPUTE_FROM_FIELDS_INITIAL_VALUE')
 
@@ -56,7 +56,7 @@ export const computeFromFieldsTransformation =
                      loading[computedField] = {
                         status: 'loading',
                         value: undefined,
-                        error: undefined // TODO pass down error !!!
+                        error: undefined // TODO NOW pass down error !!!
                      }
                   })
                   return {
@@ -80,7 +80,7 @@ export const computeFromFieldsTransformation =
                      computedValues[computedField] = {
                         status: 'loaded',
                         value: injectedComputers[computedField](
-                           // TODO catch computing error
+                           // TODO NOW catch computing error
                            pickedState as any
                         ),
                         error: undefined
@@ -90,7 +90,7 @@ export const computeFromFieldsTransformation =
                   computedFields.forEach(computedField => {
                      computedValues[computedField] = injectedComputers[
                         computedField
-                     ](pickedState as any) // TODO catch computing error
+                     ](pickedState as any) // TODO NOW catch computing error
                   })
                }
                const outputInternalState = computingFromLoadableFields

@@ -1,5 +1,5 @@
-import { VertexLoadableFields } from './VertexLoadableFields'
-import { VertexStatus } from './VertexStatus'
+import { VertexStatus } from '../VertexStatus'
+import { VertexLoadableFields } from '../state/VertexLoadableFields'
 
 export const statusAndErrorsFromLoadableFields = <
    LoadableFields extends object

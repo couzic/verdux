@@ -1,5 +1,5 @@
 import { AnyAction } from 'redux'
-import { VertexConfig } from './VertexConfig'
+import { VertexConfig } from './config/VertexConfig'
 import { VertexInstance } from './VertexInstance'
 import { VertexType } from './VertexType'
 

@@ -1,6 +1,6 @@
-import { VertexInternalState } from './VertexInternalState'
-import { VertexState } from './VertexState'
-import { VertexType } from './VertexType'
+import { VertexType } from '../VertexType'
+import { VertexInternalState } from '../state/VertexInternalState'
+import { VertexState } from '../state/VertexState'
 import { combineState } from './combineState'
 
 export const fromInternalState = <Type extends VertexType>(

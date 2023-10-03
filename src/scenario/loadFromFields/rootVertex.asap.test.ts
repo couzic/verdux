@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 import { NEVER, delay, of } from 'rxjs'
 import { Graph } from '../../Graph'
 import { createGraph } from '../../createGraph'

@@ -1,4 +1,4 @@
-import { Dependable } from './Dependable'
+import { Dependable } from '../config/Dependable'
 
 export type IsPlainObject<T> = T extends any[]
    ? false

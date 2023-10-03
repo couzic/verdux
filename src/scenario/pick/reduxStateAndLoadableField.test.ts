@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit'
 import { Observable, of } from 'rxjs'
 import { Graph } from '../../Graph'
 import { Vertex } from '../../Vertex'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 
 type Observed<O extends Observable<any>> = O extends Observable<infer T>
    ? T

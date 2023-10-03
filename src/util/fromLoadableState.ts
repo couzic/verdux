@@ -1,6 +1,6 @@
-import { VertexLoadableState } from './VertexLoadableState'
-import { VertexState } from './VertexState'
-import { VertexType } from './VertexType'
+import { VertexType } from '../VertexType'
+import { VertexLoadableState } from '../state/VertexLoadableState'
+import { VertexState } from '../state/VertexState'
 import { combineState } from './combineState'
 
 export const fromLoadableState = <Type extends VertexType>(

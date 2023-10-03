@@ -5,7 +5,7 @@ import { SinonStub, stub } from 'sinon'
 import sinonChai from 'sinon-chai'
 import { Graph } from '../../Graph'
 import { Vertex } from '../../Vertex'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 import { createGraph } from '../../createGraph'
 
 chai.use(sinonChai)

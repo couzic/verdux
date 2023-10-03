@@ -1,6 +1,6 @@
+import { VertexStatus } from '../VertexStatus'
+import { VertexType } from '../VertexType'
 import { VertexLoadableFields } from './VertexLoadableFields'
-import { VertexStatus } from './VertexStatus'
-import { VertexType } from './VertexType'
 
 // TODO prevent key clashes between loadable & (updatable & readonly) both compile and run time
 export interface VertexInternalState<

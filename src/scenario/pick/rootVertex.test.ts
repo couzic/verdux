@@ -3,9 +3,9 @@ import { expect } from 'chai'
 import { Observable } from 'rxjs'
 import { Graph } from '../../Graph'
 import { Vertex } from '../../Vertex'
-import { VertexLoadableState } from '../../VertexLoadableState'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 import { createGraph } from '../../createGraph'
+import { VertexLoadableState } from '../../state/VertexLoadableState'
 
 describe('rootVertex.pick()', () => {
    let graph: Graph

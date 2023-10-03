@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import { map } from 'rxjs'
 import { Graph } from '../../Graph'
 import { Vertex } from '../../Vertex'
-import { configureRootVertex } from '../../configureRootVertex'
+import { configureRootVertex } from '../../config/configureRootVertex'
 import { createGraph } from '../../createGraph'
 
 const rootSlice = createSlice({

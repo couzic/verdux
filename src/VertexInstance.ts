@@ -1,9 +1,8 @@
-import { AnyAction } from '@reduxjs/toolkit'
 import { Observable } from 'rxjs'
-import { PickedLoadableState } from './PickedLoadableState'
-import { VertexLoadableState } from './VertexLoadableState'
-import { VertexState, VertexStateKey } from './VertexState'
 import { VertexType } from './VertexType'
+import { PickedLoadableState } from './state/PickedLoadableState'
+import { VertexLoadableState } from './state/VertexLoadableState'
+import { VertexState, VertexStateKey } from './state/VertexState'
 
 export interface VertexInstance<Type extends VertexType> {
    readonly name: string

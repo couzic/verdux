@@ -1,6 +1,6 @@
+import { VertexType } from '../VertexType'
 import { VertexLoadableState } from './VertexLoadableState'
 import { VertexStateKey } from './VertexState'
-import { VertexType } from './VertexType'
 
 export type PickedLoadableState<
    Type extends VertexType,

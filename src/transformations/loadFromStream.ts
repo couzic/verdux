@@ -11,8 +11,8 @@ import {
    startWith,
    switchMap
 } from 'rxjs'
-import { Dependable } from '../Dependable'
-import { VertexInternalState } from '../VertexInternalState'
+import { Dependable } from '../config/Dependable'
+import { VertexInternalState } from '../state/VertexInternalState'
 
 // TODO Remove duplication with "loadFromFields$()"
 

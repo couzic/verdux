@@ -7,8 +7,8 @@ import {
    of,
    scan
 } from 'rxjs'
-import { Dependable } from '../Dependable'
-import { VertexInternalState } from '../VertexInternalState'
+import { Dependable } from '../config/Dependable'
+import { VertexInternalState } from '../state/VertexInternalState'
 
 // TODO Remove duplication with "loadFromFields()"
 
@@ -30,6 +30,7 @@ export const loadTransformation =
             }
          })
 
+         // TODO move to startWith() ?
          const loading$ = of(loadingValues)
 
          const loadedOrError$ = merge(
@@ -57,8 +58,10 @@ export const loadTransformation =
             scan((acc, loadableValues: any) => {
                return { ...acc, ...loadableValues }
             }, loadingValues)
+            // TODO startWith(loadingValues) ?
          )
 
+         // TODO move to startWith() ?
          const loadable$ = merge(loading$, loadedOrError$)
 
          return combineLatest([inputInternalState$, loadable$]).pipe(

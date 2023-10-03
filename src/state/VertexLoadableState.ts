@@ -1,7 +1,7 @@
-import { VertexErrorState, VertexLoadedState, VertexState } from './VertexState'
-import { VertexType } from './VertexType'
+import { VertexStatus } from '../VertexStatus'
+import { VertexType } from '../VertexType'
 import { VertexLoadableFields } from './VertexLoadableFields'
-import { VertexStatus } from './VertexStatus'
+import { VertexState } from './VertexState'
 
 // TODO prevent key clashes between loadable & (updatable & readonly) both compile and run time
 export type VertexLoadableState<
