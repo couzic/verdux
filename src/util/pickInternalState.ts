@@ -26,6 +26,7 @@ export const pickInternalState = <
       }
    })
    return {
+      versions: internalState.versions, // TODO track only relevant upstream versions
       reduxState,
       readonlyFields,
       loadableFields

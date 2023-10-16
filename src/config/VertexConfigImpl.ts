@@ -12,14 +12,14 @@ import { loadTransformation } from '../transformations/load'
 import { loadFromFieldsTransformation } from '../transformations/loadFromFields'
 import { loadFromFieldsStreamTransformation } from '../transformations/loadFromFields$'
 import { loadFromStreamTransformation } from '../transformations/loadFromStream'
-import { DependencyProviders } from './DependencyProviders'
 import { VertexConfig } from './VertexConfig'
+import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
+import { configureDownstreamVertex } from './configureDownstreamVertex'
 
-export class SingleUpstreamVertexConfig<Type extends VertexType>
+export class VertexConfigImpl<Type extends VertexType>
    implements VertexConfig<Type>
 {
-   readonly id: symbol
    readonly reactions: Array<{
       actionCreator: BaseActionCreator<any, any>
       operation: (
@@ -41,21 +41,38 @@ export class SingleUpstreamVertexConfig<Type extends VertexType>
    > = []
 
    get rootVertex(): VertexConfig<any> {
-      if (this.inputRootVertex === null) return this as any
-      return this.inputRootVertex
+      const upstreamVertices = this.upstreamVertices
+      if (upstreamVertices.length === 0) return this as any
+      return upstreamVertices[0].rootVertex
+   }
+
+   checkHasRootVertex(expectedRootVertex: VertexConfigImpl<any>) {
+      const upstreamVertices = this.upstreamVertices
+      if (upstreamVertices.length === 0) {
+         if (this.id !== expectedRootVertex.id)
+            throw new Error(
+               `Error creating graph: impossible to create graph with multiple root vertices ("${expectedRootVertex.id.description}" is a root but another root "${this.id.description}" exists)`
+            )
+      } else {
+         upstreamVertices.forEach(upstreamVertex =>
+            (upstreamVertex as VertexConfigImpl<any>).checkHasRootVertex(
+               expectedRootVertex
+            )
+         )
+      }
+   }
+
+   get upstreamVertices(): VertexConfig<any>[] {
+      return this.builder.upstreamVertices
    }
 
    constructor(
       public readonly name: string,
+      public readonly id: symbol,
       public readonly getInitialState: () => Type['reduxState'],
       public readonly reducer: Reducer<Type['reduxState']>,
-      public readonly upstreamVertex: VertexConfig<any> | undefined,
-      public readonly upstreamFields: string[],
-      private readonly inputRootVertex: VertexConfig<any> | null,
-      public readonly dependencyProviders: DependencyProviders
-   ) {
-      this.id = Symbol(`Vertex ${name}`)
-   }
+      public readonly builder: VertexConfigBuilderImpl<Type>
+   ) {}
 
    configureDownstreamVertex<
       ReduxState extends object,
@@ -71,23 +88,48 @@ export class SingleUpstreamVertexConfig<Type extends VertexType>
            }
       ) & {
          upstreamFields?: UpstreamField[]
-         dependencies?: DependencyProviders<Type>
+         dependencies?: any
       }
    ): any {
-      const { name, getInitialState, reducer } =
-         'slice' in options ? options.slice : { ...options, ...options.reducer }
-      const upstreamFields: string[] =
-         (options.upstreamFields as string[]) || []
-      const downstreamConfig = new SingleUpstreamVertexConfig(
-         name,
-         getInitialState,
-         reducer as Reducer<any>,
-         this as any,
-         upstreamFields,
-         this.rootVertex,
-         options.dependencies || {}
+      return configureDownstreamVertex(options, builder =>
+         builder.addUpstreamVertex(this, {
+            upstreamFields: options.upstreamFields,
+            dependencies: options.dependencies
+         })
       )
-      return downstreamConfig
+   }
+
+   findClosestCommonAncestor() {
+      return this.builder.findClosestCommonAncestor().vertexId
+   }
+
+   buildVertexDependencies(
+      dependenciesByUpstreamVertexId: any,
+      injectedDependencies: any
+   ) {
+      return this.builder.buildVertexDependencies(
+         dependenciesByUpstreamVertexId,
+         injectedDependencies
+      )
+   }
+
+   createInternalStateStream(
+      commonAncestorInternalState$: Observable<VertexInternalState<any>>,
+      upstreamInternalStateStreamByVertexId: Record<
+         symbol,
+         Observable<VertexInternalState<any>>
+      >,
+      dependencies: Type['dependencies']
+   ) {
+      const incomingInternalState$ =
+         this.builder.combineUpstreamInternalStateStreams(
+            commonAncestorInternalState$,
+            upstreamInternalStateStreamByVertexId
+         )
+      return this.applyInternalStateTransformations(
+         incomingInternalState$,
+         dependencies
+      )
    }
 
    applyInternalStateTransformations(

@@ -7,6 +7,7 @@ export interface VertexInternalState<
    Type extends VertexType,
    Status extends VertexStatus = VertexStatus
 > {
+   versions: Record<symbol, number>
    reduxState: {
       vertex: Type['reduxState']
       downstream: Record<string, any>

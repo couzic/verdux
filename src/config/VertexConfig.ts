@@ -14,7 +14,6 @@ import { VertexStateKey } from '../state/VertexState'
 import { IsDependablePlainObject, IsPlainObject } from '../util/IsPlainObject'
 import { Match } from '../util/Match'
 import { Dependable } from './Dependable'
-import { DependencyProviders } from './DependencyProviders'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
 
 export interface VertexConfig<Type extends VertexType> {
@@ -23,8 +22,7 @@ export interface VertexConfig<Type extends VertexType> {
    readonly id: symbol
    readonly getInitialState: () => Readonly<Type['reduxState']>
    readonly reducer: Reducer<Type['reduxState']>
-   readonly upstreamVertex: VertexConfig<any> | undefined
-   readonly dependencyProviders: DependencyProviders
+   readonly upstreamVertices: VertexConfig<any>[]
 
    configureDownstreamVertex<
       ReduxState extends object,
