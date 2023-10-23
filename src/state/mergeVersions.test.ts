@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { VertexInternalState } from '../state/VertexInternalState'
+import { VertexInternalState } from './VertexInternalState'
 import { mergeVersions } from './mergeVersions'
 
 const emptyInternalState: VertexInternalState<any> = {

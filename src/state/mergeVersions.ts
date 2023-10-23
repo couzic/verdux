@@ -1,4 +1,4 @@
-import { VertexInternalState } from '../state/VertexInternalState'
+import { VertexInternalState } from './VertexInternalState'
 
 export const mergeVersions = (internalStates: VertexInternalState<any>[]) => {
    const versions = {} as Record<symbol, number>

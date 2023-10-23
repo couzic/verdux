@@ -17,6 +17,7 @@ export const pickInternalState = <
    const readonlyFields: any = {}
    const loadableFields: any = {}
    keys.forEach(key => {
+      // TODO Warn if clash
       if (key in internalState.loadableFields) {
          loadableFields[key] = internalState.loadableFields[key]
       } else if (key in internalState.readonlyFields) {

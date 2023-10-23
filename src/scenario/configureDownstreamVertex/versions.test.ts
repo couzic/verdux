@@ -85,7 +85,7 @@ describe('multiple upstream vertices', () => {
       })
       vertex = graph.getVertexInstance(mergedDownstreamConfig)
    })
-   describe('when name changes', () => {
+   describe('when full name changes', () => {
       beforeEach(() => {
          vertex.state$.subscribe(state => {
             if (state.fullName !== ' ' && state.fullName !== 'JOHN SNOW') {
@@ -98,6 +98,17 @@ describe('multiple upstream vertices', () => {
       })
       it('updates full name', () => {
          expect(vertex.currentState.fullName).to.equal('JOHN SNOW')
+      })
+   })
+   describe('when first name only changes', () => {
+      beforeEach(() => {
+         expect(vertex.currentState.fullName).to.equal(' ')
+         graph.dispatch(
+            rootSlice.actions.setName({ firstName: 'John', lastName: '' })
+         )
+      })
+      it('updates full name', () => {
+         expect(vertex.currentState.fullName).to.equal('JOHN ')
       })
    })
 })

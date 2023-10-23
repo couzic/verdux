@@ -8,6 +8,7 @@ export type VertexLoadableState<
    Type extends VertexType,
    Status extends VertexStatus = VertexStatus
 > = {
+   version: number
    status: Status
    errors: Status extends 'error' ? Error[] : []
    state: {

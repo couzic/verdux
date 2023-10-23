@@ -27,6 +27,7 @@ export const pickLoadableState = <
    const { status, errors } = statusAndErrorsFromLoadableFields(loadableFields)
    const state: any = combineState(reduxState, readonlyFields, loadableFields)
    return {
+      version: loadableState.version,
       status,
       errors,
       reduxState,

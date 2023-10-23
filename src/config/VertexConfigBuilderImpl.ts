@@ -1,23 +1,13 @@
-import {
-   Observable,
-   combineLatest,
-   distinctUntilChanged,
-   filter,
-   map,
-   scan,
-   tap
-} from 'rxjs'
+import { Observable } from 'rxjs'
 import { VertexType } from '../VertexType'
 import { VertexInternalState } from '../state/VertexInternalState'
 import { VertexStateKey } from '../state/VertexState'
-import { deepInternalStateEquals } from '../util/deepInternalStateEquals'
-import { pickInternalState } from '../util/pickInternalState'
+import { incomingFromMultipleUpstreamInternalStates } from '../state/incomingFromMultipleUpstreamInternalStates'
+import { incomingFromSingleUpstreamInternalState } from '../state/incomingFromSingleUpstreamInternalState'
 import { DependencyProviders } from './DependencyProviders'
 import { VertexConfig } from './VertexConfig'
 import { VertexConfigBuilder } from './VertexConfigBuilder'
 import { VertexConfigImpl } from './VertexConfigImpl'
-import { internalStateEquals } from '../util/internalStateEquals'
-import { mergeVersions } from '../util/mergeVersions'
 
 export class VertexConfigBuilderImpl<
    BuilderType extends {
@@ -163,71 +153,51 @@ export class VertexConfigBuilderImpl<
       return dependencies
    }
 
-   // TODO rename to buildIncomingInternalStateStream
-   combineUpstreamInternalStateStreams(
+   buildIncomingFromSingleUpstreamInternalStateStream(
+      upstreamInternalState$: Observable<VertexInternalState<any>>
+   ): Observable<VertexInternalState<any>> {
+      // TODO Remove check
+      if (this.isRoot()) {
+         throw Error('Not implemented for root vertex')
+      }
+      // TODO Remove check
+      if (this.upstreamVertices.length > 1) {
+         throw Error('Not implemented for multiple upstream vertices')
+      }
+      const upstreamVertex = this.upstreamVertices[0]
+      const pickedFields = this.upstreamFieldsByVertexId[
+         upstreamVertex.id
+      ] as string[]
+      return incomingFromSingleUpstreamInternalState(
+         this.name,
+         pickedFields,
+         upstreamInternalState$
+      )
+   }
+
+   buildIncomingFromMultipleUpstreamInternalStateStream(
       commonAncestorInternalState$: Observable<VertexInternalState<any>>,
-      upstreamInternalStateStreamByVertexId: Record<
+      internalStateStreamByDirectAncestorId: Record<
          symbol,
          Observable<VertexInternalState<any>>
       >
    ): Observable<VertexInternalState<any>> {
-      const reduxState$ = commonAncestorInternalState$.pipe(
-         map(internalState => ({
-            versions: internalState.versions,
-            reduxState: internalState.reduxState.downstream[this.name],
-            readonlyFields: {},
-            loadableFields: {}
-         }))
-         // distinctUntilChanged()
-      )
-      const upstreamInternalStateStreams = this.upstreamVertices.map(
-         upstreamVertexConfig => {
-            const upstreamFields =
-               this.upstreamFieldsByVertexId[upstreamVertexConfig.id]
-            return upstreamInternalStateStreamByVertexId[
-               upstreamVertexConfig.id
-            ].pipe(
-               map(internalState =>
-                  pickInternalState(internalState, upstreamFields)
-               ),
-               distinctUntilChanged(deepInternalStateEquals)
-            )
-         }
-      )
-
-      const incomingInternalState$ = combineLatest([
-         reduxState$,
-         ...upstreamInternalStateStreams
-      ]).pipe(
-         map(mergeVersions),
-         filter(({ versionsConverged }) => versionsConverged),
-         map(({ internalStates, versions }) => {
-            const { reduxState } = internalStates[0]
-            const readonlyFields: any = {}
-            const loadableFields: any = {}
-            internalStates.forEach(internalState => {
-               Object.assign(readonlyFields, internalState.reduxState.vertex)
-               Object.assign(readonlyFields, internalState.readonlyFields)
-               Object.assign(loadableFields, internalState.loadableFields)
-            })
-            return {
-               versions: { ...versions, [this.vertexId]: 0 },
-               reduxState,
-               readonlyFields,
-               loadableFields
-            }
-         }),
-         scan((acc, internalState) => ({
-            ...internalState,
-            versions: {
-               ...internalState.versions,
-               [this.vertexId]: acc.versions[this.vertexId] + 1
-            }
+      // TODO Remove check
+      if (this.isRoot()) {
+         throw Error('Not implemented for root vertex')
+      }
+      // TODO Remove check
+      if (this.upstreamVertices.length === 1) {
+         throw Error('Not implemented for single upstream vertex')
+      }
+      return incomingFromMultipleUpstreamInternalStates(
+         this.name,
+         commonAncestorInternalState$,
+         this.upstreamVertices.map(upstreamVertex => ({
+            internalState$:
+               internalStateStreamByDirectAncestorId[upstreamVertex.id],
+            pickedFields: this.upstreamFieldsByVertexId[upstreamVertex.id]
          }))
       )
-
-      const outgoingInternalState$ = incomingInternalState$
-
-      return outgoingInternalState$
    }
 }

@@ -7,6 +7,8 @@ import { VertexInstance } from '../VertexInstance'
 import { VertexType } from '../VertexType'
 import { VertexInternalState } from '../state/VertexInternalState'
 import { VertexStateKey } from '../state/VertexState'
+import { incomingToOutgoingInternalStateStream } from '../state/incomingToOutgoingInternalStateStream'
+import { InternalStateTransformation } from '../transformations/InternalStateTransformation'
 import { computeFromFieldsTransformation } from '../transformations/computeFromFields'
 import { loadTransformation } from '../transformations/load'
 import { loadFromFieldsTransformation } from '../transformations/loadFromFields'
@@ -32,13 +34,8 @@ export class VertexConfigImpl<Type extends VertexType>
       operation: (fields: any) => AnyAction
    }> = []
 
-   protected readonly internalStateTransformations: Array<
-      (
-         dependencies: Type['dependencies']
-      ) => (
-         internalState$: Observable<VertexInternalState<any>>
-      ) => Observable<VertexInternalState<any>>
-   > = []
+   protected readonly internalStateTransformations: InternalStateTransformation[] =
+      []
 
    get rootVertex(): VertexConfig<any> {
       const upstreamVertices = this.upstreamVertices
@@ -113,33 +110,17 @@ export class VertexConfigImpl<Type extends VertexType>
       )
    }
 
-   createInternalStateStream(
-      commonAncestorInternalState$: Observable<VertexInternalState<any>>,
-      upstreamInternalStateStreamByVertexId: Record<
-         symbol,
-         Observable<VertexInternalState<any>>
-      >,
+   createOutgoingInternalStateStream(
+      incomingInternalState$: Observable<VertexInternalState<any>>,
       dependencies: Type['dependencies']
    ) {
-      const incomingInternalState$ =
-         this.builder.combineUpstreamInternalStateStreams(
-            commonAncestorInternalState$,
-            upstreamInternalStateStreamByVertexId
-         )
-      return this.applyInternalStateTransformations(
-         incomingInternalState$,
-         dependencies
+      const injectedTransformations = this.internalStateTransformations.map(
+         transformation => transformation(dependencies)
       )
-   }
-
-   applyInternalStateTransformations(
-      internalState$: Observable<VertexInternalState<any>>,
-      dependencies: Type['dependencies']
-   ) {
-      return this.internalStateTransformations.reduce(
-         (observable, transformation) =>
-            transformation(dependencies)(observable),
-         internalState$
+      return incomingToOutgoingInternalStateStream(
+         this.id,
+         incomingInternalState$,
+         injectedTransformations
       )
    }
 

@@ -8,7 +8,6 @@ import {
    distinctUntilChanged,
    filter,
    map,
-   scan,
    skip
 } from 'rxjs'
 import { Graph } from './Graph'
@@ -23,6 +22,7 @@ import { VertexState } from './state/VertexState'
 import { fromLoadableState } from './util/fromLoadableState'
 import { internalStateEquals } from './util/internalStateEquals'
 import { loadableFromInternalState } from './util/loadableFromInternalState'
+import { loadableStateEquals } from './util/loadableStateEquals'
 import { pickInternalState } from './util/pickInternalState'
 import { pickLoadableState } from './util/pickLoadableState'
 
@@ -150,15 +150,18 @@ export const createGraph = (options: {
 
    const createVertexInstance = <Type extends VertexType>(
       config: VertexConfig<Type>,
-      internalState$: Observable<VertexInternalState<Type>>,
+      outgoingInternalState$: Observable<VertexInternalState<Type>>,
       dependencies: Type['dependencies']
    ): VertexInstance<Type> => {
       let currentState: VertexState<Type>
       let loadableState$ = new ReplaySubject<VertexLoadableState<Type>>(1) // TODO use some kind of StateObservable ?
       const state$ = loadableState$.pipe(map(_ => _.state)) // TODO use some kind of StateObservable ?
       let currentLoadableState: VertexLoadableState<Type> = null as any
-      internalState$
-         .pipe(map(loadableFromInternalState))
+      outgoingInternalState$
+         .pipe(
+            map(loadableFromInternalState(config.id)),
+            distinctUntilChanged(loadableStateEquals)
+         )
          .subscribe(loadableState => {
             currentLoadableState = loadableState
             currentState = loadableState.state
@@ -169,14 +172,14 @@ export const createGraph = (options: {
       // fieldsReaction() //
       /////////////////////
       ;(config as VertexConfigImpl<Type>).fieldsReactions.forEach(reaction => {
-         internalState$
+         outgoingInternalState$
             .pipe(
                map(internalState =>
                   pickInternalState(internalState, reaction.fields)
                ),
                distinctUntilChanged(internalStateEquals),
                skip(1),
-               map(loadableFromInternalState),
+               map(loadableFromInternalState(config.id)),
                filter(_ => _.status === 'loaded')
             )
             .subscribe(pickedLoadableState => {
@@ -241,34 +244,25 @@ export const createGraph = (options: {
 
    const reduxState$ = new Subject<any>()
 
-   const originalRootInternalState$ = reduxState$.pipe(
+   const rootIncomingInternalState$ = reduxState$.pipe(
       map(reduxState => ({
-         versions: { [rootVertexConfig.id]: 0 },
+         versions: {},
          reduxState,
          readonlyFields: {},
          loadableFields: {}
       }))
    )
-
-   const rootInternalState$ = new ReplaySubject<any>(1)
+   const rootOutgoingInternalState$ = new ReplaySubject<any>(1)
    rootVertexConfig
-      .applyInternalStateTransformations(
-         originalRootInternalState$,
+      .createOutgoingInternalStateStream(
+         rootIncomingInternalState$,
          rootDependencies
       )
-      .pipe(
-         scan((acc, value) => ({
-            ...value,
-            versions: {
-               [rootVertexConfig.id]: acc.versions[rootVertexConfig.id] + 1
-            }
-         }))
-      )
-      .subscribe(rootInternalState$)
+      .subscribe(rootOutgoingInternalState$)
 
    const rootVertexInstance = createVertexInstance(
       rootVertexConfig,
-      rootInternalState$,
+      rootOutgoingInternalState$,
       rootDependencies
    )
 
@@ -285,7 +279,7 @@ export const createGraph = (options: {
    > = {
       [rootVertexConfig.id]: {
          instance: rootVertexInstance,
-         internalState$: rootInternalState$
+         internalState$: rootOutgoingInternalState$
       }
    }
 
@@ -293,42 +287,76 @@ export const createGraph = (options: {
       config: VertexConfig<Type>
    ): void => {
       if (vertexById[config.id]) return
-      config.upstreamVertices.forEach(createVertex)
+      const upstreamVertices = config.upstreamVertices
+      if (upstreamVertices.length === 0) return // It's the root vertex
+      config.upstreamVertices.forEach(createVertex) // Make sure all upstream vertices are initialized
+
+      //////////////////////////////
+      // INCOMING INTERNAL STATE //
+      ////////////////////////////
+      let incomingInternalState$: Observable<VertexInternalState<Type>>
+      if (upstreamVertices.length === 1) {
+         const upstreamVertex = upstreamVertices[0]
+         const upstreamInternalState$ =
+            vertexById[upstreamVertex.id].internalState$
+         incomingInternalState$ = (
+            config as VertexConfigImpl<Type>
+         ).builder.buildIncomingFromSingleUpstreamInternalStateStream(
+            upstreamInternalState$
+         )
+      } else {
+         // multiple upstream vertices
+         const commonAncestorId = (
+            config as VertexConfigImpl<Type>
+         ).findClosestCommonAncestor()
+         const commonAncestorInternalState$ =
+            vertexById[commonAncestorId].internalState$
+         const internalStateStreamByDirectAncestorId: Record<
+            symbol,
+            Observable<VertexInternalState<any>>
+         > = {}
+         upstreamVertices.forEach(upstreamVertexConfig => {
+            const upstreamVertex = vertexById[upstreamVertexConfig.id]
+            internalStateStreamByDirectAncestorId[upstreamVertexConfig.id] =
+               upstreamVertex.internalState$
+         })
+         incomingInternalState$ = (
+            config as VertexConfigImpl<Type>
+         ).builder.buildIncomingFromMultipleUpstreamInternalStateStream(
+            commonAncestorInternalState$,
+            internalStateStreamByDirectAncestorId
+         )
+      }
+
+      ///////////////////
+      // DEPENDENCIES //
+      /////////////////
       const upstreamDependencies = {} as Record<symbol, any>
-      const upstreamInternalStatesStreams = {} as Record<
-         symbol,
-         Observable<VertexInternalState<any>>
-      >
       config.upstreamVertices.forEach(upstreamVertexConfig => {
          const upstreamVertex = vertexById[upstreamVertexConfig.id]
          upstreamDependencies[upstreamVertexConfig.id] =
             upstreamVertex.instance.dependencies
-         upstreamInternalStatesStreams[upstreamVertexConfig.id] =
-            upstreamVertex.internalState$
       })
       const injectedDependencies = injectedDependenciesByVertexId[config.id]
       const dependencies = (
          config as VertexConfigImpl<Type>
       ).buildVertexDependencies(upstreamDependencies, injectedDependencies)
 
-      const commonAncestorId = (
-         config as VertexConfigImpl<Type>
-      ).findClosestCommonAncestor()
-      const commonAncestorInternalState$ =
-         vertexById[commonAncestorId].internalState$
-      const internalState$ = (
+      //////////////////////////////
+      // OUTGOING INTERNAL STATE //
+      ////////////////////////////
+      const outgoingInternalState$ = (
          config as VertexConfigImpl<any>
-      ).createInternalStateStream(
-         commonAncestorInternalState$,
-         upstreamInternalStatesStreams,
-         dependencies
-      )
+      ).createOutgoingInternalStateStream(incomingInternalState$, dependencies)
       const instance = createVertexInstance(
          config,
-         internalState$,
+         outgoingInternalState$ as any,
          dependencies
       )
-      vertexById[config.id] = { instance, internalState$ }
+      vertexById[config.id] = {
+         instance,
+         internalState$: outgoingInternalState$
+      }
    }
 
    exhaustiveVertexConfigs.forEach(createVertex)
