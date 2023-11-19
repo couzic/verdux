@@ -131,7 +131,10 @@ export class VertexConfigBuilderImpl<
       dependenciesByUpstreamVertexId: Record<symbol, any>,
       injectedDependencies: any
    ): BuilderType['dependencies'] {
-      let dependencies: any = {}
+      let dependencies: any =
+         this.upstreamVertices.length !== 1
+            ? {}
+            : dependenciesByUpstreamVertexId[this.upstreamVertices[0].id]
       this.chainedDependencyProviders.forEach(
          ({ vertexId, dependencyProviders }) => {
             const inputDependencies =
