@@ -78,9 +78,13 @@ export const loadFromFieldsTransformation =
                      )
                   )
                ).pipe(
-                  scan((acc, loadableValues: any) => {
-                     return { ...acc, ...loadableValues }
-                  })
+                  scan(
+                     (acc, loadableValues: any) => ({
+                        ...acc,
+                        ...loadableValues
+                     }),
+                     loadingValues
+                  )
                )
             )
          )
