@@ -1,5 +1,8 @@
 import { Slice } from '@reduxjs/toolkit'
-import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
+import {
+   ActionCreatorWithPayload,
+   BaseActionCreator
+} from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { AnyAction, Reducer } from 'redux'
 import { Observable } from 'rxjs'
@@ -32,6 +35,13 @@ export class VertexConfigImpl<Type extends VertexType>
    readonly fieldsReactions: Array<{
       fields: any[]
       operation: (fields: any) => AnyAction
+   }> = []
+   readonly sideEffects: Array<{
+      actionCreator: BaseActionCreator<any, any>
+      operation: (
+         payload: any,
+         vertex: VertexInstance<Type>
+      ) => void | Promise<void>
    }> = []
 
    protected readonly internalStateTransformations: InternalStateTransformation[] =
@@ -190,6 +200,19 @@ export class VertexConfigImpl<Type extends VertexType>
       }) => AnyAction
    ) {
       this.fieldsReactions.push({ fields, operation })
+      return this
+   }
+
+   sideEffect<ActionCreator extends BaseActionCreator<any, any, never, never>>(
+      actionCreator: ActionCreator,
+      operation: (
+         payload: ActionCreator extends ActionCreatorWithPayload<infer P, any>
+            ? P
+            : never,
+         vertex: VertexInstance<Type>
+      ) => void
+   ) {
+      this.sideEffects.push({ actionCreator, operation })
       return this
    }
 }

@@ -2,12 +2,14 @@ import { AnyAction, combineReducers, configureStore } from '@reduxjs/toolkit'
 import { Reducer } from 'redux'
 import { combineEpics, createEpicMiddleware, ofType } from 'redux-observable'
 import {
+   NEVER,
    Observable,
    ReplaySubject,
    Subject,
    distinctUntilChanged,
    filter,
    map,
+   mergeMap,
    skip
 } from 'rxjs'
 import { Graph } from './Graph'
@@ -218,6 +220,18 @@ export const createGraph = (options: {
             )
       }
 
+      ///////////////////
+      // sideEffect() //
+      /////////////////
+      ;(config as VertexConfigImpl<Type>).sideEffects.forEach(sideEffect => {
+         epics.push(
+            mergeMap((action: AnyAction) => {
+               sideEffect.operation(action.payload, vertex)
+               return NEVER
+            })
+         )
+      })
+
       /////////////////
       // reaction() //
       ///////////////
@@ -229,7 +243,6 @@ export const createGraph = (options: {
             )
          epics.push(epic)
       })
-
       return vertex
    }
 

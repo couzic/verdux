@@ -265,6 +265,16 @@ export interface VertexConfig<Type extends VertexType> {
       }) => AnyAction
    ): this
 
+   sideEffect<ActionCreator extends BaseActionCreator<any, any>>(
+      actionCreator: ActionCreator,
+      operation: (
+         payload: ActionCreator extends ActionCreatorWithPayload<infer P, any>
+            ? P
+            : never,
+         vertex: VertexInstance<Type> // TODO limited vertex instance ? (no dispatch)
+      ) => void
+   ): this
+
    // TODO
    // computeFromLoadableFields()
    // Compute from fields even if they are not loaded yet. Allows more low level, manual handling.
