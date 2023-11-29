@@ -10,32 +10,38 @@ const slice = createSlice({
    reducers: {
       setUsername: (state, action: PayloadAction<string>) => {
          state.username = action.payload
-      }
+      },
+      setSomethingElse: (state, action: PayloadAction<string>) => {}
    }
 })
-const { setUsername } = slice.actions
+const { setUsername, setSomethingElse } = slice.actions
 
 describe('rootVertex.sideEffect()', () => {
    let graph: Graph
-   let result: string
 
-   describe('with simple side effect', () => {
+   it('triggers side effect', () => {
+      let result: string | undefined
       const rootVertexConfig = configureRootVertex({ slice }).sideEffect(
          setUsername,
          username => (result = username)
       )
-      beforeEach(() => {
-         graph = createGraph({
-            vertices: [rootVertexConfig]
-         })
+      graph = createGraph({
+         vertices: [rootVertexConfig]
       })
-      describe('when action dispatched', () => {
-         beforeEach(() => {
-            graph.dispatch(setUsername('Bob'))
-         })
-         it('triggers side effect', () => {
-            expect(result).to.equal('Bob')
-         })
+      graph.dispatch(setUsername('Bob'))
+      expect(result).to.equal('Bob')
+   })
+
+   it('ignores side effect when another action is dispatched', () => {
+      let result: string | undefined
+      const rootVertexConfig = configureRootVertex({ slice }).sideEffect(
+         setUsername,
+         username => (result = username)
+      )
+      graph = createGraph({
+         vertices: [rootVertexConfig]
       })
+      graph.dispatch(setSomethingElse('Bob'))
+      expect(result).to.equal(undefined)
    })
 })

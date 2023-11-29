@@ -226,7 +226,9 @@ export const createGraph = (options: {
       ;(config as VertexConfigImpl<Type>).sideEffects.forEach(sideEffect => {
          epics.push(
             mergeMap((action: AnyAction) => {
-               sideEffect.operation(action.payload, vertex)
+               if (action.type === sideEffect.actionCreator.type) {
+                  sideEffect.operation(action.payload, vertex)
+               }
                return NEVER
             })
          )
