@@ -81,8 +81,16 @@ export const pickTransformationInput =
             )
             if (next.fromMemory) {
                return {
-                  ...previous,
-                  versions
+                  versions,
+                  reduxState: next.internalState.reduxState,
+                  readonlyFields: {
+                     ...previous.readonlyFields,
+                     ...next.internalState.readonlyFields
+                  },
+                  loadableFields: {
+                     ...previous.loadableFields,
+                     ...next.internalState.loadableFields
+                  }
                }
             } else {
                return {
