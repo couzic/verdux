@@ -54,7 +54,16 @@ export function incomingToOutgoingInternalStateStream(
             if (next.fromMemory) {
                return {
                   ...previous,
-                  versions: mergedVersions
+                  versions: mergedVersions,
+                  reduxState: next.internalState.reduxState,
+                  readonlyFields: {
+                     ...previous.readonlyFields,
+                     ...next.internalState.readonlyFields
+                  },
+                  loadableFields: {
+                     ...previous.loadableFields,
+                     ...next.internalState.loadableFields
+                  }
                }
             } else {
                return {
