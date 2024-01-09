@@ -1,4 +1,4 @@
-import { AnyAction, combineReducers, configureStore } from '@reduxjs/toolkit'
+import { UnknownAction, combineReducers, configureStore } from '@reduxjs/toolkit'
 import { Reducer } from 'redux'
 import { combineEpics, createEpicMiddleware, ofType } from 'redux-observable'
 import {
@@ -139,12 +139,12 @@ export const createGraph = (options: {
    const reduxStore = configureStore({
       reducer: rootReducer,
       middleware: getDefaultMiddleware =>
-         getDefaultMiddleware().concat(epicMiddleware) // TODO Remove thunk ?
+         getDefaultMiddleware().concat(epicMiddleware as any) // TODO Remove thunk ?
    })
 
    const epics = [] as any[]
 
-   const dispatch = (action: AnyAction) => reduxStore.dispatch(action)
+   const dispatch = (action: UnknownAction) => reduxStore.dispatch(action)
 
    ////////////////////////////////////
    // Create actual vertex instance //
@@ -225,7 +225,7 @@ export const createGraph = (options: {
       /////////////////
       ;(config as VertexConfigImpl<Type>).sideEffects.forEach(sideEffect => {
          epics.push(
-            mergeMap((action: AnyAction) => {
+            mergeMap((action: UnknownAction) => {
                if (action.type === sideEffect.actionCreator.type) {
                   sideEffect.operation(action.payload, vertex)
                }
@@ -238,7 +238,7 @@ export const createGraph = (options: {
       // reaction() //
       ///////////////
       ;(config as VertexConfigImpl<Type>).reactions.forEach(reaction => {
-         const epic = (action$: Observable<AnyAction>) =>
+         const epic = (action$: Observable<UnknownAction>) =>
             reaction.operation(
                action$.pipe(ofType(reaction.actionCreator.type)),
                vertex

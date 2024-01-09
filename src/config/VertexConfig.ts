@@ -1,6 +1,6 @@
 import {
    ActionCreatorWithPayload,
-   AnyAction,
+   UnknownAction,
    Reducer,
    Slice
 } from '@reduxjs/toolkit'
@@ -249,7 +249,7 @@ export interface VertexConfig<Type extends VertexType> {
                : never
          >,
          vertex: VertexInstance<Type>
-      ) => Observable<AnyAction>
+      ) => Observable<UnknownAction>
    ): this
 
    fieldsReaction<K extends VertexStateKey<Type>>(
@@ -262,7 +262,7 @@ export interface VertexConfig<Type extends VertexType> {
             : FK extends keyof Type['reduxState']
             ? Type['reduxState'][FK]
             : never
-      }) => AnyAction
+      }) => UnknownAction
    ): this
 
    sideEffect<ActionCreator extends BaseActionCreator<any, any>>(

@@ -1,10 +1,9 @@
-import { Slice } from '@reduxjs/toolkit'
+import { Reducer, Slice, UnknownAction } from '@reduxjs/toolkit'
 import {
    ActionCreatorWithPayload,
    BaseActionCreator
 } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
-import { AnyAction, Reducer } from 'redux'
 import { Observable } from 'rxjs'
 import { VertexInstance } from '../VertexInstance'
 import { VertexType } from '../VertexType'
@@ -30,11 +29,11 @@ export class VertexConfigImpl<Type extends VertexType>
       operation: (
          payload$: Observable<any>,
          vertex: VertexInstance<Type>
-      ) => Observable<AnyAction>
+      ) => Observable<UnknownAction>
    }> = []
    readonly fieldsReactions: Array<{
       fields: any[]
-      operation: (fields: any) => AnyAction
+      operation: (fields: any) => UnknownAction
    }> = []
    readonly sideEffects: Array<{
       actionCreator: BaseActionCreator<any, any>
@@ -181,7 +180,7 @@ export class VertexConfigImpl<Type extends VertexType>
       operation: (
          payload$: Observable<any>,
          vertex: VertexInstance<Type>
-      ) => Observable<AnyAction>
+      ) => Observable<UnknownAction>
    ) {
       this.reactions.push({ actionCreator, operation })
       return this
@@ -197,7 +196,7 @@ export class VertexConfigImpl<Type extends VertexType>
             : FK extends keyof Type['reduxState']
             ? Type['reduxState'][FK]
             : never
-      }) => AnyAction
+      }) => UnknownAction
    ) {
       this.fieldsReactions.push({ fields, operation })
       return this
