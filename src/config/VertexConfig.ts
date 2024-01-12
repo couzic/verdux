@@ -1,15 +1,15 @@
 import {
    ActionCreatorWithPayload,
-   UnknownAction,
    Reducer,
-   Slice
+   Slice,
+   UnknownAction
 } from '@reduxjs/toolkit'
 import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
 import { VertexInstance } from '../VertexInstance'
 import { VertexType } from '../VertexType'
-import { PickedLoadedVertexState } from '../state/PickedLoadedVertexState'
+import { PickedVertexLoadedState } from '../state/PickedVertexLoadedState'
 import { VertexStateKey } from '../state/VertexState'
 import { IsDependablePlainObject, IsPlainObject } from '../util/IsPlainObject'
 import { Match } from '../util/Match'
@@ -55,8 +55,8 @@ export interface VertexConfig<Type extends VertexType> {
             )]: K extends keyof Type['readonlyFields']
             ? Type['readonlyFields'][K]
             : K extends keyof Type['reduxState']
-            ? Type['reduxState'][K]
-            : never
+              ? Type['reduxState'][K]
+              : never
       }
       loadableFields: {
          [K in UpstreamField &
@@ -70,8 +70,8 @@ export interface VertexConfig<Type extends VertexType> {
             | keyof Dependencies]: D extends keyof Dependencies
             ? Dependencies[D]
             : D extends keyof Type['dependencies']
-            ? Type['dependencies'][D]
-            : never
+              ? Type['dependencies'][D]
+              : never
       }
    }>
 
@@ -84,10 +84,10 @@ export interface VertexConfig<Type extends VertexType> {
       Computers extends Record<
          string,
          (pickedFields: {
-            [PK in keyof PickedLoadedVertexState<
+            [PK in keyof PickedVertexLoadedState<
                Type,
                K
-            >]: PickedLoadedVertexState<Type, K>[PK]
+            >]: PickedVertexLoadedState<Type, K>[PK]
          }) => any
       >
    >(
@@ -96,34 +96,34 @@ export interface VertexConfig<Type extends VertexType> {
    ): IsPlainObject<Computers> extends false
       ? never
       : Match<K, keyof Type['loadableFields']> extends true
-      ? VertexConfig<{
-           reduxState: Type['reduxState']
-           readonlyFields: Type['readonlyFields']
-           loadableFields: {
-              [LFK in
-                 | keyof Type['loadableFields']
-                 | keyof Computers]: LFK extends keyof Computers
-                 ? ReturnType<Computers[LFK]>
-                 : LFK extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][LFK]
-                 : never
-           }
-           dependencies: Type['dependencies']
-        }>
-      : VertexConfig<{
-           reduxState: Type['reduxState']
-           readonlyFields: {
-              [RFK in
-                 | keyof Type['readonlyFields']
-                 | keyof Computers]: RFK extends keyof Computers
-                 ? ReturnType<Computers[RFK]>
-                 : RFK extends keyof Type['readonlyFields']
-                 ? Type['readonlyFields'][RFK]
-                 : never
-           }
-           loadableFields: Type['loadableFields']
-           dependencies: Type['dependencies']
-        }>
+        ? VertexConfig<{
+             reduxState: Type['reduxState']
+             readonlyFields: Type['readonlyFields']
+             loadableFields: {
+                [LFK in
+                   | keyof Type['loadableFields']
+                   | keyof Computers]: LFK extends keyof Computers
+                   ? ReturnType<Computers[LFK]>
+                   : LFK extends keyof Type['loadableFields']
+                     ? Type['loadableFields'][LFK]
+                     : never
+             }
+             dependencies: Type['dependencies']
+          }>
+        : VertexConfig<{
+             reduxState: Type['reduxState']
+             readonlyFields: {
+                [RFK in
+                   | keyof Type['readonlyFields']
+                   | keyof Computers]: RFK extends keyof Computers
+                   ? ReturnType<Computers[RFK]>
+                   : RFK extends keyof Type['readonlyFields']
+                     ? Type['readonlyFields'][RFK]
+                     : never
+             }
+             loadableFields: Type['loadableFields']
+             dependencies: Type['dependencies']
+          }>
 
    loadFromFields<K extends VertexStateKey<Type>, LoadableFields>(
       fields: K[],
@@ -134,10 +134,10 @@ export interface VertexConfig<Type extends VertexType> {
                [FK in K]: FK extends keyof Type['loadableFields']
                   ? Type['loadableFields'][FK]
                   : FK extends keyof Type['readonlyFields']
-                  ? Type['loadableFields'][FK]
-                  : FK extends keyof Type['reduxState']
-                  ? Type['reduxState'][FK]
-                  : never
+                    ? Type['loadableFields'][FK]
+                    : FK extends keyof Type['reduxState']
+                      ? Type['reduxState'][FK]
+                      : never
             }) => Observable<LoadableFields[LFK]>
          }
       >
@@ -150,8 +150,8 @@ export interface VertexConfig<Type extends VertexType> {
                  LoadableFields)]: P extends keyof LoadableFields
                  ? LoadableFields[P]
                  : P extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][P]
-                 : never
+                   ? Type['loadableFields'][P]
+                   : never
            }
            dependencies: Type['dependencies']
         }>
@@ -173,8 +173,8 @@ export interface VertexConfig<Type extends VertexType> {
                  LoadableFields)]: P extends keyof LoadableFields
                  ? LoadableFields[P]
                  : P extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][P]
-                 : never
+                   ? Type['loadableFields'][P]
+                   : never
            }
            dependencies: Type['dependencies']
         }>
@@ -190,10 +190,10 @@ export interface VertexConfig<Type extends VertexType> {
                   [FK in K]: FK extends keyof Type['loadableFields']
                      ? Type['loadableFields'][FK]
                      : FK extends keyof Type['readonlyFields']
-                     ? Type['readonlyFields'][FK]
-                     : FK extends keyof Type['reduxState']
-                     ? Type['reduxState'][FK]
-                     : never
+                       ? Type['readonlyFields'][FK]
+                       : FK extends keyof Type['reduxState']
+                         ? Type['reduxState'][FK]
+                         : never
                }>
             ) => Observable<LoadableFields[LFK]>
          }
@@ -207,8 +207,8 @@ export interface VertexConfig<Type extends VertexType> {
                  LoadableFields)]: P extends keyof LoadableFields
                  ? LoadableFields[P]
                  : P extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][P]
-                 : never
+                   ? Type['loadableFields'][P]
+                   : never
            }
            dependencies: Type['dependencies']
         }>
@@ -233,8 +233,8 @@ export interface VertexConfig<Type extends VertexType> {
                  LoadableFields)]: P extends keyof LoadableFields
                  ? LoadableFields[P]
                  : P extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][P]
-                 : never
+                   ? Type['loadableFields'][P]
+                   : never
            }
            dependencies: Type['dependencies']
         }>
@@ -258,10 +258,10 @@ export interface VertexConfig<Type extends VertexType> {
          [FK in K]: FK extends keyof Type['loadableFields']
             ? Type['loadableFields'][FK]
             : FK extends keyof Type['readonlyFields']
-            ? Type['loadableFields'][FK]
-            : FK extends keyof Type['reduxState']
-            ? Type['reduxState'][FK]
-            : never
+              ? Type['loadableFields'][FK]
+              : FK extends keyof Type['reduxState']
+                ? Type['reduxState'][FK]
+                : never
       }) => UnknownAction
    ): this
 

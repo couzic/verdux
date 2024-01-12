@@ -1,5 +1,5 @@
 import { VertexType } from '../VertexType'
-import { PickedLoadableState } from '../state/PickedLoadableState'
+import { PickedVertexLoadableState } from '../state/PickedVertexLoadableState'
 import { VertexLoadableState } from '../state/VertexLoadableState'
 import { VertexStateKey } from '../state/VertexState'
 import { combineState } from './combineState'
@@ -11,7 +11,7 @@ export const pickLoadableState = <
 >(
    loadableState: VertexLoadableState<Type>,
    keys: K[]
-): PickedLoadableState<Type, K> => {
+): PickedVertexLoadableState<Type, K> => {
    const reduxState: any = {}
    const readonlyFields: any = {}
    const loadableFields: any = {}

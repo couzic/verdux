@@ -1,19 +1,22 @@
 import { VertexType } from '../VertexType'
-import { VertexInternalState } from './VertexInternalState'
+import { VertexLoadableState } from './VertexLoadableState'
 import { VertexStateKey } from './VertexState'
 
-export type PickedInternalState<
+export type PickedVertexLoadableState<
    Type extends VertexType,
    K extends VertexStateKey<Type>
-> = VertexInternalState<{
+> = VertexLoadableState<{
    reduxState: Pick<
       Type['reduxState'],
       Exclude<K, keyof Type['readonlyFields'] | keyof Type['loadableFields']>
    >
    readonlyFields: Pick<
       Type['readonlyFields'],
-      Exclude<K, keyof Type['loadableFields']>
+      Exclude<K & keyof Type['readonlyFields'], keyof Type['loadableFields']>
    >
-   loadableFields: Pick<Type['loadableFields'], K>
+   loadableFields: Pick<
+      Type['loadableFields'],
+      K & keyof Type['loadableFields']
+   >
    dependencies: Type['dependencies']
 }>

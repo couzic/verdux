@@ -1,6 +1,6 @@
 import { Observable } from 'rxjs'
 import { VertexType } from './VertexType'
-import { PickedLoadableState } from './state/PickedLoadableState'
+import { PickedVertexLoadableState } from './state/PickedVertexLoadableState'
 import { VertexLoadableState } from './state/VertexLoadableState'
 import { VertexState, VertexStateKey } from './state/VertexState'
 
@@ -22,5 +22,5 @@ export interface VertexInstance<Type extends VertexType> {
    readonly dependencies: Type['dependencies']
    pick<K extends VertexStateKey<Type>>(
       fields: K[]
-   ): Observable<PickedLoadableState<Type, K>>
+   ): Observable<PickedVertexLoadableState<Type, K>>
 }

@@ -1,5 +1,5 @@
 import { VertexType } from '../VertexType'
-import { PickedInternalState } from '../state/PickedInternalState'
+import { PickedVertexInternalState } from '../state/PickedVertexInternalState'
 import { VertexInternalState } from '../state/VertexInternalState'
 import { VertexStateKey } from '../state/VertexState'
 
@@ -9,7 +9,7 @@ export const pickInternalState = <
 >(
    internalState: VertexInternalState<Type>,
    keys: K[]
-): PickedInternalState<Type, K> => {
+): PickedVertexInternalState<Type, K> => {
    const reduxState = {
       vertex: {} as any,
       downstream: internalState.reduxState.downstream
