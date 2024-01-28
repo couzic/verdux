@@ -51,6 +51,31 @@ describe('rootVertex.reaction()', () => {
       })
    })
 
+   describe('with reaction on payload value', () => {
+      const rootVertexConfig = configureRootVertex({ slice }).reaction(
+         setUsername,
+         map(username => increment(username.length))
+      )
+      let rootVertex: Vertex<typeof rootVertexConfig>
+      beforeEach(() => {
+         graph = createGraph({
+            vertices: [rootVertexConfig]
+         })
+         rootVertex = graph.getVertexInstance(rootVertexConfig)
+      })
+      describe('when action dispatched', () => {
+         beforeEach(() => {
+            graph.dispatch(setUsername('Bob'))
+         })
+         it('triggers reaction', () => {
+            expect(rootVertex.currentState).to.deep.equal({
+               username: 'Bob',
+               count: 3
+            })
+         })
+      })
+   })
+
    describe('with reaction using vertex instance', () => {
       const rootVertexConfig = configureRootVertex({
          slice,

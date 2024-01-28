@@ -1,4 +1,8 @@
-import { UnknownAction, combineReducers, configureStore } from '@reduxjs/toolkit'
+import {
+   UnknownAction,
+   combineReducers,
+   configureStore
+} from '@reduxjs/toolkit'
 import { Reducer } from 'redux'
 import { combineEpics, createEpicMiddleware, ofType } from 'redux-observable'
 import {
@@ -240,7 +244,10 @@ export const createGraph = (options: {
       ;(config as VertexConfigImpl<Type>).reactions.forEach(reaction => {
          const epic = (action$: Observable<UnknownAction>) =>
             reaction.operation(
-               action$.pipe(ofType(reaction.actionCreator.type)),
+               action$.pipe(
+                  ofType(reaction.actionCreator.type),
+                  map(_ => _.payload)
+               ),
                vertex
             )
          epics.push(epic)
