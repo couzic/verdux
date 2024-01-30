@@ -14,7 +14,7 @@ import {
    filter,
    map,
    mergeMap,
-   skip
+   share
 } from 'rxjs'
 import { Graph } from './Graph'
 import { VertexInstance } from './VertexInstance'
@@ -161,11 +161,15 @@ export const createGraph = (options: {
       outgoingInternalState$: Observable<VertexInternalState<Type>>,
       dependencies: Type['dependencies']
    ): VertexInstance<Type> => {
+      const internalState$ =
+         (config as VertexConfigImpl<Type>).fieldsReactions.length > 0
+            ? outgoingInternalState$.pipe(share())
+            : outgoingInternalState$
       let currentState: VertexState<Type>
       let loadableState$ = new ReplaySubject<VertexLoadableState<Type>>(1) // TODO use some kind of StateObservable ?
       const state$ = loadableState$.pipe(map(_ => _.state)) // TODO use some kind of StateObservable ?
       let currentLoadableState: VertexLoadableState<Type> = null as any
-      outgoingInternalState$
+      internalState$
          .pipe(
             map(loadableFromInternalState(config.id)),
             distinctUntilChanged(loadableStateEquals)
@@ -180,7 +184,7 @@ export const createGraph = (options: {
       // fieldsReaction() //
       /////////////////////
       ;(config as VertexConfigImpl<Type>).fieldsReactions.forEach(reaction => {
-         outgoingInternalState$
+         internalState$
             .pipe(
                map(internalState =>
                   pickInternalState(internalState, reaction.fields)

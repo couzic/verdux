@@ -195,3 +195,63 @@ describe('rootVertex.fieldsReaction() from loaded field with other irrelevant lo
       })
    })
 })
+
+describe('rootVertex.fieldsReaction() from isolated loadable field', () => {
+   let graph: Graph
+   const slice = createSlice({
+      name: 'root',
+      initialState: { reacted: '' },
+      reducers: {
+         userIdChanged: (state, action: PayloadAction<string>) => {
+            state.reacted = action.payload
+         }
+      }
+   })
+   const createUserService = () => ({
+      getLoggedInUserId: () => of('DEFAULT'),
+      getUsernameById: (id: string) => of('DEFAULT')
+   })
+   type UserService = ReturnType<typeof createUserService>
+   const rootVertexConfig = configureRootVertex({
+      slice,
+      dependencies: {
+         userService: createUserService
+      }
+   })
+      .load(({ userService }) => ({
+         userId: userService.getLoggedInUserId()
+      }))
+      .loadFromFields(['userId'], ({ userService }) => ({
+         username: ({ userId }) => userService.getUsernameById(userId)
+      }))
+      .fieldsReaction(['userId'], ({ userId }) =>
+         slice.actions.userIdChanged(userId)
+      )
+   let rootVertex: Vertex<typeof rootVertexConfig>
+   let userService: UserService
+   let receivedUserId$: Subject<string>
+   let receivedUserName$: Subject<string>
+   beforeEach(() => {
+      receivedUserId$ = new Subject()
+      receivedUserName$ = new Subject()
+      userService = {
+         getLoggedInUserId: () => receivedUserId$,
+         getUsernameById: () => receivedUserName$
+      }
+      graph = createGraph({
+         vertices: [rootVertexConfig.injectedWith({ userService })]
+      })
+      rootVertex = graph.getVertexInstance(rootVertexConfig)
+   })
+   it('initially does not react', () => {
+      expect(rootVertex.currentState.reacted).to.equal('')
+   })
+   describe('when user id received', () => {
+      beforeEach(() => {
+         receivedUserId$.next('123')
+      })
+      it('does react already', () => {
+         expect(rootVertex.currentState.reacted).to.equal('123')
+      })
+   })
+})
