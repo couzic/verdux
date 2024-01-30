@@ -27,9 +27,8 @@ export const loadFromFieldsStreamTransformation =
    (dependencies: any) => {
       const injectedLoaders =
          typeof loaders === 'function' ? loaders(dependencies) : loaders
-      return (
-         inputInternalState$: Observable<VertexInternalState<any>>
-      ): any => {
+      return (internalState$: Observable<VertexInternalState<any>>): any => {
+         const inputInternalState$ = internalState$.pipe(share())
          const loadableKeys = Object.keys(injectedLoaders)
          const loadingValues = {} as Record<string, any>
          loadableKeys.forEach(key => {
@@ -130,8 +129,7 @@ export const loadFromFieldsStreamTransformation =
                   ...internalState.loadableFields,
                   ...loadableFields
                }
-            })),
-            share()
+            }))
          )
       }
    }
