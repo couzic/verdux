@@ -154,6 +154,8 @@ export const createGraph = (options: {
    // Create actual vertex instance //
    //////////////////////////////////
 
+   const fieldsReactionsWhenGraphNotYetReady: UnknownAction[] = []
+
    const createVertexInstance = <Type extends VertexType>(
       config: VertexConfig<Type>,
       outgoingInternalState$: Observable<VertexInternalState<Type>>,
@@ -184,14 +186,17 @@ export const createGraph = (options: {
                   pickInternalState(internalState, reaction.fields)
                ),
                distinctUntilChanged(internalStateEquals),
-               skip(1),
                map(loadableFromInternalState(config.id)),
                filter(_ => _.status === 'loaded')
             )
             .subscribe(pickedLoadableState => {
                const fields = fromLoadableState(pickedLoadableState)
                const action = reaction.operation(fields)
-               graph.dispatch(action)
+               if (graph) {
+                  graph.dispatch(action)
+               } else {
+                  fieldsReactionsWhenGraphNotYetReady.push(action)
+               }
             })
       })
 
@@ -390,6 +395,7 @@ export const createGraph = (options: {
       getVertexInstance: config => vertexById[config.id].instance,
       dispatch
    }
+   fieldsReactionsWhenGraphNotYetReady.forEach(action => graph.dispatch(action))
 
    epicMiddleware.run(combineEpics(...epics))
 

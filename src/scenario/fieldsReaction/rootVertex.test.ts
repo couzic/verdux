@@ -1,6 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
-import { Subject, of } from 'rxjs'
+import { NEVER, Subject, of } from 'rxjs'
 import { Graph } from '../../Graph'
 import { Vertex } from '../../Vertex'
 import { configureRootVertex } from '../../config/configureRootVertex'
@@ -155,6 +155,43 @@ describe('rootVertex.fieldsReaction() from multiple loadable fields', () => {
                fullName: 'John Snow'
             })
          })
+      })
+   })
+})
+
+describe('rootVertex.fieldsReaction() from loaded field with other irrelevant loading fields', () => {
+   let graph: Graph
+   const slice = createSlice({
+      name: 'root',
+      initialState: { uppercaseName: '' },
+      reducers: {
+         setUppercaseName: (state, action: PayloadAction<string>) => {
+            state.uppercaseName = action.payload
+         }
+      }
+   })
+   const rootVertexConfig = configureRootVertex({
+      slice
+   })
+      .load({
+         username: of('Bob'),
+         irrelevant: NEVER
+      })
+      .fieldsReaction(['username'], ({ username }) =>
+         slice.actions.setUppercaseName(username.toUpperCase())
+      )
+   let rootVertex: Vertex<typeof rootVertexConfig>
+   beforeEach(() => {
+      graph = createGraph({
+         vertices: [rootVertexConfig]
+      })
+      rootVertex = graph.getVertexInstance(rootVertexConfig)
+   })
+   it('triggers reaction', () => {
+      expect(rootVertex.currentState).to.deep.equal({
+         username: 'Bob',
+         uppercaseName: 'BOB',
+         irrelevant: undefined
       })
    })
 })
