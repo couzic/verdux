@@ -8,6 +8,7 @@ import {
    scan,
    share,
    switchMap,
+   tap,
    withLatestFrom
 } from 'rxjs'
 import { Dependable } from '../config/Dependable'
@@ -89,7 +90,10 @@ export const loadFromFieldsTransformation =
             )
          )
 
-         const loadableFields$ = merge(loading$, loadedOrError$).pipe(share())
+         let latestLoadableFields = loadingValues
+         const loadableFields$ = merge(loading$, loadedOrError$).pipe(
+            tap(loadableFields => (latestLoadableFields = loadableFields))
+         )
          const loadableFieldsWithLatestInternalState$ = loadableFields$.pipe(
             withLatestFrom(inputInternalState$),
             map(([loadableFields, inputInternalState]) => ({
@@ -101,10 +105,9 @@ export const loadFromFieldsTransformation =
          const internalStateWithLatestLoadableFields$ =
             internalStatePicked$.pipe(
                filter(({ pickedStateHasChanged }) => !pickedStateHasChanged),
-               withLatestFrom(loadableFields$),
-               map(([{ inputInternalState }, loadableFields]) => ({
+               map(({ inputInternalState }) => ({
                   inputInternalState,
-                  loadableFields
+                  loadableFields: latestLoadableFields
                }))
             )
 

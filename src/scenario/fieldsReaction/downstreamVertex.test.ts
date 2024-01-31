@@ -13,7 +13,7 @@ const rootVertexConfig = configureRootVertex({
 describe('downstreamVertex.fieldsReaction() from isolated loadable field', () => {
    let graph: Graph
    const slice = createSlice({
-      name: 'root',
+      name: 'downstreamVertexName',
       initialState: { reacted: '' },
       reducers: {
          userIdChanged: (state, action: PayloadAction<string>) => {
