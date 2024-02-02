@@ -26,10 +26,8 @@ import { VertexInternalState } from './state/VertexInternalState'
 import { VertexLoadableState } from './state/VertexLoadableState'
 import { VertexState } from './state/VertexState'
 import { fromLoadableState } from './util/fromLoadableState'
-import { internalStateEquals } from './util/internalStateEquals'
 import { loadableFromInternalState } from './util/loadableFromInternalState'
 import { loadableStateEquals } from './util/loadableStateEquals'
-import { pickInternalState } from './util/pickInternalState'
 import { pickLoadableState } from './util/pickLoadableState'
 
 export const createGraph = (options: {
@@ -180,30 +178,6 @@ export const createGraph = (options: {
             loadableState$.next(loadableState)
          })
 
-      ///////////////////////
-      // fieldsReaction() //
-      /////////////////////
-      ;(config as VertexConfigImpl<Type>).fieldsReactions.forEach(reaction => {
-         internalState$
-            .pipe(
-               map(internalState =>
-                  pickInternalState(internalState, reaction.fields)
-               ),
-               distinctUntilChanged(internalStateEquals),
-               map(loadableFromInternalState(config.id)),
-               filter(_ => _.status === 'loaded')
-            )
-            .subscribe(pickedLoadableState => {
-               const fields = fromLoadableState(pickedLoadableState)
-               const action = reaction.operation(fields)
-               if (graph) {
-                  graph.dispatch(action)
-               } else {
-                  fieldsReactionsWhenGraphNotYetReady.push(action)
-               }
-            })
-      })
-
       const vertex: VertexInstance<Type> = {
          get id() {
             return config.id
@@ -228,10 +202,28 @@ export const createGraph = (options: {
          },
          pick: fields =>
             loadableState$.pipe(
-               map(loadableState => pickLoadableState(loadableState, fields))
-               // TODO NOW distinctUntilChanged(loadableStateEquals)
+               map(loadableState => pickLoadableState(loadableState, fields)),
+               distinctUntilChanged(loadableStateEquals)
             )
       }
+
+      ///////////////////////
+      // fieldsReaction() //
+      /////////////////////
+      ;(config as VertexConfigImpl<Type>).fieldsReactions.forEach(reaction => {
+         vertex
+            .pick(reaction.fields)
+            .pipe(filter(loadableState => loadableState.status === 'loaded'))
+            .subscribe(pickedLoadableState => {
+               const fields = fromLoadableState(pickedLoadableState)
+               const action = reaction.operation(fields)
+               if (graph) {
+                  graph.dispatch(action)
+               } else {
+                  fieldsReactionsWhenGraphNotYetReady.push(action)
+               }
+            })
+      })
 
       ///////////////////
       // sideEffect() //
