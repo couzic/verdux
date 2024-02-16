@@ -2,7 +2,6 @@ import { Observable, filter, map, merge, scan, share } from 'rxjs'
 import { InjectedTransformation } from '../transformations/InternalStateTransformation'
 import { internalStateEquals } from '../util/internalStateEquals'
 import { VertexInternalState } from './VertexInternalState'
-import { mergeVersionNumbers } from './mergeVersionNumbers'
 
 export interface MemoizableInternalState {
    fromMemory: boolean
@@ -14,23 +13,19 @@ const INITIAL_VALUE = Symbol(
 
 export function incomingToOutgoingInternalStateStream(
    vertexId: symbol,
-   incomingInternalState$: Observable<VertexInternalState<any>>, // TODO share()
+   incomingInternalState$: Observable<VertexInternalState<any>>,
    internalStateTransformations: InjectedTransformation[]
 ): Observable<VertexInternalState<any>> {
    const memoizable$ = incomingInternalState$.pipe(
-      scan((previous, next) => {
-         if (previous === INITIAL_VALUE) {
-            return {
-               fromMemory: false,
-               internalState: next
-            }
-         } else {
-            return {
-               fromMemory: internalStateEquals(previous.internalState, next),
-               internalState: next
-            }
-         }
-      }, INITIAL_VALUE),
+      scan(
+         (previous, next) => ({
+            fromMemory:
+               previous !== INITIAL_VALUE &&
+               internalStateEquals(previous.internalState, next),
+            internalState: next
+         }),
+         INITIAL_VALUE
+      ),
       share()
    )
 
@@ -44,40 +39,37 @@ export function incomingToOutgoingInternalStateStream(
       map(internalState => ({ fromMemory: false, internalState }))
    )
 
-   const outgoing$ = merge(fromMemory$, transformed$).pipe(
+   return merge(fromMemory$, transformed$).pipe(
       scan(
          (previous, next): VertexInternalState<any> => {
-            const mergedVersions = mergeVersionNumbers(
-               previous.versions,
-               next.internalState.versions
-            )
+            const versions = {
+               ...next.internalState.versions,
+               [vertexId]:
+                  previous.versions[vertexId] + (next.fromMemory ? 0 : 1)
+            }
             if (next.fromMemory) {
                return {
-                  ...previous,
-                  versions: mergedVersions,
+                  versions,
                   reduxState: next.internalState.reduxState,
                   readonlyFields: {
-                     ...previous.readonlyFields,
+                     // TODO !!! CLASH DANGER !!!
+                     ...previous.readonlyFields, // previous transformation output
                      ...next.internalState.readonlyFields
                   },
                   loadableFields: {
-                     ...previous.loadableFields,
+                     // TODO !!! CLASH DANGER !!!
+                     ...previous.loadableFields, // previous transformation output
                      ...next.internalState.loadableFields
                   }
                }
             } else {
                return {
                   ...next.internalState,
-                  versions: {
-                     ...mergedVersions,
-                     [vertexId]: 1 + previous.versions[vertexId]
-                  }
+                  versions
                }
             }
          },
          { versions: { [vertexId]: 0 } } as VertexInternalState<any>
       )
    )
-
-   return outgoing$
 }

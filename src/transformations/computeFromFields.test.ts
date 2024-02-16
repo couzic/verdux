@@ -48,11 +48,14 @@ describe(computeFromFieldsTransformation.name, () => {
                loadableFields: {}
             })
          })
-         describe('when second incoming state emitted, SAME values', () => {
+         describe('when second incoming state emitted with different downstream values', () => {
             beforeEach(() => {
                input$.next({
                   versions: {},
-                  reduxState: { vertex: { name: 'bob' }, downstream: {} },
+                  reduxState: {
+                     vertex: { name: 'bob' },
+                     downstream: { irrelevant: 'to be ignored' }
+                  },
                   readonlyFields: {},
                   loadableFields: {}
                })
@@ -61,7 +64,10 @@ describe(computeFromFieldsTransformation.name, () => {
                expect(uppercaseNameComputer).to.have.been.calledOnce
                expect(lastOutput).to.deep.equal({
                   versions: {},
-                  reduxState: { vertex: { name: 'bob' }, downstream: {} },
+                  reduxState: {
+                     vertex: { name: 'bob' },
+                     downstream: { irrelevant: 'to be ignored' }
+                  },
                   readonlyFields: { uppercaseName: 'BOB' },
                   loadableFields: {}
                })

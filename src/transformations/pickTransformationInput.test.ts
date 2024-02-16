@@ -79,7 +79,7 @@ describe(pickTransformationInput.name, () => {
                loadableFields: {}
             })
          })
-         it('transformes output', () => {
+         it('transforms output', () => {
             expect(transformationMapper).to.have.been.calledTwice
             expect(lastOutput).to.deep.equal({
                versions: {},

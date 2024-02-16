@@ -1,6 +1,5 @@
 import { filter, map, merge, of, scan, switchMap } from 'rxjs'
 import { VertexInternalState } from '../state/VertexInternalState'
-import { mergeVersionNumbers } from '../state/mergeVersionNumbers'
 import { internalStateEquals } from '../util/internalStateEquals'
 import { pickInternalState } from '../util/pickInternalState'
 import { InternalStateTransformation } from './InternalStateTransformation'
@@ -51,7 +50,7 @@ export const pickTransformationInput =
 
       const notFromMemory$ = input$.pipe(
          filter(_ => !_.fromMemory),
-         // TODO Remove switchMap if I can prove I must
+         // TODO Remove switchMap if I can prove I should
          switchMap(({ pickedInternalState, internalState }) =>
             injectedTransformation(of(pickedInternalState)).pipe(
                map(
@@ -73,15 +72,11 @@ export const pickTransformationInput =
          map(internalState => ({ fromMemory: false, internalState }))
       )
 
-      const output$ = merge(fromMemory$, notFromMemory$).pipe(
+      return merge(fromMemory$, notFromMemory$).pipe(
          scan((previous, next): VertexInternalState<any> => {
-            const versions = mergeVersionNumbers(
-               previous.versions,
-               next.internalState.versions
-            )
             if (next.fromMemory) {
                return {
-                  versions,
+                  versions: next.internalState.versions,
                   reduxState: next.internalState.reduxState,
                   readonlyFields: {
                      ...previous.readonlyFields,
@@ -93,13 +88,8 @@ export const pickTransformationInput =
                   }
                }
             } else {
-               return {
-                  ...next.internalState,
-                  versions
-               }
+               return next.internalState
             }
          }, {} as VertexInternalState<any>)
       )
-
-      return output$
    }

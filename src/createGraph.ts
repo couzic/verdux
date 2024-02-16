@@ -159,10 +159,7 @@ export const createGraph = (options: {
       outgoingInternalState$: Observable<VertexInternalState<Type>>,
       dependencies: Type['dependencies']
    ): VertexInstance<Type> => {
-      const internalState$ =
-         (config as VertexConfigImpl<Type>).fieldsReactions.length > 0
-            ? outgoingInternalState$.pipe(share())
-            : outgoingInternalState$
+      const internalState$ = outgoingInternalState$
       let currentState: VertexState<Type>
       let loadableState$ = new ReplaySubject<VertexLoadableState<Type>>(1) // TODO use some kind of StateObservable ?
       const state$ = loadableState$.pipe(map(_ => _.state)) // TODO use some kind of StateObservable ?
@@ -368,9 +365,14 @@ export const createGraph = (options: {
       //////////////////////////////
       // OUTGOING INTERNAL STATE //
       ////////////////////////////
-      const outgoingInternalState$ = (
-         config as VertexConfigImpl<any>
-      ).createOutgoingInternalStateStream(incomingInternalState$, dependencies)
+      const outgoingInternalState$ = (config as VertexConfigImpl<any>)
+         .createOutgoingInternalStateStream(
+            incomingInternalState$,
+            dependencies
+         )
+         .pipe(
+            share() // Used both for instance creation AND for downstream vertices
+         )
       const instance = createVertexInstance(
          config,
          outgoingInternalState$ as any,

@@ -8,6 +8,5 @@ export const internalStateEquals = <Type extends VertexType>(
    next: VertexInternalState<Type>
 ) =>
    shallowEquals(previous.reduxState.vertex, next.reduxState.vertex) &&
-   shallowEquals(previous.reduxState.downstream, next.reduxState.downstream) &&
    shallowEquals(previous.readonlyFields, next.readonlyFields) &&
    loadableFieldsEquals(previous.loadableFields, next.loadableFields)

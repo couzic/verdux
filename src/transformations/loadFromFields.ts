@@ -121,7 +121,8 @@ export const loadFromFieldsTransformation =
                   ...inputInternalState.loadableFields,
                   ...loadableFields
                }
-            }))
+            })),
+            share()
          )
       }
    }

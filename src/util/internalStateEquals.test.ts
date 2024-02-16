@@ -50,14 +50,14 @@ describe(internalStateEquals.name, () => {
          )
       ).to.be.false
    })
-   it('compares internal states with different redux vertex state value', () => {
+   it('ignores downstream values', () => {
       expect(
          internalStateEquals(
             {
                versions: {},
                reduxState: {
                   vertex: {},
-                  downstream: { username: '', flag: false }
+                  downstream: { flag: false }
                },
                readonlyFields: {},
                loadableFields: {}
@@ -66,12 +66,12 @@ describe(internalStateEquals.name, () => {
                versions: {},
                reduxState: {
                   vertex: {},
-                  downstream: { username: '', flag: true }
+                  downstream: { flag: true }
                },
                readonlyFields: {},
                loadableFields: {}
             }
          )
-      ).to.be.false
+      ).to.be.true
    })
 })

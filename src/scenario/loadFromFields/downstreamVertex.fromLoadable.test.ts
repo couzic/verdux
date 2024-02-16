@@ -1,90 +1,132 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
-import { NEVER, Subject, of, skip } from 'rxjs'
+import { NEVER, Subject, of } from 'rxjs'
+import { stub } from 'sinon'
 import { Graph } from '../../Graph'
 import { Vertex } from '../../Vertex'
 import { configureRootVertex } from '../../config/configureRootVertex'
 import { createGraph } from '../../createGraph'
 
-const rootVertexConfig = configureRootVertex({
-   slice: createSlice({ name: 'root', initialState: {}, reducers: {} })
-})
-
 const createUserService = () => ({
+   getLoggedUser: () => of('DEFAULT'),
+   getUserId: () => of('DEFAULT'),
    getUsernameById: (id: string) => of('DEFAULT')
 })
 type UserService = ReturnType<typeof createUserService>
 
 describe('downstreamVertex loadFromFields from loadable field', () => {
+   const rootVertexConfig = configureRootVertex({
+      slice: createSlice({
+         name: 'root',
+         initialState: {},
+         reducers: {}
+      }),
+      dependencies: {
+         userService: createUserService
+      }
+   }).load(({ userService }) => ({
+      loggedUser: userService.getLoggedUser()
+   }))
    const slice = createSlice({
       name: 'downstreamVertexName',
-      initialState: { userId: null as string | null, whatever: 'nevermind' },
+      initialState: { whatever: 'nevermind' },
       reducers: {
-         userIdChanged: (state, action: PayloadAction<string>) => {
-            state.userId = action.payload
-         },
-         inputValueChanged: (state, action: PayloadAction<string>) => {
+         whateverValueChanged: (state, action: PayloadAction<string>) => {
             state.whatever = action.payload
          }
       }
    })
    const vertexConfig = rootVertexConfig
       .configureDownstreamVertex({
-         slice,
-         dependencies: {
-            userService: createUserService
-         }
+         slice
       })
+      .load(({ userService }) => ({ userId: userService.getUserId() }))
       .loadFromFields(['userId'], ({ userService }) => ({
-         username: ({ userId }) =>
-            userId === null ? NEVER : userService.getUsernameById(userId)
+         username: ({ userId }) => userService.getUsernameById(userId)
       }))
       .fieldsReaction(['userId'], ({ userId }) =>
-         slice.actions.inputValueChanged(userId || '')
+         slice.actions.whateverValueChanged(userId)
       )
    let graph: Graph
    let vertex: Vertex<typeof vertexConfig>
    let userService: UserService
-   let receivedBob$: Subject<string>
-   let receivedSteve$: Subject<string>
+   let receivedLoggedUser$: Subject<string>
+   let receivedUserId$: Subject<string>
+   let receivedUser$: Subject<string>
    beforeEach(() => {
-      receivedBob$ = new Subject()
-      receivedSteve$ = new Subject()
+      receivedLoggedUser$ = new Subject()
+      receivedUserId$ = new Subject()
+      receivedUser$ = new Subject()
       userService = {
-         getUsernameById: id => (id === '123' ? receivedBob$ : receivedSteve$)
+         getLoggedUser: stub().returns(receivedLoggedUser$),
+         getUserId: stub().returns(receivedUserId$),
+         getUsernameById: stub().returns(receivedUser$)
       }
+      const deepDownstreamVertexConfig = vertexConfig
+         .configureDownstreamVertex({
+            slice: createSlice({
+               name: 'deepDownstream',
+               initialState: {},
+               reducers: {}
+            }),
+            upstreamFields: ['username']
+         })
+         .loadFromFields(['username'], {
+            theUsername: ({ username }) => of(username)
+         })
+         .computeFromFields(['username'], {
+            uppercaseUsername: ({ username }) => username.toUpperCase()
+         })
       graph = createGraph({
          vertices: [
-            rootVertexConfig,
-            vertexConfig.injectedWith({ userService })
+            rootVertexConfig.injectedWith({ userService }),
+            vertexConfig,
+            deepDownstreamVertexConfig
          ]
       })
       vertex = graph.getVertexInstance(vertexConfig)
    })
    it('is initially loading', () => {
+      expect(userService.getUserId).to.have.been.calledOnce
       expect(vertex.currentLoadableState.status).to.equal('loading')
+      expect(userService.getUsernameById).not.to.have.been.called
    })
-   describe('when id for bob is set', () => {
+   describe('when user id received', () => {
       beforeEach(() => {
-         graph.dispatch(slice.actions.userIdChanged('123'))
+         receivedUserId$.next('123')
       })
       it('it is still loading', () => {
          expect(vertex.currentLoadableState.status).to.equal('loading')
+         expect(userService.getUsernameById).to.have.been.calledOnceWithExactly(
+            '123'
+         )
       })
-      describe('when bob received', () => {
+      describe('when user received', () => {
          beforeEach(() => {
-            receivedBob$.next('Bob')
+            receivedUser$.next('Bob')
          })
          it('is loaded', () => {
             expect(vertex.currentLoadableState.status).to.equal('loaded')
          })
-         it('does not emit "Bob" after id for steve is set', () => {
-            let emittedBob = false
-            vertex.loadableState$.pipe(skip(1)).subscribe(loadableState => {
-               if (loadableState.state.username === 'Bob') emittedBob = true
+         describe('when irrelevant field updated', () => {
+            beforeEach(() => {
+               graph.dispatch(
+                  slice.actions.whateverValueChanged('some new value')
+               )
             })
-            graph.dispatch(slice.actions.userIdChanged('456'))
-            expect(emittedBob).to.be.false
+            it('does not refetch user', () => {
+               expect(
+                  userService.getUsernameById
+               ).to.have.been.calledOnceWithExactly('123')
+            })
+         })
+         describe('when same user id received', () => {
+            beforeEach(() => {
+               receivedUserId$.next('123')
+            })
+            it('does not refetch user', () => {
+               expect(userService.getUsernameById).to.have.been.calledOnce
+            })
          })
       })
    })

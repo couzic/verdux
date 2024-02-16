@@ -28,7 +28,10 @@ describe(incomingToOutgoingInternalStateStream.name, () => {
          beforeEach(() => {
             incomingInternalState$.next({
                versions: { [upstreamVertexId]: 1 },
-               reduxState: { vertex: {}, downstream: {} },
+               reduxState: {
+                  vertex: {},
+                  downstream: { irrelevant: 'to be ignored' }
+               },
                readonlyFields: {},
                loadableFields: {}
             })
@@ -36,7 +39,10 @@ describe(incomingToOutgoingInternalStateStream.name, () => {
          it('emits outgoing internal state', () => {
             expect(lastOutgoingInternalState).to.deep.equal({
                versions: { [upstreamVertexId]: 1, [vertexId]: 1 },
-               reduxState: { vertex: {}, downstream: {} },
+               reduxState: {
+                  vertex: {},
+                  downstream: { irrelevant: 'to be ignored' }
+               },
                readonlyFields: {},
                loadableFields: {}
             })
@@ -45,7 +51,10 @@ describe(incomingToOutgoingInternalStateStream.name, () => {
             beforeEach(() => {
                incomingInternalState$.next({
                   versions: { [upstreamVertexId]: 2 },
-                  reduxState: { vertex: {}, downstream: {} },
+                  reduxState: {
+                     vertex: {},
+                     downstream: { irrelevant: 'STILL to be ignored' }
+                  },
                   readonlyFields: {},
                   loadableFields: {}
                })
@@ -53,7 +62,10 @@ describe(incomingToOutgoingInternalStateStream.name, () => {
             it('emits from memory', () => {
                expect(lastOutgoingInternalState).to.deep.equal({
                   versions: { [upstreamVertexId]: 2, [vertexId]: 1 },
-                  reduxState: { vertex: {}, downstream: {} },
+                  reduxState: {
+                     vertex: {},
+                     downstream: { irrelevant: 'STILL to be ignored' }
+                  },
                   readonlyFields: {},
                   loadableFields: {}
                })

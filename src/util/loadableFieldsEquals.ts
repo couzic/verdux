@@ -7,7 +7,6 @@ export const loadableFieldsEquals = (
 ) => {
    for (let key in previous) {
       if (!shallowEquals(previous[key], next[key])) {
-         // TODO Dig deeper in each loadable value ?
          return false
       }
    }
