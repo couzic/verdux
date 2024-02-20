@@ -159,12 +159,11 @@ export const createGraph = (options: {
       outgoingInternalState$: Observable<VertexInternalState<Type>>,
       dependencies: Type['dependencies']
    ): VertexInstance<Type> => {
-      const internalState$ = outgoingInternalState$
       let currentState: VertexState<Type>
       let loadableState$ = new ReplaySubject<VertexLoadableState<Type>>(1) // TODO use some kind of StateObservable ?
       const state$ = loadableState$.pipe(map(_ => _.state)) // TODO use some kind of StateObservable ?
       let currentLoadableState: VertexLoadableState<Type> = null as any
-      internalState$
+      outgoingInternalState$
          .pipe(
             map(loadableFromInternalState(config.id)),
             distinctUntilChanged(loadableStateEquals)
@@ -265,6 +264,7 @@ export const createGraph = (options: {
    const reduxState$ = new Subject<any>()
 
    const rootIncomingInternalState$ = reduxState$.pipe(
+      distinctUntilChanged(), // TODO write test
       map(reduxState => ({
          versions: {},
          reduxState,

@@ -1,4 +1,4 @@
-import { Observable, filter, map, merge, scan, share } from 'rxjs'
+import { Observable, filter, map, merge, scan, share, tap } from 'rxjs'
 import { InjectedTransformation } from '../transformations/InternalStateTransformation'
 import { internalStateEquals } from '../util/internalStateEquals'
 import { VertexInternalState } from './VertexInternalState'
@@ -16,7 +16,11 @@ export function incomingToOutgoingInternalStateStream(
    incomingInternalState$: Observable<VertexInternalState<any>>,
    internalStateTransformations: InjectedTransformation[]
 ): Observable<VertexInternalState<any>> {
+   let lastIncomingReduxDownstreamState: any
    const memoizable$ = incomingInternalState$.pipe(
+      tap(_ => {
+         lastIncomingReduxDownstreamState = _.reduxState.downstream
+      }),
       scan(
          (previous, next) => ({
             fromMemory:
@@ -65,6 +69,10 @@ export function incomingToOutgoingInternalStateStream(
             } else {
                return {
                   ...next.internalState,
+                  reduxState: {
+                     vertex: next.internalState.reduxState.vertex,
+                     downstream: lastIncomingReduxDownstreamState
+                  },
                   versions
                }
             }
