@@ -1,43 +1,45 @@
 import {
    ActionCreatorWithPayload,
-   AnyAction,
    Reducer,
-   Slice
+   Slice,
+   UnknownAction
 } from '@reduxjs/toolkit'
 import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
-import { VertexInstance } from '../VertexInstance'
-import { VertexType } from '../VertexType'
 import { PickedLoadedVertexState } from '../state/PickedLoadedVertexState'
 import { VertexStateKey } from '../state/VertexState'
 import { IsDependablePlainObject, IsPlainObject } from '../util/IsPlainObject'
 import { Match } from '../util/Match'
+import { VertexId } from '../vertex/VertexId'
+import { VertexInstance } from '../vertex/VertexInstance'
+import { VertexType } from '../vertex/VertexType'
 import { Dependable } from './Dependable'
-import { DependencyProviders } from './DependencyProviders'
 import { VertexRuntimeConfig } from './VertexRuntimeConfig'
 
 export interface VertexConfig<Type extends VertexType> {
    readonly rootVertex: VertexConfig<any>
    readonly name: string
-   readonly id: symbol
-   readonly getInitialState: () => Readonly<Type['reduxState']>
-   readonly reducer: Reducer<Type['reduxState']>
-   readonly upstreamVertex: VertexConfig<any> | undefined
-   readonly dependencyProviders: DependencyProviders
+   readonly id: VertexId
+   // readonly getInitialReduxState: () => any
+   readonly reducer: Reducer
+   // readonly dependencyProviders: DependencyProviders
+   readonly upstreamVertices: VertexConfig<any>[]
+
+   isLoadableField(field: VertexStateKey<Type>): boolean
 
    configureDownstreamVertex<
-      ReduxState extends object,
+      ReduxFields extends Record<string, unknown>,
       UpstreamField extends VertexStateKey<Type> = never,
-      Dependencies extends object = {}
+      Dependencies extends Record<string, any> = {}
    >(
       options: (
          | {
-              slice: Slice<ReduxState>
+              slice: Slice<ReduxFields>
            }
          | {
               name: string
-              reducer: ReducerWithInitialState<ReduxState>
+              reducer: ReducerWithInitialState<ReduxFields>
            }
       ) & {
          upstreamFields?: UpstreamField[]
@@ -48,23 +50,18 @@ export interface VertexConfig<Type extends VertexType> {
          }
       }
    ): VertexConfig<{
-      reduxState: ReduxState
-      readonlyFields: {
-         [K in UpstreamField &
-            (
-               | keyof Type['reduxState']
-               | keyof Type['readonlyFields']
-            )]: K extends keyof Type['readonlyFields']
-            ? Type['readonlyFields'][K]
-            : K extends keyof Type['reduxState']
-            ? Type['reduxState'][K]
-            : never
+      fields: {
+         [K in
+            | keyof ReduxFields
+            | (UpstreamField & keyof Type['fields'])]: K extends UpstreamField
+            ? Type['fields'][K] // Upstream field overwrites redux field. TODO make sure runtime works the same way
+            : K extends keyof ReduxFields
+              ? ReduxFields[K]
+              : never
       }
       loadableFields: {
          [K in UpstreamField &
-            keyof Type['loadableFields']]: K extends keyof Type['loadableFields']
-            ? Type['loadableFields'][K]
-            : never
+            keyof Type['loadableFields']]: Type['loadableFields'][K]
       }
       dependencies: {
          [D in
@@ -72,8 +69,8 @@ export interface VertexConfig<Type extends VertexType> {
             | keyof Dependencies]: D extends keyof Dependencies
             ? Dependencies[D]
             : D extends keyof Type['dependencies']
-            ? Type['dependencies'][D]
-            : never
+              ? Type['dependencies'][D]
+              : never
       }
    }>
 
@@ -98,34 +95,32 @@ export interface VertexConfig<Type extends VertexType> {
    ): IsPlainObject<Computers> extends false
       ? never
       : Match<K, keyof Type['loadableFields']> extends true
-      ? VertexConfig<{
-           reduxState: Type['reduxState']
-           readonlyFields: Type['readonlyFields']
-           loadableFields: {
-              [LFK in
-                 | keyof Type['loadableFields']
-                 | keyof Computers]: LFK extends keyof Computers
-                 ? ReturnType<Computers[LFK]>
-                 : LFK extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][LFK]
-                 : never
-           }
-           dependencies: Type['dependencies']
-        }>
-      : VertexConfig<{
-           reduxState: Type['reduxState']
-           readonlyFields: {
-              [RFK in
-                 | keyof Type['readonlyFields']
-                 | keyof Computers]: RFK extends keyof Computers
-                 ? ReturnType<Computers[RFK]>
-                 : RFK extends keyof Type['readonlyFields']
-                 ? Type['readonlyFields'][RFK]
-                 : never
-           }
-           loadableFields: Type['loadableFields']
-           dependencies: Type['dependencies']
-        }>
+        ? VertexConfig<{
+             fields: Type['fields']
+             loadableFields: {
+                [LFK in
+                   | keyof Type['loadableFields']
+                   | keyof Computers]: LFK extends keyof Computers
+                   ? ReturnType<Computers[LFK]>
+                   : LFK extends keyof Type['loadableFields']
+                     ? Type['loadableFields'][LFK]
+                     : never
+             }
+             dependencies: Type['dependencies']
+          }>
+        : VertexConfig<{
+             fields: {
+                [FK in
+                   | keyof Type['fields']
+                   | keyof Computers]: FK extends keyof Computers
+                   ? ReturnType<Computers[FK]>
+                   : FK extends keyof Type['fields']
+                     ? Type['fields'][FK]
+                     : never
+             }
+             loadableFields: Type['loadableFields']
+             dependencies: Type['dependencies']
+          }>
 
    loadFromFields<K extends VertexStateKey<Type>, LoadableFields>(
       fields: K[],
@@ -135,25 +130,22 @@ export interface VertexConfig<Type extends VertexType> {
             [LFK in keyof LoadableFields]: (fields: {
                [FK in K]: FK extends keyof Type['loadableFields']
                   ? Type['loadableFields'][FK]
-                  : FK extends keyof Type['readonlyFields']
-                  ? Type['loadableFields'][FK]
-                  : FK extends keyof Type['reduxState']
-                  ? Type['reduxState'][FK]
-                  : never
+                  : FK extends keyof Type['fields']
+                    ? Type['fields'][FK]
+                    : never
             }) => Observable<LoadableFields[LFK]>
          }
       >
    ): IsDependablePlainObject<Type['dependencies'], LoadableFields> extends true
       ? VertexConfig<{
-           reduxState: Type['reduxState']
-           readonlyFields: Type['readonlyFields']
+           fields: Type['fields']
            loadableFields: {
               [P in keyof (Type['loadableFields'] &
                  LoadableFields)]: P extends keyof LoadableFields
                  ? LoadableFields[P]
                  : P extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][P]
-                 : never
+                   ? Type['loadableFields'][P]
+                   : never
            }
            dependencies: Type['dependencies']
         }>
@@ -168,15 +160,14 @@ export interface VertexConfig<Type extends VertexType> {
       >
    ): IsDependablePlainObject<Type['dependencies'], typeof loaders> extends true
       ? VertexConfig<{
-           reduxState: Type['reduxState']
-           readonlyFields: Type['readonlyFields']
+           fields: Type['fields']
            loadableFields: {
               [P in keyof (Type['loadableFields'] &
                  LoadableFields)]: P extends keyof LoadableFields
                  ? LoadableFields[P]
                  : P extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][P]
-                 : never
+                   ? Type['loadableFields'][P]
+                   : never
            }
            dependencies: Type['dependencies']
         }>
@@ -191,26 +182,23 @@ export interface VertexConfig<Type extends VertexType> {
                fields$: Observable<{
                   [FK in K]: FK extends keyof Type['loadableFields']
                      ? Type['loadableFields'][FK]
-                     : FK extends keyof Type['readonlyFields']
-                     ? Type['readonlyFields'][FK]
-                     : FK extends keyof Type['reduxState']
-                     ? Type['reduxState'][FK]
-                     : never
+                     : FK extends keyof Type['fields']
+                       ? Type['fields'][FK]
+                       : never
                }>
             ) => Observable<LoadableFields[LFK]>
          }
       >
    ): IsDependablePlainObject<Type['dependencies'], typeof loaders> extends true
       ? VertexConfig<{
-           reduxState: Type['reduxState']
-           readonlyFields: Type['readonlyFields']
+           fields: Type['fields']
            loadableFields: {
               [P in keyof (Type['loadableFields'] &
                  LoadableFields)]: P extends keyof LoadableFields
                  ? LoadableFields[P]
                  : P extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][P]
-                 : never
+                   ? Type['loadableFields'][P]
+                   : never
            }
            dependencies: Type['dependencies']
         }>
@@ -228,15 +216,14 @@ export interface VertexConfig<Type extends VertexType> {
       >
    ): IsDependablePlainObject<Type['dependencies'], typeof loaders> extends true // TODO ensure compilation error when passing function
       ? VertexConfig<{
-           reduxState: Type['reduxState']
-           readonlyFields: Type['readonlyFields']
+           fields: Type['fields']
            loadableFields: {
               [P in keyof (Type['loadableFields'] &
                  LoadableFields)]: P extends keyof LoadableFields
                  ? LoadableFields[P]
                  : P extends keyof Type['loadableFields']
-                 ? Type['loadableFields'][P]
-                 : never
+                   ? Type['loadableFields'][P]
+                   : never
            }
            dependencies: Type['dependencies']
         }>
@@ -251,7 +238,7 @@ export interface VertexConfig<Type extends VertexType> {
                : never
          >,
          vertex: VertexInstance<Type>
-      ) => Observable<AnyAction>
+      ) => Observable<UnknownAction>
    ): this
 
    fieldsReaction<K extends VertexStateKey<Type>>(
@@ -259,12 +246,10 @@ export interface VertexConfig<Type extends VertexType> {
       operation: (fields: {
          [FK in K]: FK extends keyof Type['loadableFields']
             ? Type['loadableFields'][FK]
-            : FK extends keyof Type['readonlyFields']
-            ? Type['loadableFields'][FK]
-            : FK extends keyof Type['reduxState']
-            ? Type['reduxState'][FK]
-            : never
-      }) => AnyAction
+            : FK extends keyof Type['fields']
+              ? Type['fields'][FK]
+              : never
+      }) => UnknownAction
    ): this
 
    // TODO

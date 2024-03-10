@@ -1,5 +1,5 @@
+import { VertexType } from '../vertex/VertexType'
 import { VertexConfig } from './VertexConfig'
-import { VertexType } from '../VertexType'
 
 export type VertexRuntimeConfig<Type extends VertexType> =
    | VertexConfig<Type>

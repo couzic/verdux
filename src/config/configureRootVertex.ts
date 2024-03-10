@@ -1,52 +1,46 @@
-import { Reducer, Slice } from '@reduxjs/toolkit'
+import { Slice } from '@reduxjs/toolkit'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { IsPlainObject } from '../util/IsPlainObject'
 import { VertexConfig } from './VertexConfig'
-import { SingleUpstreamVertexConfig } from './SingleUpstreamVertexConfig'
+import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
+import { VertexConfigImpl } from './VertexConfigImpl'
+import { createVertexId } from './createVertexId'
 
 export const configureRootVertex = <
-   ReduxState extends object,
-   Dependencies extends object = {}
+   ReduxFields extends Record<string, any>,
+   Dependencies extends Record<string, any> = {}
 >(
    options: (
       | {
-           slice: Slice<ReduxState>
+           slice: Slice<ReduxFields>
         }
       | {
            name?: string
-           reducer: ReducerWithInitialState<ReduxState>
+           reducer: ReducerWithInitialState<ReduxFields>
         }
    ) & {
       dependencies?: { [K in keyof Dependencies]: () => Dependencies[K] }
    }
 ): IsPlainObject<Dependencies> extends true
    ? VertexConfig<{
-        reduxState: ReduxState
-        readonlyFields: {}
+        fields: ReduxFields
         loadableFields: {}
         dependencies: Dependencies
      }>
    : never => {
-   if ('slice' in options) {
-      const { slice } = options
-      return new SingleUpstreamVertexConfig( // TODO NOW NOW return new RootVertexConfig
-         slice.name,
-         slice.getInitialState,
-         slice.reducer as Reducer<any>,
-         undefined,
-         [],
-         null,
-         options.dependencies || {}
-      ) as any
-   } else {
-      return new SingleUpstreamVertexConfig( // TODO NOW NOW return new RootVertexConfig
-         options.name || 'root',
-         options.reducer.getInitialState,
-         options.reducer as Reducer<any>,
-         undefined,
-         [],
-         null,
-         options.dependencies || {}
-      ) as any
-   }
+   const { name, getInitialState, reducer } =
+      'slice' in options ? options.slice : { ...options, ...options.reducer }
+   const nameOrDefault = name || 'root'
+   const id = createVertexId(nameOrDefault)
+   const builder = new VertexConfigBuilderImpl(
+      id,
+      nameOrDefault
+   ).addDependencies(options.dependencies as any)
+   return new VertexConfigImpl(
+      nameOrDefault,
+      id,
+      getInitialState,
+      reducer as any,
+      builder as any
+   ) as any
 }
