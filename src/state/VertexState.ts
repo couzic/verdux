@@ -1,34 +1,17 @@
-import { VertexType } from '../vertex/VertexType'
+import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
 
-export type VertexState<Type extends VertexType> = {
-   [K in VertexStateKey<Type>]: K extends keyof Type['fields']
-      ? K extends keyof Type['loadableFields']
-         ? never // KEY CLASH PREVENTION. TODO implement runtime behavior ?
-         : Type['fields'][K]
-      : K extends keyof Type['loadableFields']
-        ? Type['loadableFields'][K] | undefined
-        : never
+export type VertexState<Fields extends VertexFieldsDefinition> = {
+   [K in keyof Fields]: Fields[K]['loadable'] extends true
+      ? Fields[K]['value'] | undefined
+      : Fields[K]['value']
 }
 
-export type VertexErrorState<Type extends VertexType> = {
-   [K in VertexStateKey<Type>]: K extends keyof Type['fields']
-      ? K extends keyof Type['loadableFields']
-         ? never // KEY CLASH PREVENTION. TODO implement runtime behavior ?
-         : Type['fields'][K] | Error
-      : K extends keyof Type['loadableFields']
-        ? Type['loadableFields'][K] | undefined | Error
-        : never
+export type VertexErrorState<Fields extends VertexFieldsDefinition> = {
+   [K in keyof Fields]: Fields[K]['loadable'] extends true
+      ? Fields[K]['value'] | Error | undefined
+      : Fields[K]['value'] | Error
 }
 
-export type VertexLoadedState<Type extends VertexType> = {
-   [K in VertexStateKey<Type>]: K extends keyof Type['fields']
-      ? K extends keyof Type['loadableFields']
-         ? never // KEY CLASH PREVENTION. TODO implement runtime behavior ?
-         : Type['fields'][K]
-      : K extends keyof Type['loadableFields']
-        ? Type['loadableFields'][K]
-        : never
+export type VertexLoadedState<Fields extends VertexFieldsDefinition> = {
+   [K in keyof Fields]: Fields[K]['value']
 }
-
-export type VertexStateKey<Type extends VertexType> = keyof (Type['fields'] &
-   Type['loadableFields'])

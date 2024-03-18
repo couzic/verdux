@@ -4,7 +4,10 @@ import { VertexId } from '../vertex/VertexId'
 export interface GraphConfig {
    /** exhaustive and sorted */
    vertexIds: VertexId[]
-   vertexIdsBySingleUpstreamVertexId: Record<VertexId, VertexId[]>
+   vertexConfigsBySingleUpstreamVertexId: Record<
+      VertexId,
+      VertexConfig<any, any>[]
+   >
    vertexConfigById: Record<VertexId, VertexConfig<any>>
-   injectedDependenciesByVertexId: Record<VertexId, Record<string, any>>
+   dependenciesByVertexId: Record<VertexId, Record<string, any>>
 }

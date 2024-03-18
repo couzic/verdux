@@ -1,4 +1,4 @@
-import { VertexLoadableState } from '../old/state/VertexLoadableState'
+import { VertexLoadableState } from './VertexLoadableState'
 import { combineFields } from './combineFields'
 
 export const pickLoadableState = (

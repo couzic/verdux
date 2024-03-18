@@ -21,7 +21,6 @@ import { createFIFO } from '../util/FIFO'
 import { VertexFieldState } from '../state/VertexFieldState'
 import { VertexId } from '../vertex/VertexId'
 import { VertexInstance } from '../vertex/VertexInstance'
-import { VertexType } from '../vertex/VertexType'
 import { Graph } from './Graph'
 import { GraphData } from './GraphData'
 import { emitVertexFieldStates as emitVertexFieldStates } from './emitVertexFieldStates'
@@ -147,7 +146,7 @@ export const createGraph = (options: {
       VertexId,
       Subject<Record<string, VertexFieldState>>
    > = {}
-   const vertexInstanceById: Record<VertexId, VertexInstance<any>> = {}
+   const vertexInstanceById: Record<VertexId, VertexInstance<any, any>> = {}
    exhaustiveVertexConfigs.forEach(config => {
       const fields$ = new ReplaySubject<Record<string, VertexFieldState>>(1)
       vertexFieldStatesStreamById[config.id] = fields$

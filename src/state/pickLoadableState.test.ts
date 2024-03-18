@@ -1,13 +1,12 @@
 import { expect } from 'chai'
 import { pickLoadableState } from './pickLoadableState'
-import { VertexLoadableState } from '../old/state/VertexLoadableState'
+import { VertexLoadableState } from './VertexLoadableState'
 
 describe(pickLoadableState.name, () => {
    it('picks fields', () => {
       const loadableState: VertexLoadableState<{
-         fields: { name: string; age: number }
-         loadableFields: {}
-         dependencies: {}
+         name: { loadable: false; value: string }
+         age: { loadable: false; value: number }
       }> = {
          status: 'loaded',
          errors: [],
@@ -17,7 +16,8 @@ describe(pickLoadableState.name, () => {
                status: 'loaded',
                value: '',
                errors: []
-            }
+            },
+            age: { status: 'loaded', value: 0, errors: [] }
          }
       }
       expect(pickLoadableState(loadableState, ['name'])).to.deep.equal({

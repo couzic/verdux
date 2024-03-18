@@ -1,9 +1,12 @@
-import { VertexType } from '../vertex/VertexType'
 import { VertexConfig } from './VertexConfig'
+import { VertexFieldsDefinition } from './VertexFieldsDefinition'
 
-export type VertexRuntimeConfig<Type extends VertexType> =
-   | VertexConfig<Type>
+export type VertexRuntimeConfig<
+   Fields extends VertexFieldsDefinition = any,
+   Dependencies extends Record<string, any> = any
+> =
+   | VertexConfig<Fields, Dependencies>
    | {
-        config: VertexConfig<Type>
-        injectedDependencies: Partial<Type['dependencies']>
+        config: VertexConfig<Fields, Dependencies>
+        injectedDependencies: Partial<Dependencies>
      }

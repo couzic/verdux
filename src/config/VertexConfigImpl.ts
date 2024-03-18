@@ -1,15 +1,21 @@
-import { Reducer, UnknownAction } from '@reduxjs/toolkit'
+import { Reducer, Slice, UnknownAction } from '@reduxjs/toolkit'
+import {
+   ActionCreatorWithPayload,
+   BaseActionCreator
+} from '@reduxjs/toolkit/dist/createAction'
+import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
-import { VertexStateKey } from '../state/VertexState'
-import { VertexType } from '../vertex/VertexType'
-import { VertexConfig } from './VertexConfig'
-import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
-import { VertexInstance } from '../vertex/VertexInstance'
 import { VertexId } from '../vertex/VertexId'
+import { VertexInstance } from '../vertex/VertexInstance'
+import { VertexConfig } from './VertexConfig'
 import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
+import { VertexFieldsDefinition } from './VertexFieldsDefinition'
+import { configureVertex } from './configureVertex'
 
-export class VertexConfigImpl<Type extends VertexType>
-   implements VertexConfig<Type>
+export class VertexConfigImpl<
+   Fields extends VertexFieldsDefinition = any,
+   Dependencies extends Record<string, any> = any
+> implements VertexConfig<Fields, Dependencies>
 {
    get rootVertex(): VertexConfig<any> {
       const upstreamVertices = this.upstreamVertices
@@ -26,57 +32,61 @@ export class VertexConfigImpl<Type extends VertexType>
       public readonly id: VertexId,
       public readonly getInitialState: () => Record<string, any>,
       public readonly reducer: Reducer<Record<string, any>>,
-      public readonly builder: VertexConfigBuilderImpl<Type>
+      public readonly builder: VertexConfigBuilderImpl<Fields, Dependencies>
    ) {}
 
-   isLoadableField(field: VertexStateKey<Type>) {
+   isLoadableField(field: keyof Fields) {
       return this.builder.isLoadableField(field)
    }
 
-   // TODO Implement
-   configureDownstreamVertex(
-      options: any,
-      upstreamFields?: string[],
-      dependencies?: any
+   configureDownstreamVertex<
+      ReduxFields extends Record<string, Record<string, any>>,
+      UpstreamField extends keyof Fields = never,
+      DownstreamDependencies extends Record<string, any> = {}
+   >(
+      options: (
+         | {
+              slice: Slice<ReduxFields>
+           }
+         | {
+              name: string
+              reducer: ReducerWithInitialState<ReduxFields>
+           }
+      ) & {
+         upstreamFields?: UpstreamField[]
+         dependencies?: {
+            [K in keyof DownstreamDependencies]: (
+               upstreamDependencies: Dependencies
+            ) => DownstreamDependencies[K]
+         }
+      }
    ): any {
-      return {} as any
-      // return configureDownstreamVertex(options, builder =>
-      //    builder.addUpstreamVertex(this, {
-      //       upstreamFields: options.upstreamFields,
-      //       dependencies: options.dependencies
-      //    })
-      // )
+      return configureVertex(options, builder => {
+         builder.addUpstreamVertex(this, {
+            fields: options.upstreamFields
+         })
+         if (options.dependencies) {
+            builder.addDependencies(options.dependencies as any)
+         }
+         return builder
+      })
    }
 
    findClosestCommonAncestor() {
       return this.builder.findClosestCommonAncestor().vertexId
    }
 
-   //  buildVertexDependencies(
-   //     dependenciesByUpstreamVertexId: any,
-   //     injectedDependencies: any
-   //  ) {
-   //     return this.builder.buildVertexDependencies(
-   //        dependenciesByUpstreamVertexId,
-   //        injectedDependencies
-   //     )
-   //  }
+   buildVertexDependencies(
+      dependenciesByVertexId: Record<VertexId, Record<string, any>>,
+      injectedDependencies: Record<string, any>
+   ) {
+      return this.builder.buildVertexDependencies(
+         dependenciesByVertexId,
+         injectedDependencies
+      )
+   }
 
-   //  createOutgoingInternalStateStream(
-   //     incomingInternalState$: Observable<VertexInternalState<any>>,
-   //     dependencies: Type['dependencies']
-   //  ) {
-   //     const injectedTransformations = this.internalStateTransformations.map(
-   //        transformation => transformation(dependencies)
-   //     )
-   //     return incomingToOutgoingInternalStateStream(
-   //        this.id,
-   //        incomingInternalState$,
-   //        injectedTransformations
-   //     )
-   //  }
-
-   injectedWith(injectedDependencies: Partial<Type['dependencies']>): any {
+   injectedWith(injectedDependencies: Partial<Dependencies>): any {
       return {
          config: this,
          injectedDependencies
@@ -121,30 +131,38 @@ export class VertexConfigImpl<Type extends VertexType>
       return this
    }
 
-   reaction(
-      actionCreator: BaseActionCreator<any, any>,
+   reaction<ActionCreator extends BaseActionCreator<any, any>>(
+      actionCreator: ActionCreator,
       operation: (
-         payload$: Observable<any>,
-         vertex: VertexInstance<Type>
+         payload$: Observable<
+            ActionCreator extends ActionCreatorWithPayload<infer P, any>
+               ? P
+               : never
+         >,
+         // TODO Maybe not a VertexInstance, more like a VertexState
+         vertex: VertexInstance<Fields, Dependencies>
       ) => Observable<UnknownAction>
    ) {
       // this.reactions.push({ actionCreator, operation })
       return this
    }
 
-   fieldsReaction<K extends VertexStateKey<Type>>(
+   fieldsReaction<K extends keyof Fields>(
       fields: K[],
-      operation: (fields: any) => UnknownAction
+      operation: (pickedState: {
+         [PK in K]: Fields[PK]['value']
+      }) => UnknownAction
    ) {
       // this.fieldsReactions.push({ fields, operation })
       return this
    }
 
-   sideEffect<ActionCreator extends BaseActionCreator<any, any, never, never>>(
-      actionCreator: ActionCreator,
-      operation: (payload: ActionCreator, vertex: VertexInstance<Type>) => void
-   ) {
-      // this.sideEffects.push({ actionCreator, operation })
-      return this
-   }
+   // TODO Implement
+   // sideEffect<ActionCreator extends BaseActionCreator<any, any>>(
+   //    actionCreator: ActionCreator,
+   //    operation: (payload: ActionCreator, vertex: VertexInstance<Type>) => void
+   // ) {
+   //    // this.sideEffects.push({ actionCreator, operation })
+   //    return this
+   // }
 }

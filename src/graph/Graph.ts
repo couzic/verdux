@@ -1,11 +1,14 @@
 import { UnknownAction } from '@reduxjs/toolkit'
 import { VertexConfig } from '../config/VertexConfig'
+import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
 import { VertexInstance } from '../vertex/VertexInstance'
-import { VertexType } from '../vertex/VertexType'
 
 export interface Graph {
-   getVertexInstance<Type extends VertexType>(
-      vertexConfig: VertexConfig<Type>
-   ): VertexInstance<Type>
+   getVertexInstance<
+      Fields extends VertexFieldsDefinition,
+      Dependencies extends Record<string, any>
+   >(
+      vertexConfig: VertexConfig<Fields, Dependencies>
+   ): VertexInstance<Fields, Dependencies>
    dispatch(action: UnknownAction): void
 }

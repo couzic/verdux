@@ -1,72 +1,68 @@
-import { VertexStateKey } from '../state/VertexState'
-import { VertexType } from '../vertex/VertexType'
-import { DependencyProviders } from './DependencyProviders'
+import { VertexId } from '../vertex/VertexId'
 import { VertexConfig } from './VertexConfig'
 import { VertexConfigBuilder } from './VertexConfigBuilder'
 import { VertexConfigImpl } from './VertexConfigImpl'
+import { VertexFieldsDefinition } from './VertexFieldsDefinition'
 
-export class VertexConfigBuilderImpl<BuilderType extends VertexType>
-   implements VertexConfigBuilder<BuilderType>
+export class VertexConfigBuilderImpl<
+   Fields extends VertexFieldsDefinition = any,
+   Dependencies extends Record<string, any> = any
+> implements VertexConfigBuilder<Fields, Dependencies>
 {
    public readonly upstreamVertices: VertexConfig<any>[] = []
-   private readonly upstreamFieldsByVertexId: Record<
-      symbol,
-      VertexStateKey<any>[]
-   > = {}
-   private readonly chainedDependencyProviders: Array<{
-      vertexId: symbol
-      dependencyProviders: DependencyProviders<any>
-   }> = []
+   private buildDependencies: (
+      dependenciesByVertexId: Record<VertexId, Record<string, any>>
+   ) => Dependencies
    private readonly fieldIsLoadable: Record<string, boolean> = {}
 
-   constructor(
-      public readonly vertexId: symbol,
-      private readonly name: string
-   ) {}
+   constructor(public readonly vertexId: symbol) {
+      this.buildDependencies = () => ({}) as Dependencies
+   }
 
    isRoot(): boolean {
       return this.upstreamVertices.length === 0
    }
 
-   isLoadableField(field: VertexStateKey<BuilderType>): boolean {
+   isLoadableField(field: keyof Fields): boolean {
       return this.fieldIsLoadable[field] || false
    }
 
    addUpstreamVertex<
-      Type extends VertexType,
-      UpstreamField extends VertexStateKey<Type>,
-      Dependencies extends object
+      UpstreamFields extends VertexFieldsDefinition,
+      UpstreamDependencies extends Record<string, any>
    >(
-      config: VertexConfig<Type>,
+      config: VertexConfig<UpstreamFields, UpstreamDependencies>,
       options: {
-         upstreamFields?: UpstreamField[] | undefined
-         dependencies?:
-            | {
-                 [K in keyof Dependencies]: (
-                    upstreamDependencies: Type['dependencies']
-                 ) => Dependencies[K]
-              }
-            | undefined
+         fields?: Array<keyof UpstreamFields>
+         dependencies?: Array<keyof UpstreamDependencies>
       }
-   ): VertexConfigBuilder<any> {
+   ): VertexConfigBuilderImpl {
       this.upstreamVertices.push(config)
-      this.upstreamFieldsByVertexId[config.id]
-      if (options.upstreamFields) {
-         options.upstreamFields.forEach(upstreamField => {
-            this.fieldIsLoadable[upstreamField as string] =
-               config.isLoadableField(upstreamField)
+      const previousBuildDependencies = this.buildDependencies
+      this.buildDependencies = dependenciesByVertexId => {
+         const previousDependencies = previousBuildDependencies(
+            dependenciesByVertexId
+         )
+         const currentDependencies: any = options.dependencies
+            ? {}
+            : dependenciesByVertexId[config.id]
+         ;(options.dependencies || []).forEach(dependency => {
+            currentDependencies[dependency] =
+               dependenciesByVertexId[config.id][dependency as any]
          })
+         return { ...previousDependencies, ...currentDependencies }
       }
-      if (options.dependencies) {
-         this.chainedDependencyProviders.push({
-            vertexId: config.id,
-            dependencyProviders: options.dependencies
-         })
-      }
+      // TODO Test
+      // if (options.fields) {
+      //    options.fields.forEach(upstreamField => {
+      //       this.fieldIsLoadable[upstreamField as string] =
+      //          config.isLoadableField(upstreamField)
+      //    })
+      // }
       return this
    }
 
-   findClosestCommonAncestor(): VertexConfigBuilderImpl<any> {
+   findClosestCommonAncestor(): VertexConfigBuilderImpl {
       if (this.isRoot()) {
          return this
       }
@@ -117,92 +113,36 @@ export class VertexConfigBuilderImpl<BuilderType extends VertexType>
       }
    }
 
-   addDependencies<Dependencies extends object>(dependencyProviders: {
-      [K in keyof Dependencies]: (
-         upstreamDependencies: BuilderType['dependencies']
-      ) => Dependencies[K]
-   }): VertexConfigBuilder<any> {
-      this.chainedDependencyProviders.push({
-         vertexId: this.vertexId,
-         dependencyProviders
-      })
+   addDependencies<
+      AddedDependencies extends Record<string, any>
+   >(dependencyProviders: {
+      [K in keyof AddedDependencies]: (
+         dependencies: Dependencies
+      ) => AddedDependencies[K]
+   }): VertexConfigBuilderImpl {
+      const previousBuildDependencies = this.buildDependencies
+      this.buildDependencies = dependenciesByVertexId => {
+         const previousDependencies = previousBuildDependencies(
+            dependenciesByVertexId
+         )
+         const currentDependencies = {} as any
+         Object.keys(dependencyProviders).forEach(key => {
+            currentDependencies[key] = dependencyProviders[key](
+               previousDependencies as any
+            )
+         })
+         return {
+            ...previousDependencies,
+            ...currentDependencies
+         }
+      }
       return this
    }
 
    buildVertexDependencies(
-      dependenciesByUpstreamVertexId: Record<symbol, any>,
-      injectedDependencies: any
-   ): BuilderType['dependencies'] {
-      let dependencies: any =
-         this.upstreamVertices.length !== 1
-            ? {}
-            : dependenciesByUpstreamVertexId[this.upstreamVertices[0].id]
-      this.chainedDependencyProviders.forEach(
-         ({ vertexId, dependencyProviders }) => {
-            const inputDependencies =
-               vertexId === this.vertexId
-                  ? dependencies
-                  : dependenciesByUpstreamVertexId[vertexId]
-            const dependencyNames = Object.keys(dependencyProviders || {})
-            dependencyNames.forEach(depName => {
-               const injectedDep = injectedDependencies[depName]
-               if (injectedDep) {
-                  dependencies[depName] = injectedDep
-               } else {
-                  dependencies[depName] =
-                     dependencyProviders[depName](inputDependencies)
-               }
-            })
-         }
-      )
-      return dependencies
+      upstreamDependencies: Record<string, any>,
+      injectedDependencies: Record<string, any>
+   ): Dependencies {
+      return this.buildDependencies(upstreamDependencies)
    }
-
-   // buildIncomingFromSingleUpstreamInternalStateStream(
-   //    upstreamInternalState$: Observable<VertexInternalState<any>>
-   // ): Observable<VertexInternalState<any>> {
-   //    // TODO Remove check
-   //    if (this.isRoot()) {
-   //       throw Error('Not implemented for root vertex')
-   //    }
-   //    // TODO Remove check
-   //    if (this.upstreamVertices.length > 1) {
-   //       throw Error('Not implemented for multiple upstream vertices')
-   //    }
-   //    const upstreamVertex = this.upstreamVertices[0]
-   //    const pickedFields = this.upstreamFieldsByVertexId[
-   //       upstreamVertex.id
-   //    ] as string[]
-   //    return incomingFromSingleUpstreamInternalState(
-   //       this.name,
-   //       pickedFields,
-   //       upstreamInternalState$
-   //    )
-   // }
-
-   // buildIncomingFromMultipleUpstreamInternalStateStream(
-   //    commonAncestorInternalState$: Observable<VertexInternalState<any>>,
-   //    internalStateStreamByDirectAncestorId: Record<
-   //       symbol,
-   //       Observable<VertexInternalState<any>>
-   //    >
-   // ): Observable<VertexInternalState<any>> {
-   //    // TODO Remove check
-   //    if (this.isRoot()) {
-   //       throw Error('Not implemented for root vertex')
-   //    }
-   //    // TODO Remove check
-   //    if (this.upstreamVertices.length === 1) {
-   //       throw Error('Not implemented for single upstream vertex')
-   //    }
-   //    return incomingFromMultipleUpstreamInternalStates(
-   //       this.name,
-   //       commonAncestorInternalState$,
-   //       this.upstreamVertices.map(upstreamVertex => ({
-   //          internalState$:
-   //             internalStateStreamByDirectAncestorId[upstreamVertex.id],
-   //          pickedFields: this.upstreamFieldsByVertexId[upstreamVertex.id]
-   //       }))
-   //    )
-   // }
 }

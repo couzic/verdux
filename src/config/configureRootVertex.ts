@@ -21,21 +21,22 @@ export const configureRootVertex = <
    ) & {
       dependencies?: { [K in keyof Dependencies]: () => Dependencies[K] }
    }
-): IsPlainObject<Dependencies> extends true
-   ? VertexConfig<{
-        fields: ReduxFields
-        loadableFields: {}
-        dependencies: Dependencies
-     }>
-   : never => {
+): IsPlainObject<Dependencies> extends false
+   ? never
+   : VertexConfig<
+        {
+           [K in keyof ReduxFields]: { loadable: false; value: ReduxFields[K] }
+        },
+        Dependencies
+     > => {
    const { name, getInitialState, reducer } =
       'slice' in options ? options.slice : { ...options, ...options.reducer }
    const nameOrDefault = name || 'root'
    const id = createVertexId(nameOrDefault)
-   const builder = new VertexConfigBuilderImpl(
-      id,
-      nameOrDefault
-   ).addDependencies(options.dependencies as any)
+   const builder = new VertexConfigBuilderImpl(id)
+   if (options.dependencies) {
+      builder.addDependencies(options.dependencies)
+   }
    return new VertexConfigImpl(
       nameOrDefault,
       id,

@@ -1,27 +1,30 @@
 import { Observable } from 'rxjs'
-import { VertexLoadableState } from '../old/state/VertexLoadableState'
+import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
+import { VertexLoadableState } from '../state/VertexLoadableState'
 import { PickedLoadedVertexState } from '../state/PickedLoadedVertexState'
-import { VertexState, VertexStateKey } from '../state/VertexState'
+import { VertexState } from '../state/VertexState'
 import { VertexId } from './VertexId'
-import { VertexType } from './VertexType'
 
-export interface VertexInstance<Type extends VertexType> {
+export interface VertexInstance<
+   Fields extends VertexFieldsDefinition,
+   Dependencies extends Record<string, any>
+> {
    readonly name: string
    readonly id: VertexId
    readonly currentState: {
-      [K in keyof VertexState<Type>]: VertexState<Type>[K]
+      [K in keyof VertexState<Fields>]: VertexState<Fields>[K]
    }
    readonly state$: Observable<{
-      [K in keyof VertexState<Type>]: VertexState<Type>[K]
+      [K in keyof VertexState<Fields>]: VertexState<Fields>[K]
    }>
    readonly currentLoadableState: {
-      [K in keyof VertexLoadableState<Type>]: VertexLoadableState<Type>[K]
+      [K in keyof VertexLoadableState<Fields>]: VertexLoadableState<Fields>[K]
    }
    readonly loadableState$: Observable<{
-      [K in keyof VertexLoadableState<Type>]: VertexLoadableState<Type>[K]
+      [K in keyof VertexLoadableState<Fields>]: VertexLoadableState<Fields>[K]
    }>
-   readonly dependencies: Type['dependencies']
-   pick<K extends VertexStateKey<Type>>(
+   readonly dependencies: Dependencies
+   pick<K extends keyof Fields>(
       fields: K[]
-   ): Observable<PickedLoadedVertexState<Type, K>>
+   ): Observable<PickedLoadedVertexState<Fields, K>>
 }

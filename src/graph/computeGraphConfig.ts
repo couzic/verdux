@@ -1,4 +1,5 @@
 import { VertexConfig } from '../config/VertexConfig'
+import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { VertexRuntimeConfig } from '../config/VertexRuntimeConfig'
 import { VertexId } from '../vertex/VertexId'
 import { GraphConfig } from './GraphConfig'
@@ -14,51 +15,73 @@ export const computeGraphConfig = (
          ? vertexConfigs[0].config.rootVertex
          : vertexConfigs[0].rootVertex
 
-   // TODO sorted in optimal order
    // TODO ensure no cycles
-   // TODO single upstream vertex ids
 
-   const vertexIds: VertexId[] = []
-   const vertexIdsBySingleUpstreamVertexId: Record<VertexId, VertexId[]> = {}
+   const exhaustiveVertexConfigs: VertexConfig<any, any>[] = []
+   const vertexConfigsBySingleUpstreamVertexId: Record<
+      VertexId,
+      VertexConfig<any, any>[]
+   > = {}
+   const vertexConfigsWithMultipleUpstreamVertices: VertexConfig[] = []
    const vertexConfigById: Record<VertexId, VertexConfig<any>> = {}
-   const injectedDependenciesByVertexId: Record<VertexId, any> = {}
+   const dependenciesByVertexId: Record<VertexId, any> = {}
 
-   const processConfig = (runtimeConfig: VertexRuntimeConfig<any>) => {
+   const indexExhaustiveVertexIds = (
+      runtimeConfig: VertexRuntimeConfig<any>
+   ) => {
       const config =
          'config' in runtimeConfig ? runtimeConfig.config : runtimeConfig
-      // TODO deduplicate configs
-      // if (vertexConfigById[config.id]) return
+      dependenciesByVertexId[config.id] =
+         'config' in runtimeConfig ? runtimeConfig.injectedDependencies : {}
       if (config.rootVertex !== rootVertexConfig)
          throw new Error('all vertex configs must have the same root vertex')
-      const injectedDependencies =
-         'config' in runtimeConfig ? runtimeConfig.injectedDependencies : null
-      // TODO upstream vertices should be processed first
-      // config.upstreamVertices.forEach(processConfig)
-      vertexIds.push(config.id)
+      if (vertexConfigById[config.id]) return
+      config.upstreamVertices.forEach(indexExhaustiveVertexIds)
       vertexConfigById[config.id] = config
-
-      // TODO ACTUAL DEPENDENCIES !!!
-      ///////////////////
-      // DEPENDENCIES //
-      /////////////////
-      // const upstreamDependencies = {} as Record<symbol, any>
-      // config.upstreamVertices.forEach(upstreamVertexConfig => {
-      //    const upstreamVertex = vertexById[upstreamVertexConfig.id]
-      //    upstreamDependencies[upstreamVertexConfig.id] =
-      //       upstreamVertex.instance.dependencies
-      // })
-      // const injectedDependencies = injectedDependenciesByVertexId[config.id]
-      // const dependencies = (
-      //    config as VertexConfigImpl<Type>
-      // ).buildVertexDependencies(upstreamDependencies, injectedDependencies)
-
-      injectedDependenciesByVertexId[config.id] = injectedDependencies || {}
+      // TODO Check config is not root OR config.upstreamVertices.length >= 0
+      if (config.upstreamVertices.length === 1) {
+         const upstreamVertexId = config.upstreamVertices[0].id
+         const siblingVertexConfigs =
+            vertexConfigsBySingleUpstreamVertexId[upstreamVertexId]
+         if (siblingVertexConfigs) siblingVertexConfigs.push(config)
+         else vertexConfigsBySingleUpstreamVertexId[upstreamVertexId] = [config]
+      } else if (config.upstreamVertices.length > 1) {
+         vertexConfigsWithMultipleUpstreamVertices.push(config)
+      }
+      exhaustiveVertexConfigs.push(config)
    }
-   vertexConfigs.forEach(processConfig)
+   vertexConfigs.forEach(indexExhaustiveVertexIds)
+
+   const sortedVertexIds: VertexId[] = []
+   const isVertexSorted: Record<VertexId, boolean> = {}
+   const sortDownstreamVertexIds = (config: VertexConfig<any, any>) => {
+      if (isVertexSorted[config.id]) return
+      isVertexSorted[config.id] = true
+      sortedVertexIds.push(config.id)
+      const dependencies = (config as VertexConfigImpl).buildVertexDependencies(
+         dependenciesByVertexId,
+         {} // TODO injectedDependencies
+      )
+      dependenciesByVertexId[config.id] = dependencies
+      const downstreamVertexConfigs =
+         vertexConfigsBySingleUpstreamVertexId[config.id] || []
+      downstreamVertexConfigs.forEach(sortDownstreamVertexIds)
+   }
+   sortDownstreamVertexIds(rootVertexConfig)
+   vertexConfigsWithMultipleUpstreamVertices.forEach(sortDownstreamVertexIds)
+
+   // TODO ACTUAL DEPENDENCIES !!!
+   ///////////////////
+   // DEPENDENCIES //
+   /////////////////
+   // const injectedDependencies = injectedDependenciesByVertexId[config.id]
+   // const dependencies = (
+   //    config as VertexConfigImpl<Type>
+   // ).buildVertexDependencies(upstreamDependencies, injectedDependencies)
    return {
-      vertexIds,
-      vertexIdsBySingleUpstreamVertexId,
+      vertexIds: sortedVertexIds,
+      vertexConfigsBySingleUpstreamVertexId,
       vertexConfigById,
-      injectedDependenciesByVertexId
+      dependenciesByVertexId
    }
 }

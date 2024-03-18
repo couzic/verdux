@@ -1,69 +1,56 @@
-import { VertexStateKey } from '../state/VertexState'
-import { VertexType } from '../vertex/VertexType'
 import { VertexConfig } from './VertexConfig'
+import { VertexFieldsDefinition } from './VertexFieldsDefinition'
 
-export interface VertexConfigBuilder<BuilderType extends VertexType> {
+export interface VertexConfigBuilder<
+   Fields extends VertexFieldsDefinition,
+   Dependencies extends Record<string, any>
+> {
    addUpstreamVertex<
-      Type extends VertexType,
-      UpstreamField extends VertexStateKey<Type>,
-      Dependencies extends object
+      UpstreamFields extends VertexFieldsDefinition,
+      UpstreamDependencies extends Record<string, any>
    >(
-      config: VertexConfig<Type>,
+      config: VertexConfig<UpstreamFields, UpstreamDependencies>,
       options: {
-         upstreamFields?: UpstreamField[]
-         dependencies?: {
-            [K in keyof Dependencies]: (
-               upstreamDependencies: Type['dependencies']
-            ) => Dependencies[K]
-         }
+         fields?: Array<keyof UpstreamFields>
+         dependencies?: Array<keyof UpstreamDependencies>
       }
-   ): VertexConfigBuilder<{
-      fields: {
+   ): VertexConfigBuilder<
+      {
          [K in
-            | keyof BuilderType['fields']
-            | (UpstreamField &
-                 keyof Type['fields'])]: K extends keyof Type['fields']
-            ? Type['fields'][K]
-            : K extends keyof BuilderType['fields']
-              ? BuilderType['fields'][K]
+            | keyof UpstreamFields
+            | keyof Fields]: K extends keyof UpstreamFields
+            ? UpstreamFields[K]
+            : K extends keyof Fields
+              ? Fields[K]
+              : never
+      },
+      {
+         [K in
+            | keyof UpstreamDependencies
+            | keyof Dependencies]: K extends keyof UpstreamDependencies
+            ? UpstreamDependencies[K]
+            : K extends keyof Dependencies
+              ? Dependencies[K]
               : never
       }
-      loadableFields: {
-         [K in
-            | keyof BuilderType['loadableFields']
-            | (UpstreamField &
-                 keyof Type['loadableFields'])]: K extends keyof Type['loadableFields']
-            ? Type['loadableFields'][K]
-            : K extends keyof BuilderType['loadableFields']
-              ? BuilderType['loadableFields'][K]
-              : never
-      }
-      dependencies: {
-         [K in
-            | keyof BuilderType['dependencies']
-            | keyof Type['dependencies']]: K extends keyof Type['dependencies']
-            ? Type['dependencies'][K]
-            : K extends keyof BuilderType['dependencies']
-              ? BuilderType['dependencies'][K]
-              : never
-      }
-   }>
+   >
 
-   addDependencies<Dependencies extends object>(dependencyProviders: {
-      [K in keyof Dependencies]: (
-         upstreamDependencies: BuilderType['dependencies']
-      ) => Dependencies[K]
-   }): VertexConfigBuilder<{
-      fields: BuilderType['fields']
-      loadableFields: BuilderType['loadableFields']
-      dependencies: {
+   addDependencies<
+      AddedDependencies extends Record<string, any>
+   >(dependencyProviders: {
+      [K in keyof AddedDependencies]: (
+         dependencies: Dependencies
+      ) => AddedDependencies[K]
+   }): VertexConfigBuilder<
+      Fields,
+      {
          [K in
-            | keyof BuilderType['dependencies']
-            | keyof Dependencies]: K extends keyof Dependencies
-            ? Dependencies[K]
-            : K extends keyof BuilderType['dependencies']
-              ? BuilderType['dependencies'][K]
+            | keyof AddedDependencies
+            | keyof Dependencies]: K extends keyof AddedDependencies
+            ? AddedDependencies[K]
+            : K extends keyof Dependencies
+              ? Dependencies[K]
               : never
       }
-   }>
+   >
 }
