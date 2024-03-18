@@ -248,4 +248,59 @@ describe(computeGraphConfig.name, () => {
          fromSecond: 'fromSecond'
       })
    })
+
+   it('injects dependencies', () => {
+      const rootVertexConfig = configureSimpleVertex('root', {
+         dependencies: { name: () => 'Bob' }
+      })
+      const injectedConfig = rootVertexConfig.injectedWith({ name: 'Steve' })
+      const { dependenciesByVertexId } = computeGraphConfig([injectedConfig])
+      expect(dependenciesByVertexId[rootVertexConfig.id]).to.deep.equal({
+         name: 'Steve'
+      })
+   })
+
+   describe('inherited dependency', () => {
+      const rootVertexConfig = configureRootVertex({
+         slice: createSimpleSlice('root'),
+         dependencies: { name: () => 'Bob' }
+      })
+      const downstreamVertexConfig = configureVertex(
+         {
+            slice: createSimpleSlice('downstream')
+         },
+         _ =>
+            _.addUpstreamVertex(rootVertexConfig, {
+               dependencies: ['name']
+            })
+      )
+      it('inherits injected dependency', () => {
+         const { dependenciesByVertexId } = computeGraphConfig([
+            rootVertexConfig.injectedWith({ name: 'Steve' }),
+            downstreamVertexConfig
+         ])
+         expect(dependenciesByVertexId[rootVertexConfig.id]).to.deep.equal({
+            name: 'Steve'
+         })
+         expect(
+            dependenciesByVertexId[downstreamVertexConfig.id]
+         ).to.deep.equal({
+            name: 'Steve'
+         })
+      })
+      it('injects inherited dependency only', () => {
+         const { dependenciesByVertexId } = computeGraphConfig([
+            rootVertexConfig,
+            downstreamVertexConfig.injectedWith({ name: 'Steve' })
+         ])
+         expect(dependenciesByVertexId[rootVertexConfig.id]).to.deep.equal({
+            name: 'Bob'
+         })
+         expect(
+            dependenciesByVertexId[downstreamVertexConfig.id]
+         ).to.deep.equal({
+            name: 'Steve'
+         })
+      })
+   })
 })

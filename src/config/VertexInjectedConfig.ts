@@ -1,7 +1,7 @@
 import { VertexConfig } from './VertexConfig'
 import { VertexFieldsDefinition } from './VertexFieldsDefinition'
 
-export type VertexRuntimeConfig<
+export type VertexInjectedConfig<
    Fields extends VertexFieldsDefinition = any,
    Dependencies extends Record<string, any> = any
 > =

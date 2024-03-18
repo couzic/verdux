@@ -11,7 +11,8 @@ export class VertexConfigBuilderImpl<
 {
    public readonly upstreamVertices: VertexConfig<any>[] = []
    private buildDependencies: (
-      dependenciesByVertexId: Record<VertexId, Record<string, any>>
+      dependenciesByVertexId: Record<VertexId, Record<string, any>>,
+      injectedDependencies: Record<string, any>
    ) => Dependencies
    private readonly fieldIsLoadable: Record<string, boolean> = {}
 
@@ -39,18 +40,27 @@ export class VertexConfigBuilderImpl<
    ): VertexConfigBuilderImpl {
       this.upstreamVertices.push(config)
       const previousBuildDependencies = this.buildDependencies
-      this.buildDependencies = dependenciesByVertexId => {
+      this.buildDependencies = (
+         dependenciesByVertexId,
+         injectedDependencies
+      ) => {
          const previousDependencies = previousBuildDependencies(
-            dependenciesByVertexId
+            dependenciesByVertexId,
+            {}
          )
          const currentDependencies: any = options.dependencies
             ? {}
             : dependenciesByVertexId[config.id]
          ;(options.dependencies || []).forEach(dependency => {
+            // TODO No need to build the dependency if it is injected
             currentDependencies[dependency] =
                dependenciesByVertexId[config.id][dependency as any]
          })
-         return { ...previousDependencies, ...currentDependencies }
+         return {
+            ...previousDependencies,
+            ...currentDependencies,
+            ...injectedDependencies
+         }
       }
       // TODO Test
       // if (options.fields) {
@@ -121,9 +131,13 @@ export class VertexConfigBuilderImpl<
       ) => AddedDependencies[K]
    }): VertexConfigBuilderImpl {
       const previousBuildDependencies = this.buildDependencies
-      this.buildDependencies = dependenciesByVertexId => {
+      this.buildDependencies = (
+         dependenciesByVertexId,
+         injectedDependencies
+      ) => {
          const previousDependencies = previousBuildDependencies(
-            dependenciesByVertexId
+            dependenciesByVertexId,
+            {}
          )
          const currentDependencies = {} as any
          Object.keys(dependencyProviders).forEach(key => {
@@ -133,16 +147,20 @@ export class VertexConfigBuilderImpl<
          })
          return {
             ...previousDependencies,
-            ...currentDependencies
+            ...currentDependencies,
+            ...injectedDependencies
          }
       }
       return this
    }
 
    buildVertexDependencies(
-      upstreamDependencies: Record<string, any>,
+      dependenciesByVertexId: Record<VertexId, Record<string, any>>,
       injectedDependencies: Record<string, any>
    ): Dependencies {
-      return this.buildDependencies(upstreamDependencies)
+      return this.buildDependencies(
+         dependenciesByVertexId,
+         injectedDependencies
+      )
    }
 }

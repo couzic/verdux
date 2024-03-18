@@ -1,11 +1,11 @@
 import { VertexConfig } from '../config/VertexConfig'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
-import { VertexRuntimeConfig } from '../config/VertexRuntimeConfig'
+import { VertexInjectedConfig } from '../config/VertexInjectedConfig'
 import { VertexId } from '../vertex/VertexId'
 import { GraphConfig } from './GraphConfig'
 
 export const computeGraphConfig = (
-   vertexConfigs: Array<VertexRuntimeConfig<any>>
+   vertexConfigs: Array<VertexInjectedConfig<any>>
 ): GraphConfig => {
    if ((vertexConfigs || []).length === 0)
       throw new Error('createGraph() requires a non-empty vertices array')
@@ -24,20 +24,24 @@ export const computeGraphConfig = (
    > = {}
    const vertexConfigsWithMultipleUpstreamVertices: VertexConfig[] = []
    const vertexConfigById: Record<VertexId, VertexConfig<any>> = {}
-   const dependenciesByVertexId: Record<VertexId, any> = {}
+   const dependenciesByVertexId: Record<VertexId, Record<string, any>> = {}
+   const injectedDependenciesByVertexId: Record<
+      VertexId,
+      Record<string, any>
+   > = {}
 
    const indexExhaustiveVertexIds = (
-      runtimeConfig: VertexRuntimeConfig<any>
+      runtimeConfig: VertexInjectedConfig<any>
    ) => {
       const config =
          'config' in runtimeConfig ? runtimeConfig.config : runtimeConfig
-      dependenciesByVertexId[config.id] =
-         'config' in runtimeConfig ? runtimeConfig.injectedDependencies : {}
+      if (vertexConfigById[config.id]) return
+      vertexConfigById[config.id] = config
       if (config.rootVertex !== rootVertexConfig)
          throw new Error('all vertex configs must have the same root vertex')
-      if (vertexConfigById[config.id]) return
       config.upstreamVertices.forEach(indexExhaustiveVertexIds)
-      vertexConfigById[config.id] = config
+      injectedDependenciesByVertexId[config.id] =
+         'config' in runtimeConfig ? runtimeConfig.injectedDependencies : {}
       // TODO Check config is not root OR config.upstreamVertices.length >= 0
       if (config.upstreamVertices.length === 1) {
          const upstreamVertexId = config.upstreamVertices[0].id
@@ -60,7 +64,7 @@ export const computeGraphConfig = (
       sortedVertexIds.push(config.id)
       const dependencies = (config as VertexConfigImpl).buildVertexDependencies(
          dependenciesByVertexId,
-         {} // TODO injectedDependencies
+         injectedDependenciesByVertexId[config.id]
       )
       dependenciesByVertexId[config.id] = dependencies
       const downstreamVertexConfigs =
@@ -70,14 +74,6 @@ export const computeGraphConfig = (
    sortDownstreamVertexIds(rootVertexConfig)
    vertexConfigsWithMultipleUpstreamVertices.forEach(sortDownstreamVertexIds)
 
-   // TODO ACTUAL DEPENDENCIES !!!
-   ///////////////////
-   // DEPENDENCIES //
-   /////////////////
-   // const injectedDependencies = injectedDependenciesByVertexId[config.id]
-   // const dependencies = (
-   //    config as VertexConfigImpl<Type>
-   // ).buildVertexDependencies(upstreamDependencies, injectedDependencies)
    return {
       vertexIds: sortedVertexIds,
       vertexConfigsBySingleUpstreamVertexId,

@@ -15,7 +15,7 @@ import {
 } from 'rxjs'
 import { VertexConfig } from '../config/VertexConfig'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
-import { VertexRuntimeConfig } from '../config/VertexRuntimeConfig'
+import { VertexInjectedConfig } from '../config/VertexInjectedConfig'
 import { createVertexInstance } from '../vertex/createVertexInstance'
 import { createFIFO } from '../util/FIFO'
 import { VertexFieldState } from '../state/VertexFieldState'
@@ -27,7 +27,7 @@ import { emitVertexFieldStates as emitVertexFieldStates } from './emitVertexFiel
 import { computeGraphConfig } from './computeGraphConfig'
 
 export const createGraph = (options: {
-   vertices: Array<VertexRuntimeConfig<any>>
+   vertices: Array<VertexInjectedConfig<any>>
    devtools?: (params: any) => void
 }): Graph => {
    const graphConfig = computeGraphConfig(options.vertices)

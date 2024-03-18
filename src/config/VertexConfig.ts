@@ -13,7 +13,7 @@ import { VertexInstance } from '../vertex/VertexInstance'
 import { Dependable } from './Dependable'
 import { HasLoadable } from './HasLoadable'
 import { VertexFieldsDefinition } from './VertexFieldsDefinition'
-import { VertexRuntimeConfig } from './VertexRuntimeConfig'
+import { VertexInjectedConfig } from './VertexInjectedConfig'
 
 export interface VertexConfig<
    Fields extends VertexFieldsDefinition = any,
@@ -71,7 +71,7 @@ export interface VertexConfig<
 
    injectedWith(
       dependencies: Partial<Dependencies>
-   ): VertexRuntimeConfig<Fields, Dependencies>
+   ): VertexInjectedConfig<Fields, Dependencies>
 
    computeFromFields<
       K extends keyof Fields,
