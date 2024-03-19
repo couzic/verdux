@@ -4,7 +4,7 @@ import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from './createGraph'
 
 describe(createGraph.name, () => {
-   describe('single root vertex', () => {
+   describe('root vertex', () => {
       const rootVertexConfig = configureRootVertex({
          slice: createSlice({
             name: 'root',
@@ -55,6 +55,55 @@ describe(createGraph.name, () => {
          expect(latestState).to.deep.equal({ name: '' })
          expect(latestLoadableState).to.deep.equal(expectedLoadableState)
          expect(latestPick).to.deep.equal(expectedLoadableState)
+      })
+      describe('single downstream vertex', () => {
+         const downstreamVertexConfig =
+            rootVertexConfig.configureDownstreamVertex({
+               slice: createSlice({
+                  name: 'downstreamVertex',
+                  initialState: {
+                     downstreamName: ''
+                  },
+                  reducers: {
+                     setLastName: (state, action: PayloadAction<string>) => {
+                        state.downstreamName = action.payload
+                     }
+                  }
+               })
+            })
+         it('has fields from redux state', () => {
+            const graph = createGraph({
+               vertices: [rootVertexConfig, downstreamVertexConfig]
+            })
+            const downstreamVertex = graph.getVertexInstance(
+               downstreamVertexConfig
+            )
+            expect(downstreamVertex.currentState).to.deep.equal({
+               downstreamName: ''
+            })
+         })
+      })
+      describe('single downstream vertex', () => {
+         const downstreamVertexConfig =
+            rootVertexConfig.configureDownstreamVertex({
+               slice: createSlice({
+                  name: 'downstream',
+                  initialState: {},
+                  reducers: {}
+               }),
+               upstreamFields: ['name']
+            })
+         it('passes down upstream field', () => {
+            const graph = createGraph({
+               vertices: [rootVertexConfig, downstreamVertexConfig]
+            })
+            const downstreamVertex = graph.getVertexInstance(
+               downstreamVertexConfig
+            )
+            expect(downstreamVertex.currentState).to.deep.equal({
+               name: ''
+            })
+         })
       })
    })
 })

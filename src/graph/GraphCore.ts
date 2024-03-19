@@ -1,7 +1,9 @@
+import { Reducer } from '@reduxjs/toolkit'
 import { VertexConfig } from '../config/VertexConfig'
 import { VertexId } from '../vertex/VertexId'
+import { GraphPipeline } from './GraphPipeline'
 
-export interface GraphConfig {
+export interface GraphCore {
    /** exhaustive and sorted */
    vertexIds: VertexId[]
    vertexConfigsBySingleUpstreamVertexId: Record<
@@ -10,4 +12,6 @@ export interface GraphConfig {
    >
    vertexConfigById: Record<VertexId, VertexConfig<any>>
    dependenciesByVertexId: Record<VertexId, Record<string, any>>
+   rootReducer: Reducer
+   pipeline: GraphPipeline
 }

@@ -30,7 +30,7 @@ export interface VertexConfig<
    isLoadableField(field: keyof Fields): boolean
 
    configureDownstreamVertex<
-      ReduxFields extends Record<string, Record<string, any>>,
+      ReduxFields extends Record<string, any>,
       UpstreamField extends keyof Fields = never,
       DownstreamDependencies extends Record<string, any> = {}
    >(
@@ -50,24 +50,26 @@ export interface VertexConfig<
             ) => DownstreamDependencies[K]
          }
       }
-   ): VertexConfig<
-      {
-         [K in keyof ReduxFields | UpstreamField]: K extends UpstreamField
-            ? Fields[K]
-            : K extends keyof ReduxFields
-              ? { loadable: false; value: ReduxFields[K] }
-              : never
-      },
-      {
-         [K in
-            | keyof DownstreamDependencies
-            | keyof Dependencies]: K extends keyof DownstreamDependencies
-            ? DownstreamDependencies[K]
-            : K extends keyof Dependencies
-              ? Dependencies[K]
-              : never
-      }
-   >
+   ): IsPlainObject<DownstreamDependencies> extends false
+      ? never
+      : VertexConfig<
+           {
+              [K in keyof ReduxFields | UpstreamField]: K extends UpstreamField
+                 ? Fields[K]
+                 : K extends keyof ReduxFields
+                   ? { loadable: false; value: ReduxFields[K] }
+                   : never
+           },
+           {
+              [K in
+                 | keyof DownstreamDependencies
+                 | keyof Dependencies]: K extends keyof DownstreamDependencies
+                 ? DownstreamDependencies[K]
+                 : K extends keyof Dependencies
+                   ? Dependencies[K]
+                   : never
+           }
+        >
 
    injectedWith(
       dependencies: Partial<Dependencies>

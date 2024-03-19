@@ -1,95 +1,48 @@
-import {
-   Middleware,
-   Reducer,
-   UnknownAction,
-   combineReducers,
-   configureStore
-} from '@reduxjs/toolkit'
+import { Middleware, UnknownAction, configureStore } from '@reduxjs/toolkit'
 import { createEpicMiddleware } from 'redux-observable'
-import {
-   Observable,
-   ReplaySubject,
-   Subject,
-   distinctUntilChanged,
-   map
-} from 'rxjs'
+import { ReplaySubject, Subject, map } from 'rxjs'
 import { VertexConfig } from '../config/VertexConfig'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
-import { VertexInjectedConfig } from '../config/VertexInjectedConfig'
-import { createVertexInstance } from '../vertex/createVertexInstance'
-import { createFIFO } from '../util/FIFO'
+import { VertexInjectableConfig } from '../config/VertexInjectableConfig'
 import { VertexFieldState } from '../state/VertexFieldState'
+import { createFIFO } from '../util/FIFO'
 import { VertexId } from '../vertex/VertexId'
 import { VertexInstance } from '../vertex/VertexInstance'
+import { createVertexInstance } from '../vertex/createVertexInstance'
 import { Graph } from './Graph'
 import { GraphData } from './GraphData'
-import { emitVertexFieldStates as emitVertexFieldStates } from './emitVertexFieldStates'
-import { computeGraphConfig } from './computeGraphConfig'
+import { GraphSeed } from './GraphSeed'
+import { GraphTransformable } from './GraphTransformable'
+import { computeGraphCore } from './computeGraphCore'
+import { emitVertexFieldStates } from './emitVertexFieldStates'
 
 export const createGraph = (options: {
-   vertices: Array<VertexInjectedConfig<any>>
+   vertices: Array<VertexInjectableConfig<any>>
    devtools?: (params: any) => void
 }): Graph => {
-   const graphConfig = computeGraphConfig(options.vertices)
+   const graphConfig = computeGraphCore(options.vertices)
+   const {
+      vertexIds,
+      vertexConfigById,
+      // TODO Remove what is useless
+      vertexConfigsBySingleUpstreamVertexId,
+      dependenciesByVertexId,
+      rootReducer,
+      pipeline
+   } = graphConfig
 
-   const exhaustiveVertexConfigs = graphConfig.vertexIds.map(
-      id => graphConfig.vertexConfigById[id]
-   )
+   const vertexConfigs = vertexIds.map(id => vertexConfigById[id])
 
-   ///////////////////////////////////////////////
-   // Index vertex configs by upstream reducer //
-   /////////////////////////////////////////////
-
-   const vertexConfigsByUpstreamReducerId: Record<
-      symbol,
-      Array<VertexConfig<any>>
-   > = {}
-
-   exhaustiveVertexConfigs.forEach(config => {
-      const closestCommonAncestorId = (
-         config as VertexConfigImpl<any>
-      ).findClosestCommonAncestor()
-      if (config.id === closestCommonAncestorId) return // It's the root vertex
-      if (!vertexConfigsByUpstreamReducerId[closestCommonAncestorId]) {
-         vertexConfigsByUpstreamReducerId[closestCommonAncestorId] = []
-      }
-      vertexConfigsByUpstreamReducerId[closestCommonAncestorId].push(config)
-   })
-
-   /////////////////////////
-   // Create Redux store //
-   ///////////////////////
-
-   const createReduxReducer = (
-      vertexConfig: VertexConfig<any>
-   ): Reducer<any> => {
-      const downstreamVertexConfigs =
-         vertexConfigsByUpstreamReducerId[vertexConfig.id] || []
-      if (downstreamVertexConfigs.length === 0)
-         return combineReducers({ vertex: vertexConfig.reducer })
-
-      const downstreamReducersByName = {} as Record<string, Reducer<any>>
-      downstreamVertexConfigs.forEach(config => {
-         downstreamReducersByName[config.name] = createReduxReducer(config)
-      })
-      return combineReducers({
-         vertex: vertexConfig.reducer,
-         downstream: combineReducers(downstreamReducersByName)
-      })
-   }
-
-   const rootVertexConfig = exhaustiveVertexConfigs[0]
-      .rootVertex as VertexConfigImpl<any>
-   const rootReducer = createReduxReducer(rootVertexConfig)
+   const rootVertexConfig = vertexConfigs[0].rootVertex as VertexConfigImpl<any>
 
    const epicMiddleware: Middleware = createEpicMiddleware()
 
-   const reduxFIFO = createFIFO<{ state: any; action: unknown }>()
+   const reduxFIFO = createFIFO<GraphSeed>()
 
    const verduxMiddleware: Middleware = store => next => action => {
       const result = next(action)
-      const state = store.getState()
-      reduxFIFO.push({ state, action })
+      const reduxState = store.getState()
+      reduxFIFO.push({ reduxState, action: action as UnknownAction })
       return result
    }
 
@@ -107,37 +60,8 @@ export const createGraph = (options: {
       redux$.next(reduxFIFO.pop()!)
    })
 
-   const redux$: Subject<{ state: any; action?: unknown }> = new Subject()
-   const inputGraphData$ = redux$.pipe(
-      map(({ state, action }): { graphData: GraphData; action?: unknown } => {
-         const rootVertexReduxState = state.vertex
-         const fields = {} as Record<string, VertexFieldState>
-         Object.keys(rootVertexReduxState).forEach(key => {
-            fields[key] = {
-               status: 'loaded',
-               value: rootVertexReduxState[key],
-               errors: []
-            }
-         })
-         return {
-            graphData: {
-               vertices: {
-                  [rootVertexConfig.id]: {
-                     reduxState: state,
-                     fields
-                  }
-               },
-               fieldsReactions: [],
-               reactions: []
-            },
-            action
-         }
-      })
-   )
-   // TODO Add all vertices in graph data
-   // TODO Apply transformations for each vertex IN CORRECT ORDER
-   // TODO Make sure a transformation is called only if its upstream vertex has changed
-   const transformed$ = inputGraphData$.pipe(map(data => data))
+   const redux$: Subject<GraphSeed> = new Subject()
+   const graphData$ = pipeline(redux$)
 
    const fieldsReactionsFIFO = createFIFO<UnknownAction>()
    const reactionsFIFO = createFIFO<UnknownAction>()
@@ -147,15 +71,15 @@ export const createGraph = (options: {
       Subject<Record<string, VertexFieldState>>
    > = {}
    const vertexInstanceById: Record<VertexId, VertexInstance<any, any>> = {}
-   exhaustiveVertexConfigs.forEach(config => {
+   vertexConfigs.forEach(config => {
       const fields$ = new ReplaySubject<Record<string, VertexFieldState>>(1)
       vertexFieldStatesStreamById[config.id] = fields$
       vertexInstanceById[config.id] = createVertexInstance(config, fields$, {})
       // TODO Dependencies
    })
 
-   const outputGraphData$ = new Subject<GraphData>() // TODO USE !!!!!!!!!!!!!
-   transformed$.subscribe(({ graphData }) => {
+   const outputGraphData$ = new Subject<GraphData>()
+   graphData$.subscribe(({ graphData }) => {
       graphData.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
       graphData.reactions.forEach(_ => reactionsFIFO.push(_))
       if (reduxFIFO.hasNext()) {
@@ -169,12 +93,13 @@ export const createGraph = (options: {
          // TODO Side effects
       }
    })
-   emitVertexFieldStates(outputGraphData$, vertexFieldStatesStreamById, [
-      // TODO exhaustiveVertexIds SORTED !!!
-      rootVertexConfig.id
-   ])
+   emitVertexFieldStates(
+      outputGraphData$,
+      vertexFieldStatesStreamById,
+      vertexIds
+   )
 
-   redux$.next({ state: reduxStore.getState() })
+   redux$.next({ reduxState: reduxStore.getState() })
 
    const epics = [] as any[]
 

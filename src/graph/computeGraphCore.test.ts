@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import { VertexConfig } from '../config/VertexConfig'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { configureVertex } from '../config/configureVertex'
-import { computeGraphConfig } from './computeGraphConfig'
+import { computeGraphCore } from './computeGraphCore'
 
 const createSimpleSlice = (name: string) =>
    createSlice({
@@ -31,9 +31,11 @@ const configureSimpleVertex = (
    })
 }
 
-describe(computeGraphConfig.name, () => {
+const sut = computeGraphCore
+
+describe(sut.name, () => {
    it('throws error if no vertices', () => {
-      expect(() => computeGraphConfig([])).to.throw(
+      expect(() => sut([])).to.throw(
          'createGraph() requires a non-empty vertices array'
       )
    })
@@ -41,14 +43,14 @@ describe(computeGraphConfig.name, () => {
    it('throws error if multiple root configs', () => {
       const firstConfig = configureSimpleVertex('first')
       const secondConfig = configureSimpleVertex('second')
-      expect(() => computeGraphConfig([firstConfig, secondConfig])).to.throw(
+      expect(() => sut([firstConfig, secondConfig])).to.throw(
          'all vertex configs must have the same root vertex'
       )
    })
 
    it('creates graph config for single vertex', () => {
       const vertexConfig = configureSimpleVertex('root')
-      const graphConfig = computeGraphConfig([vertexConfig])
+      const graphConfig = sut([vertexConfig])
       expect(graphConfig.vertexIds).to.deep.equal([vertexConfig.id])
       expect(graphConfig.vertexConfigsBySingleUpstreamVertexId).to.deep.equal(
          {}
@@ -66,10 +68,7 @@ describe(computeGraphConfig.name, () => {
       const downstreamVertexConfig = configureSimpleVertex('downstream', {
          upstreamVertexConfig: rootVertexConfig
       })
-      const graphConfig = computeGraphConfig([
-         downstreamVertexConfig,
-         rootVertexConfig
-      ])
+      const graphConfig = sut([downstreamVertexConfig, rootVertexConfig])
       expect(graphConfig.vertexIds).to.deep.equal([
          rootVertexConfig.id,
          downstreamVertexConfig.id
@@ -87,7 +86,7 @@ describe(computeGraphConfig.name, () => {
       const siblingVertexConfig = configureSimpleVertex('sibling', {
          upstreamVertexConfig: rootVertexConfig
       })
-      const graphConfig = computeGraphConfig([
+      const graphConfig = sut([
          rootVertexConfig,
          downstreamVertexConfig,
          siblingVertexConfig,
@@ -105,7 +104,7 @@ describe(computeGraphConfig.name, () => {
       const rootVertexConfig = configureSimpleVertex('root', {
          dependencies: { name: () => 'Bob' }
       })
-      const { dependenciesByVertexId } = computeGraphConfig([rootVertexConfig])
+      const { dependenciesByVertexId } = sut([rootVertexConfig])
       expect(dependenciesByVertexId[rootVertexConfig.id]).to.deep.equal({
          name: 'Bob'
       })
@@ -118,7 +117,7 @@ describe(computeGraphConfig.name, () => {
       const downstreamVertexConfig = configureSimpleVertex('downstream', {
          upstreamVertexConfig: rootVertexConfig
       })
-      const { dependenciesByVertexId } = computeGraphConfig([
+      const { dependenciesByVertexId } = sut([
          rootVertexConfig,
          downstreamVertexConfig
       ])
@@ -143,7 +142,7 @@ describe(computeGraphConfig.name, () => {
             }
          }
       )
-      const { dependenciesByVertexId } = computeGraphConfig([
+      const { dependenciesByVertexId } = sut([
          rootVertexConfig,
          downstreamVertexConfig
       ])
@@ -167,7 +166,7 @@ describe(computeGraphConfig.name, () => {
                dependencies: ['name']
             })
       )
-      const { dependenciesByVertexId } = computeGraphConfig([
+      const { dependenciesByVertexId } = sut([
          rootVertexConfig,
          downstreamVertexConfig
       ])
@@ -203,9 +202,7 @@ describe(computeGraphConfig.name, () => {
                dependencies: ['fromSecond']
             })
       )
-      const { dependenciesByVertexId } = computeGraphConfig([
-         downstreamVertexConfig
-      ])
+      const { dependenciesByVertexId } = sut([downstreamVertexConfig])
       expect(dependenciesByVertexId[downstreamVertexConfig.id]).to.deep.equal({
          fromFirst: 'fromFirst',
          fromSecond: 'fromSecond'
@@ -240,9 +237,7 @@ describe(computeGraphConfig.name, () => {
                dependencies: ['fromSecond']
             })
       )
-      const { dependenciesByVertexId } = computeGraphConfig([
-         downstreamVertexConfig
-      ])
+      const { dependenciesByVertexId } = sut([downstreamVertexConfig])
       expect(dependenciesByVertexId[downstreamVertexConfig.id]).to.deep.equal({
          fromFirst: 'fromFirst',
          fromSecond: 'fromSecond'
@@ -254,7 +249,7 @@ describe(computeGraphConfig.name, () => {
          dependencies: { name: () => 'Bob' }
       })
       const injectedConfig = rootVertexConfig.injectedWith({ name: 'Steve' })
-      const { dependenciesByVertexId } = computeGraphConfig([injectedConfig])
+      const { dependenciesByVertexId } = sut([injectedConfig])
       expect(dependenciesByVertexId[rootVertexConfig.id]).to.deep.equal({
          name: 'Steve'
       })
@@ -275,7 +270,7 @@ describe(computeGraphConfig.name, () => {
             })
       )
       it('inherits injected dependency', () => {
-         const { dependenciesByVertexId } = computeGraphConfig([
+         const { dependenciesByVertexId } = sut([
             rootVertexConfig.injectedWith({ name: 'Steve' }),
             downstreamVertexConfig
          ])
@@ -289,7 +284,7 @@ describe(computeGraphConfig.name, () => {
          })
       })
       it('injects inherited dependency only', () => {
-         const { dependenciesByVertexId } = computeGraphConfig([
+         const { dependenciesByVertexId } = sut([
             rootVertexConfig,
             downstreamVertexConfig.injectedWith({ name: 'Steve' })
          ])
