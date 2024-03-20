@@ -10,6 +10,7 @@ export class VertexConfigBuilderImpl<
 > implements VertexConfigBuilder<Fields, Dependencies>
 {
    public readonly upstreamVertices: VertexConfig<any>[] = []
+   public readonly fieldsByUpstreamVertexId: Record<VertexId, string[]> = {}
    private buildDependencies: (
       dependenciesByVertexId: Record<VertexId, Record<string, any>>,
       injectedDependencies: Record<string, any>
@@ -39,6 +40,8 @@ export class VertexConfigBuilderImpl<
       }
    ): VertexConfigBuilderImpl {
       this.upstreamVertices.push(config)
+      this.fieldsByUpstreamVertexId[config.id] =
+         (options.fields as string[]) || []
       const previousBuildDependencies = this.buildDependencies
       this.buildDependencies = (
          dependenciesByVertexId,
@@ -62,13 +65,6 @@ export class VertexConfigBuilderImpl<
             ...injectedDependencies
          }
       }
-      // TODO Test
-      // if (options.fields) {
-      //    options.fields.forEach(upstreamField => {
-      //       this.fieldIsLoadable[upstreamField as string] =
-      //          config.isLoadableField(upstreamField)
-      //    })
-      // }
       return this
    }
 

@@ -139,6 +139,7 @@ export const computeGraphCore = (
    const addTransformations = (config: VertexConfigImpl) => {
       const upstreamReducerId = config.findClosestCommonAncestor()
       const isRootVertex = config.id === upstreamReducerId
+      const { upstreamVertices, fieldsByUpstreamVertexId } = config.builder
       // TODO embed all downstream vertex transformations
       const transformation: GraphTransformation = map(
          ({ graphData, action }) => {
@@ -154,6 +155,13 @@ export const computeGraphCore = (
                   value: reduxState.vertex[key],
                   errors: []
                }
+            })
+            upstreamVertices.forEach(upstreamVertex => {
+               const upstreamFields =
+                  graphData.vertices[upstreamVertex.id].fields
+               fieldsByUpstreamVertexId[upstreamVertex.id].forEach(field => {
+                  fields[field] = upstreamFields[field]
+               })
             })
             return {
                graphData: {
