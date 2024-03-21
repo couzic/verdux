@@ -24,8 +24,6 @@ export const createGraph = (options: {
    const {
       vertexIds,
       vertexConfigById,
-      // TODO Remove what is useless
-      vertexConfigsBySingleUpstreamVertexId,
       dependenciesByVertexId,
       rootReducer,
       pipeline
@@ -33,16 +31,14 @@ export const createGraph = (options: {
 
    const vertexConfigs = vertexIds.map(id => vertexConfigById[id])
 
-   const rootVertexConfig = vertexConfigs[0].rootVertex as VertexConfigImpl<any>
-
    const epicMiddleware: Middleware = createEpicMiddleware()
 
-   const reduxFIFO = createFIFO<GraphSeed>()
+   const redux$: Subject<GraphSeed> = new Subject()
 
    const verduxMiddleware: Middleware = store => next => action => {
       const result = next(action)
       const reduxState = store.getState()
-      reduxFIFO.push({ reduxState, action: action as UnknownAction })
+      redux$.next({ reduxState, action: action as UnknownAction })
       return result
    }
 
@@ -56,11 +52,6 @@ export const createGraph = (options: {
       //    getDefaultMiddleware().concat(epicMiddleware)
    })
 
-   reduxStore.subscribe(() => {
-      redux$.next(reduxFIFO.pop()!)
-   })
-
-   const redux$: Subject<GraphSeed> = new Subject()
    const graphData$ = pipeline(redux$)
 
    const fieldsReactionsFIFO = createFIFO<UnknownAction>()
@@ -82,9 +73,7 @@ export const createGraph = (options: {
    graphData$.subscribe(({ graphData }) => {
       graphData.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
       graphData.reactions.forEach(_ => reactionsFIFO.push(_))
-      if (reduxFIFO.hasNext()) {
-         redux$.next(reduxFIFO.pop()!)
-      } else if (fieldsReactionsFIFO.hasNext()) {
+      if (fieldsReactionsFIFO.hasNext()) {
          reduxStore.dispatch(fieldsReactionsFIFO.pop()!)
       } else if (reactionsFIFO.hasNext()) {
          reduxStore.dispatch(reactionsFIFO.pop()!)

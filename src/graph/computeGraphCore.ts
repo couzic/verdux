@@ -140,7 +140,6 @@ export const computeGraphCore = (
       const upstreamReducerId = config.findClosestCommonAncestor()
       const isRootVertex = config.id === upstreamReducerId
       const { upstreamVertices, fieldsByUpstreamVertexId } = config.builder
-      // TODO embed all downstream vertex transformations
       const transformation: GraphTransformation = map(
          ({ graphData, action }) => {
             const reduxState = isRootVertex
@@ -179,7 +178,8 @@ export const computeGraphCore = (
             }
          }
       )
-      transformations.push(transformation)
+      // TODO downstream vertex transformations should be skipped if vertex fields have not changed
+      transformations.push(transformation, ...config.transformations)
    }
 
    sortDownstreamVertexIds(rootVertexConfig)

@@ -83,7 +83,7 @@ describe(createGraph.name, () => {
             })
          })
       })
-      describe('single downstream vertex', () => {
+      describe('single downstream vertex with field from upstream vertex', () => {
          const downstreamVertexConfig =
             rootVertexConfig.configureDownstreamVertex({
                slice: createSlice({
@@ -103,6 +103,39 @@ describe(createGraph.name, () => {
             expect(downstreamVertex.currentState).to.deep.equal({
                name: ''
             })
+         })
+      })
+   })
+   describe('root vertex with computed field', () => {
+      const rootSlice = createSlice({
+         name: 'root',
+         initialState: {
+            name: ''
+         },
+         reducers: {
+            setName: (state, action: PayloadAction<string>) => {
+               state.name = action.payload
+            }
+         }
+      })
+      const rootVertexConfig = configureRootVertex({
+         slice: rootSlice
+      }).computeFromFields(['name'], {
+         uppercaseName: ({ name }) => name.toUpperCase()
+      })
+      it('computes field', () => {
+         const graph = createGraph({
+            vertices: [rootVertexConfig]
+         })
+         const rootVertex = graph.getVertexInstance(rootVertexConfig)
+         expect(rootVertex.currentState).to.deep.equal({
+            name: '',
+            uppercaseName: ''
+         })
+         graph.dispatch(rootSlice.actions.setName('John'))
+         expect(rootVertex.currentState).to.deep.equal({
+            name: 'John',
+            uppercaseName: 'JOHN'
          })
       })
    })

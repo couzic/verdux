@@ -5,6 +5,8 @@ import {
 } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
+import { GraphTransformation } from '../graph/GraphTransformation'
+import { computeFromFields } from '../transform/computeFromFields'
 import { VertexId } from '../vertex/VertexId'
 import { VertexInstance } from '../vertex/VertexInstance'
 import { VertexConfig } from './VertexConfig'
@@ -26,6 +28,8 @@ export class VertexConfigImpl<
    get upstreamVertices(): VertexConfig<any>[] {
       return this.builder.upstreamVertices
    }
+
+   public readonly transformations: GraphTransformation[] = []
 
    constructor(
       public readonly name: string,
@@ -94,10 +98,7 @@ export class VertexConfigImpl<
    }
 
    computeFromFields(fields: any[], computers: any): any {
-      // TODO mark fields as loadable if they are computed from loadable fields
-      // this.internalStateTransformations.push(
-      //    computeFromFieldsTransformation(fields, computers)
-      // )
+      this.transformations.push(computeFromFields(this.id, fields, computers))
       return this
    }
 
