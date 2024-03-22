@@ -7,6 +7,7 @@ import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
 import { GraphTransformation } from '../graph/GraphTransformation'
 import { computeFromFields } from '../transform/computeFromFields'
+import { loadFromFields } from '../transform/loadFromFields'
 import { VertexId } from '../vertex/VertexId'
 import { VertexInstance } from '../vertex/VertexInstance'
 import { VertexConfig } from './VertexConfig'
@@ -103,10 +104,7 @@ export class VertexConfigImpl<
    }
 
    loadFromFields(fields: any[], loaders: any): any {
-      // TODO mark fields as loadable
-      // this.internalStateTransformations.push(
-      //    loadFromFieldsTransformation(fields, loaders)
-      // )
+      this.transformations.push(loadFromFields(this.id, fields, loaders))
       return this
    }
 

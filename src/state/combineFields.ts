@@ -1,5 +1,5 @@
-import { VertexLoadableState } from './VertexLoadableState'
 import { VertexFieldState } from './VertexFieldState'
+import { VertexLoadableState } from './VertexLoadableState'
 
 export const combineFields = (
    fields: Record<string, VertexFieldState>
@@ -13,8 +13,10 @@ export const combineFields = (
       if (field.status === 'error') {
          error = true
          field.errors.forEach(error => errors.push(error))
+         state[fieldKey] = undefined
       } else if (field.status === 'loading') {
          loading = true
+         state[fieldKey] = undefined
       } else {
          state[fieldKey] = fields[fieldKey].value
       }

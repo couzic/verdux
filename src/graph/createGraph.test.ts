@@ -1,5 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
+import { Subject } from 'rxjs'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from './createGraph'
 
@@ -136,6 +137,41 @@ describe(createGraph.name, () => {
          expect(rootVertex.currentState).to.deep.equal({
             name: 'John',
             uppercaseName: 'JOHN'
+         })
+      })
+   })
+   describe('root vertex with loaded field', () => {
+      const rootSlice = createSlice({
+         name: 'root',
+         initialState: {
+            name: ''
+         },
+         reducers: {
+            setName: (state, action: PayloadAction<string>) => {
+               state.name = action.payload
+            }
+         }
+      })
+      let receivedUppercaseName$: Subject<string>
+      const rootVertexConfig = configureRootVertex({
+         slice: rootSlice
+      }).loadFromFields(['name'], {
+         uppercaseName: state => {
+            expect(Object.keys(state)).to.deep.equal(['name'])
+            return receivedUppercaseName$
+         }
+      })
+      it('loads field', () => {
+         receivedUppercaseName$ = new Subject()
+         const graph = createGraph({
+            vertices: [rootVertexConfig]
+         })
+         const rootVertex = graph.getVertexInstance(rootVertexConfig)
+         graph.dispatch(rootSlice.actions.setName('John'))
+         expect(rootVertex.currentLoadableState.status).to.equal('loading')
+         expect(rootVertex.currentState).to.deep.equal({
+            name: 'John',
+            uppercaseName: undefined
          })
       })
    })

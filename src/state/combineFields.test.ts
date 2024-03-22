@@ -21,7 +21,7 @@ describe(combineFields.name, () => {
          age: { status: 'loading', value: undefined, errors: [] }
       }
       expect(combineFields(fields)).to.deep.equal({
-         state: { name: 'Bob' },
+         state: { name: 'Bob', age: undefined },
          fields,
          status: 'loading',
          errors: []
@@ -34,7 +34,7 @@ describe(combineFields.name, () => {
          age: { status: 'error', value: undefined, errors: [error] }
       }
       expect(combineFields(fields)).to.deep.equal({
-         state: {},
+         state: { name: undefined, age: undefined },
          fields,
          status: 'error',
          errors: [error]
