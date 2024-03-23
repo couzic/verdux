@@ -1,6 +1,6 @@
 import { isObservable, map, merge, of, scan, switchMap } from 'rxjs'
 import { toVertexName } from '../config/toVertexName'
-import { GraphTransformation } from '../graph/GraphTransformation'
+import { VertexTransformation } from '../graph/Transformable'
 import { combineFields } from '../state/combineFields'
 import { pickFields } from '../state/pickFields'
 import { VertexId } from '../vertex/VertexId'
@@ -10,9 +10,9 @@ export const loadFromFields = (
    vertexId: VertexId,
    fields: string[],
    loaders: any
-): GraphTransformation =>
+): VertexTransformation =>
    switchMap(transformable => {
-      const inputFields = transformable.graphData.vertices[vertexId].fields
+      const inputFields = transformable.vertexFields
       const { state, status, errors } = combineFields(
          pickFields(fields, inputFields)
       )
@@ -29,7 +29,7 @@ export const loadFromFields = (
       const loading$ = of(loadingFields)
 
       if (status === 'loading') {
-         return of(enrichVertexFields(transformable, vertexId, loadingFields))
+         return of(enrichVertexFields(transformable, loadingFields))
       }
 
       const loaders$ = Object.keys(loaders).map(loadableField => {
@@ -63,7 +63,7 @@ export const loadFromFields = (
 
       const transformable$ = loadable$.pipe(
          map(loadableFields =>
-            enrichVertexFields(transformable, vertexId, loadableFields)
+            enrichVertexFields(transformable, loadableFields)
          )
       )
 

@@ -1,21 +1,13 @@
-import { GraphTransformable } from '../graph/GraphTransformable'
+import { VertexTransformable } from '../graph/Transformable'
 import { VertexFieldState } from '../state/VertexFieldState'
-import { VertexId } from '../vertex/VertexId'
 
 export const enrichVertexFields = (
-   transformable: GraphTransformable,
-   vertexId: VertexId,
+   transformable: VertexTransformable,
    fields: Record<string, VertexFieldState>
-): GraphTransformable => ({
+): VertexTransformable => ({
    ...transformable,
-   graphData: {
-      ...transformable.graphData,
-      vertices: {
-         ...transformable.graphData.vertices,
-         [vertexId]: {
-            ...transformable.graphData.vertices[vertexId],
-            fields
-         }
-      }
+   vertexFields: {
+      ...transformable.vertexFields,
+      ...fields
    }
 })

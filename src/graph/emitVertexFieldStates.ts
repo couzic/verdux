@@ -2,14 +2,14 @@ import { Observable, Subject, map, scan } from 'rxjs'
 import { VertexFieldState } from '../state/VertexFieldState'
 import { compareFields } from '../state/compareFields'
 import { VertexId } from '../vertex/VertexId'
-import { GraphData } from './GraphData'
+import { GraphTransformable } from './Transformable'
 
 type SCAN_SEED = 'SCAN_SEED'
 
 type FieldsByVertexId = Record<VertexId, Record<string, VertexFieldState>>
 
 export const emitVertexFieldStates = (
-   graphData$: Observable<GraphData>,
+   graphTransformable$: Observable<GraphTransformable>,
    vertexFieldStatesStreamById: Record<
       VertexId,
       Subject<Record<string, VertexFieldState>>
@@ -17,15 +17,14 @@ export const emitVertexFieldStates = (
    // TODO Make sure vertexIds are listed in the same order than transformations
    vertexIds: VertexId[]
 ) => {
-   graphData$
+   graphTransformable$
       .pipe(
-         map(graphData => {
+         map(graphTransformable => {
             const fieldsByVertexId: FieldsByVertexId = {}
             vertexIds.forEach(vertexId => {
                const fields = {} as Record<string, VertexFieldState>
-
                const reduxFieldsData =
-                  graphData.vertices[vertexId].reduxState.vertex
+                  graphTransformable.vertices[vertexId].reduxState.vertex
                const reduxFieldNames = Object.keys(reduxFieldsData)
                reduxFieldNames.forEach(reduxFieldName => {
                   fields[reduxFieldName] = {
@@ -35,7 +34,7 @@ export const emitVertexFieldStates = (
                   }
                })
 
-               const fieldsData = graphData.vertices[vertexId].fields
+               const fieldsData = graphTransformable.vertices[vertexId].fields
                const fieldNames = Object.keys(fieldsData)
                fieldNames.forEach(fieldName => {
                   const field = fieldsData[fieldName]

@@ -1,5 +1,5 @@
 import { Reducer, combineReducers } from '@reduxjs/toolkit'
-import { map, pipe } from 'rxjs'
+import { filter, map, merge, pipe, scan, share, tap } from 'rxjs'
 import { VertexConfig } from '../config/VertexConfig'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import {
@@ -7,10 +7,17 @@ import {
    isInjectedConfig
 } from '../config/VertexInjectableConfig'
 import { VertexFieldState } from '../state/VertexFieldState'
+import { VertexReduxState } from '../state/VertexReduxState'
+import { VertexData } from '../vertex/VertexData'
 import { VertexId } from '../vertex/VertexId'
 import { GraphCore } from './GraphCore'
 import { GraphPipeline } from './GraphPipeline'
-import { GraphTransformation } from './GraphTransformation'
+import {
+   GraphTransformable,
+   GraphTransformation,
+   VertexTransformable,
+   VertexTransformation
+} from './Transformable'
 
 export const computeGraphCore = (
    vertexConfigs: Array<VertexInjectableConfig>
@@ -125,61 +132,131 @@ export const computeGraphCore = (
    ////////////////////
    const sortedVertexIds: VertexId[] = []
    const isVertexSorted: Record<VertexId, boolean> = {}
-   const transformations: GraphTransformation[] = []
+   const graphTansformations: GraphTransformation[] = []
    const sortDownstreamVertexIds = (config: VertexConfigImpl) => {
       if (isVertexSorted[config.id]) return
       isVertexSorted[config.id] = true
       sortedVertexIds.push(config.id)
-      addTransformations(config)
+      addGraphTransformation(config)
       const downstreamVertexConfigs =
          vertexConfigsBySingleUpstreamVertexId[config.id] || []
       downstreamVertexConfigs.forEach(sortDownstreamVertexIds)
    }
 
-   const addTransformations = (config: VertexConfigImpl) => {
+   const addGraphTransformation = (config: VertexConfigImpl) => {
       const upstreamReducerId = config.findClosestCommonAncestor()
       const isRootVertex = config.id === upstreamReducerId
+      const getReduxState: (
+         vertices: Record<VertexId, VertexData>
+      ) => VertexReduxState = isRootVertex
+         ? vertices => vertices[config.id].reduxState
+         : vertices =>
+              vertices[upstreamReducerId].reduxState.downstream[config.name]
       const { upstreamVertices, fieldsByUpstreamVertexId } = config.builder
-      const transformation: GraphTransformation = map(
-         ({ graphData, action }) => {
-            const reduxState = isRootVertex
-               ? graphData.vertices[config.id].reduxState
-               : graphData.vertices[upstreamReducerId].reduxState.downstream[
-                    config.name
-                 ]
-            const fields = {} as Record<string, VertexFieldState>
-            Object.keys(reduxState.vertex).forEach(key => {
-               fields[key] = {
-                  status: 'loaded',
-                  value: reduxState.vertex[key],
-                  errors: []
-               }
-            })
-            upstreamVertices.forEach(upstreamVertex => {
-               const upstreamFields =
-                  graphData.vertices[upstreamVertex.id].fields
-               fieldsByUpstreamVertexId[upstreamVertex.id].forEach(field => {
-                  fields[field] = upstreamFields[field]
-               })
-            })
-            return {
-               graphData: {
-                  vertices: {
-                     ...graphData.vertices,
-                     [config.id]: {
-                        reduxState,
-                        fields
+      const vertexTransformations = config.transformations as [
+         VertexTransformation
+      ]
+      const graphTransformation: GraphTransformation =
+         inputGraphTransformable$ => {
+            let lastInputVertices: Record<VertexId, VertexData>
+            let lastVertexFields: Record<string, VertexFieldState>
+            const maybeChanged$ = inputGraphTransformable$.pipe(
+               map(graphTransformable => {
+                  lastInputVertices = graphTransformable.vertices
+                  // TODO Optimize: check if changed before building fields from redux state
+                  // FIELDS FROM REDUX STATE
+                  const reduxState = getReduxState(graphTransformable.vertices)
+                  const vertexFields = {} as Record<string, VertexFieldState>
+                  Object.keys(reduxState.vertex).forEach(key => {
+                     vertexFields[key] = {
+                        status: 'loaded',
+                        value: reduxState.vertex[key],
+                        errors: []
                      }
+                  })
+                  // FIELDS FROM UPSTREAM VERTICES
+                  upstreamVertices.forEach(upstreamVertex => {
+                     const upstreamFields =
+                        graphTransformable.vertices[upstreamVertex.id].fields
+                     fieldsByUpstreamVertexId[upstreamVertex.id].forEach(
+                        field => {
+                           vertexFields[field] = upstreamFields[field]
+                        }
+                     )
+                  })
+                  return {
+                     graphTransformable,
+                     vertexFields
+                  }
+               }),
+               scan(
+                  (previous, next) => {
+                     const hasChanged = !previous
+                        ? true
+                        : // TODO use compareFields()
+                          Object.keys(next.vertexFields).some(field => {
+                             const previousField = previous.vertexFields[field]
+                             const nextField = next.vertexFields[field]
+                             return (
+                                previousField.status !== nextField.status ||
+                                previousField.value !== nextField.value
+                             )
+                          })
+                     return { ...next, hasChanged }
                   },
-                  fieldsReactions: [],
-                  reactions: []
-               },
-               action
-            }
+                  undefined as any as {
+                     graphTransformable: GraphTransformable
+                     vertexFields: Record<string, VertexFieldState>
+                     hasChanged: boolean
+                  }
+               ),
+               share()
+            )
+            const hasChanged$ = maybeChanged$.pipe(filter(_ => _.hasChanged))
+            const hasNotChanged$ = maybeChanged$.pipe(
+               filter(_ => !_.hasChanged)
+            )
+            const vertexTransformableWhenChanged$ = hasChanged$.pipe(
+               map(
+                  ({
+                     graphTransformable,
+                     vertexFields
+                  }): VertexTransformable => ({
+                     ...graphTransformable,
+                     vertexFields
+                  })
+               ),
+               ...vertexTransformations,
+               tap(_ => (lastVertexFields = _.vertexFields))
+            )
+            const vertexTransformableWhenNotChanged$ = hasNotChanged$.pipe(
+               map(
+                  ({ graphTransformable }): VertexTransformable => ({
+                     ...graphTransformable,
+                     vertexFields: lastVertexFields
+                  })
+               )
+            )
+            return merge(
+               vertexTransformableWhenChanged$,
+               vertexTransformableWhenNotChanged$
+            ).pipe(
+               map(
+                  (vertexTransformable): GraphTransformable => ({
+                     ...vertexTransformable,
+                     vertices: {
+                        ...lastInputVertices,
+                        [config.id]: {
+                           reduxState: getReduxState(lastInputVertices),
+                           fields: vertexTransformable.vertexFields
+                        }
+                     }
+                  })
+               )
+            )
          }
-      )
       // TODO downstream vertex transformations should be skipped if vertex fields have not changed
-      transformations.push(transformation, ...config.transformations)
+      graphTansformations.push(graphTransformation)
    }
 
    sortDownstreamVertexIds(rootVertexConfig)
@@ -200,20 +277,18 @@ export const computeGraphCore = (
             }
          })
          return {
-            graphData: {
-               vertices: {
-                  [rootVertexConfig.id]: {
-                     reduxState,
-                     fields
-                  }
-               },
-               fieldsReactions: [],
-               reactions: []
+            vertices: {
+               [rootVertexConfig.id]: {
+                  reduxState,
+                  fields
+               }
             },
+            fieldsReactions: [],
+            reactions: [],
             action
          }
       }),
-      ...(transformations as [GraphTransformation])
+      ...(graphTansformations as [GraphTransformation])
    )
 
    return {

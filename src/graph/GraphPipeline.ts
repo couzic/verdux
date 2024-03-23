@@ -1,6 +1,6 @@
 import { Observable } from 'rxjs'
 import { GraphSeed } from './GraphSeed'
-import { GraphTransformable } from './GraphTransformable'
+import { GraphTransformable } from './Transformable'
 
 export type GraphPipeline = (
    seed$: Observable<GraphSeed>

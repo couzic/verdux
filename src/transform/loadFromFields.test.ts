@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { Subject, of } from 'rxjs'
 import { createVertexId } from '../config/createVertexId'
-import { GraphTransformable } from '../graph/GraphTransformable'
+import { VertexTransformable } from '../graph/Transformable'
 import { VertexFieldState } from '../state/VertexFieldState'
 import { loadFromFields } from './loadFromFields'
 
@@ -10,23 +10,16 @@ const sut = loadFromFields
 const vertexId = createVertexId('test')
 
 const createTransformable = (
-   fields: Record<string, any>
-): GraphTransformable => ({
-   graphData: {
-      vertices: {
-         [vertexId]: {
-            fields,
-            reduxState: { vertex: {}, downstream: {} }
-         }
-      },
-      fieldsReactions: [],
-      reactions: []
-   }
+   vertexFields: Record<string, any>
+): VertexTransformable => ({
+   vertexFields,
+   fieldsReactions: [],
+   reactions: []
 })
 
 describe(sut.name, () => {
    it('loads from picked field', () => {
-      const transformable: GraphTransformable = createTransformable({
+      const transformable = createTransformable({
          name: {
             status: 'loaded',
             value: 'john',
@@ -59,9 +52,7 @@ describe(sut.name, () => {
                })
             )
          )
-         transformed$.subscribe(
-            _ => (lastFields = _.graphData.vertices[vertexId].fields)
-         )
+         transformed$.subscribe(_ => (lastFields = _.vertexFields))
       })
       it('has loading field', () => {
          expect(lastFields.name).to.deep.equal({
@@ -102,7 +93,7 @@ describe(sut.name, () => {
       ).subscribe()
    })
    describe('when loading from loadable field', () => {
-      let input$: Subject<GraphTransformable>
+      let input$: Subject<VertexTransformable>
       let receivedUppercaseName$: Subject<string>
       let lastFields: Record<string, VertexFieldState> = {}
       beforeEach(() => {
@@ -111,9 +102,7 @@ describe(sut.name, () => {
          const output$ = sut(vertexId, ['name'], {
             uppercaseName: () => receivedUppercaseName$
          })(input$)
-         output$.subscribe(
-            _ => (lastFields = _.graphData.vertices[vertexId].fields)
-         )
+         output$.subscribe(_ => (lastFields = _.vertexFields))
          input$.next(
             createTransformable({
                name: { status: 'loading', value: undefined, errors: [] }

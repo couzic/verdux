@@ -1,5 +1,5 @@
 import { map } from 'rxjs'
-import { GraphTransformation } from '../graph/GraphTransformation'
+import { VertexTransformation } from '../graph/Transformable'
 import { combineFields } from '../state/combineFields'
 import { pickFields } from '../state/pickFields'
 import { VertexId } from '../vertex/VertexId'
@@ -8,9 +8,9 @@ export const computeFromFields = (
    vertexId: VertexId,
    fields: string[],
    computers: any
-): GraphTransformation =>
+): VertexTransformation =>
    map(transformable => {
-      const vertexFields = transformable.graphData.vertices[vertexId].fields
+      const { vertexFields } = transformable
       // TODO Memoize
       const { state, status, errors } = combineFields(
          pickFields(fields, vertexFields)

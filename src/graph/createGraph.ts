@@ -10,11 +10,10 @@ import { VertexId } from '../vertex/VertexId'
 import { VertexInstance } from '../vertex/VertexInstance'
 import { createVertexInstance } from '../vertex/createVertexInstance'
 import { Graph } from './Graph'
-import { GraphData } from './GraphData'
 import { GraphSeed } from './GraphSeed'
-import { GraphTransformable } from './GraphTransformable'
 import { computeGraphCore } from './computeGraphCore'
 import { emitVertexFieldStates } from './emitVertexFieldStates'
+import { GraphTransformable } from './Transformable'
 
 export const createGraph = (options: {
    vertices: Array<VertexInjectableConfig<any>>
@@ -52,7 +51,7 @@ export const createGraph = (options: {
       //    getDefaultMiddleware().concat(epicMiddleware)
    })
 
-   const graphData$ = pipeline(redux$)
+   const graphTransformable$ = pipeline(redux$)
 
    const fieldsReactionsFIFO = createFIFO<UnknownAction>()
    const reactionsFIFO = createFIFO<UnknownAction>()
@@ -69,21 +68,21 @@ export const createGraph = (options: {
       // TODO Dependencies
    })
 
-   const outputGraphData$ = new Subject<GraphData>()
-   graphData$.subscribe(({ graphData }) => {
-      graphData.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
-      graphData.reactions.forEach(_ => reactionsFIFO.push(_))
+   const outputGraphTransformable$ = new Subject<GraphTransformable>()
+   graphTransformable$.subscribe(transformable => {
+      transformable.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
+      transformable.reactions.forEach(_ => reactionsFIFO.push(_))
       if (fieldsReactionsFIFO.hasNext()) {
          reduxStore.dispatch(fieldsReactionsFIFO.pop()!)
       } else if (reactionsFIFO.hasNext()) {
          reduxStore.dispatch(reactionsFIFO.pop()!)
       } else {
-         outputGraphData$.next(graphData)
+         outputGraphTransformable$.next(transformable)
          // TODO Side effects
       }
    })
    emitVertexFieldStates(
-      outputGraphData$,
+      outputGraphTransformable$,
       vertexFieldStatesStreamById,
       vertexIds
    )

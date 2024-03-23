@@ -1,14 +1,14 @@
 import { expect } from 'chai'
+import { Observable, Subject, of } from 'rxjs'
 import { createVertexId } from '../config/createVertexId'
-import { GraphData } from './GraphData'
-import { emitVertexFieldStates } from './emitVertexFieldStates'
-import { Subject, of } from 'rxjs'
 import { VertexFieldState } from '../state/VertexFieldState'
+import { GraphTransformable } from './Transformable'
+import { emitVertexFieldStates } from './emitVertexFieldStates'
 
 describe(emitVertexFieldStates.name, () => {
    const vertexId = createVertexId('vertex')
    it('emits fields from redux state', () => {
-      const graphData$ = of({
+      const graphTransformable$: Observable<GraphTransformable> = of({
          vertices: {
             [vertexId]: {
                reduxState: {
@@ -29,9 +29,11 @@ describe(emitVertexFieldStates.name, () => {
          latestState = state
       })
 
-      emitVertexFieldStates(graphData$, { [vertexId]: vertexFieldState$ }, [
-         vertexId
-      ])
+      emitVertexFieldStates(
+         graphTransformable$,
+         { [vertexId]: vertexFieldState$ },
+         [vertexId]
+      )
       expect(stateEmissions).to.equal(1)
       expect(latestState).to.deep.equal({
          name: { status: 'loaded', value: 'Bob', errors: [] }
@@ -46,12 +48,12 @@ describe(emitVertexFieldStates.name, () => {
          stateEmissions++
          latestState = state
       })
-      const graphData$ = new Subject<GraphData>()
-      emitVertexFieldStates(graphData$, { [vertexId]: vertexState$ }, [
+      const graphTransformable$ = new Subject<GraphTransformable>()
+      emitVertexFieldStates(graphTransformable$, { [vertexId]: vertexState$ }, [
          vertexId
       ])
       ;[1, 2].forEach(() =>
-         graphData$.next({
+         graphTransformable$.next({
             vertices: {
                [vertexId]: {
                   reduxState: {
@@ -69,7 +71,7 @@ describe(emitVertexFieldStates.name, () => {
    })
 
    it('emits fields from fields', () => {
-      const graphData$ = of({
+      const graphTransformable$ = of({
          vertices: {
             [vertexId]: {
                reduxState: {
@@ -92,7 +94,7 @@ describe(emitVertexFieldStates.name, () => {
          latestState = state
       })
 
-      emitVertexFieldStates(graphData$, { [vertexId]: vertexState$ }, [
+      emitVertexFieldStates(graphTransformable$, { [vertexId]: vertexState$ }, [
          vertexId
       ])
       expect(stateEmissions).to.equal(1)

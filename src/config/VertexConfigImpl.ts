@@ -5,7 +5,6 @@ import {
 } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
-import { GraphTransformation } from '../graph/GraphTransformation'
 import { computeFromFields } from '../transform/computeFromFields'
 import { loadFromFields } from '../transform/loadFromFields'
 import { VertexId } from '../vertex/VertexId'
@@ -14,6 +13,7 @@ import { VertexConfig } from './VertexConfig'
 import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
 import { VertexFieldsDefinition } from './VertexFieldsDefinition'
 import { configureVertex } from './configureVertex'
+import { VertexTransformation } from '../graph/Transformable'
 
 export class VertexConfigImpl<
    Fields extends VertexFieldsDefinition = any,
@@ -30,7 +30,7 @@ export class VertexConfigImpl<
       return this.builder.upstreamVertices
    }
 
-   public readonly transformations: GraphTransformation[] = []
+   public readonly transformations: VertexTransformation[] = []
 
    constructor(
       public readonly name: string,
