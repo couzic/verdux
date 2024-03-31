@@ -51,12 +51,9 @@ describe(sut.name, () => {
    it('creates graph config for single vertex', () => {
       const vertexConfig = configureSimpleVertex('root')
       const graphConfig = sut([vertexConfig])
-      expect(graphConfig.vertexIds).to.deep.equal([vertexConfig.id])
-      expect(graphConfig.vertexConfigsBySingleUpstreamVertexId).to.deep.equal(
-         {}
-      )
-      expect(graphConfig.vertexConfigById).to.deep.equal({
-         [vertexConfig.id]: vertexConfig
+      expect(graphConfig.vertexConfigs).to.deep.equal([vertexConfig])
+      expect(graphConfig.vertexIdsInSubgraph).to.deep.equal({
+         [vertexConfig.id]: [vertexConfig.id]
       })
       expect(graphConfig.dependenciesByVertexId).to.deep.equal({
          [vertexConfig.id]: {}
@@ -69,9 +66,9 @@ describe(sut.name, () => {
          upstreamVertexConfig: rootVertexConfig
       })
       const graphConfig = sut([downstreamVertexConfig, rootVertexConfig])
-      expect(graphConfig.vertexIds).to.deep.equal([
-         rootVertexConfig.id,
-         downstreamVertexConfig.id
+      expect(graphConfig.vertexConfigs).to.deep.equal([
+         rootVertexConfig,
+         downstreamVertexConfig
       ])
    })
 
@@ -92,11 +89,11 @@ describe(sut.name, () => {
          siblingVertexConfig,
          deepVertexConfig
       ])
-      expect(graphConfig.vertexIds).to.deep.equal([
-         rootVertexConfig.id,
-         downstreamVertexConfig.id,
-         deepVertexConfig.id,
-         siblingVertexConfig.id
+      expect(graphConfig.vertexConfigs).to.deep.equal([
+         rootVertexConfig,
+         downstreamVertexConfig,
+         deepVertexConfig,
+         siblingVertexConfig
       ])
    })
 

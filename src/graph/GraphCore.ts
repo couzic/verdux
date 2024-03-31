@@ -1,17 +1,9 @@
 import { Reducer } from '@reduxjs/toolkit'
-import { VertexConfig } from '../config/VertexConfig'
-import { VertexId } from '../vertex/VertexId'
-import { GraphPipeline } from './GraphPipeline'
+import { VertexConfigImpl } from '../config/VertexConfigImpl'
+import { GraphInfo } from '../run/GraphInfo'
 
-export interface GraphCore {
+export interface GraphCore extends GraphInfo {
    /** exhaustive and sorted */
-   vertexIds: VertexId[]
-   vertexConfigsBySingleUpstreamVertexId: Record<
-      VertexId,
-      VertexConfig<any, any>[]
-   >
-   vertexConfigById: Record<VertexId, VertexConfig<any>>
-   dependenciesByVertexId: Record<VertexId, Record<string, any>>
+   vertexConfigs: VertexConfigImpl[]
    rootReducer: Reducer
-   pipeline: GraphPipeline
 }

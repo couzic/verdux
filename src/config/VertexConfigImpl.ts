@@ -1,19 +1,15 @@
 import { Reducer, Slice, UnknownAction } from '@reduxjs/toolkit'
-import {
-   ActionCreatorWithPayload,
-   BaseActionCreator
-} from '@reduxjs/toolkit/dist/createAction'
+import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
-import { computeFromFields } from '../transform/computeFromFields'
-import { loadFromFields } from '../transform/loadFromFields'
+import { computeFromFields } from '../operation/computeFromFields'
+import { reaction } from '../operation/reaction'
+import { VertexRun } from '../run/VertexRun'
 import { VertexId } from '../vertex/VertexId'
-import { VertexInstance } from '../vertex/VertexInstance'
 import { VertexConfig } from './VertexConfig'
 import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
 import { VertexFieldsDefinition } from './VertexFieldsDefinition'
 import { configureVertex } from './configureVertex'
-import { VertexTransformation } from '../graph/Transformable'
 
 export class VertexConfigImpl<
    Fields extends VertexFieldsDefinition = any,
@@ -30,7 +26,16 @@ export class VertexConfigImpl<
       return this.builder.upstreamVertices
    }
 
-   public readonly transformations: VertexTransformation[] = []
+   private readonly _injectableOperations: Array<
+      (dependencies: Dependencies) => VertexRun
+   > = []
+   public getInjectedOperations(dependencies: Dependencies): [VertexRun] {
+      return this._injectableOperations.map(injectableOperation =>
+         injectableOperation(dependencies)
+      ) as any
+   }
+
+   public readonly trackedActions: BaseActionCreator<any, any>[] = []
 
    constructor(
       public readonly name: string,
@@ -99,12 +104,20 @@ export class VertexConfigImpl<
    }
 
    computeFromFields(fields: any[], computers: any): any {
-      this.transformations.push(computeFromFields(this.id, fields, computers))
+      this._injectableOperations.push(dependencies =>
+         computeFromFields(
+            fields,
+            typeof computers === 'function'
+               ? computers(dependencies)
+               : computers
+         )
+      )
       return this
    }
 
    loadFromFields(fields: any[], loaders: any): any {
-      this.transformations.push(loadFromFields(this.id, fields, loaders))
+      // TODO Restore
+      // this.transformations.push(loadFromFields(this.id, fields, loaders))
       return this
    }
 
@@ -132,17 +145,15 @@ export class VertexConfigImpl<
 
    reaction<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
-      operation: (
-         payload$: Observable<
-            ActionCreator extends ActionCreatorWithPayload<infer P, any>
-               ? P
-               : never
-         >,
-         // TODO Maybe not a VertexInstance, more like a VertexState
-         vertex: VertexInstance<Fields, Dependencies>
-      ) => Observable<UnknownAction>
+      mapper: (
+         payload: any
+         // TODO state: VertexState<any>
+      ) => UnknownAction
    ) {
-      // this.reactions.push({ actionCreator, operation })
+      if (!this.trackedActions.includes(actionCreator)) {
+         this.trackedActions.push(actionCreator)
+      }
+      this._injectableOperations.push(() => reaction(actionCreator, mapper))
       return this
    }
 
@@ -152,7 +163,6 @@ export class VertexConfigImpl<
          [PK in K]: Fields[PK]['value']
       }) => UnknownAction
    ) {
-      // this.fieldsReactions.push({ fields, operation })
       return this
    }
 

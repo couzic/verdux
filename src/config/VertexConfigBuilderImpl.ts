@@ -17,7 +17,7 @@ export class VertexConfigBuilderImpl<
    ) => Dependencies
    private readonly fieldIsLoadable: Record<string, boolean> = {}
 
-   constructor(public readonly vertexId: symbol) {
+   constructor(public readonly vertexId: VertexId) {
       this.buildDependencies = () => ({}) as Dependencies
    }
 

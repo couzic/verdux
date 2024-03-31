@@ -9,7 +9,6 @@ import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
 import { IsDependablePlainObject, IsPlainObject } from '../util/IsPlainObject'
 import { VertexId } from '../vertex/VertexId'
-import { VertexInstance } from '../vertex/VertexInstance'
 import { Dependable } from './Dependable'
 import { HasLoadable } from './HasLoadable'
 import { VertexFieldsDefinition } from './VertexFieldsDefinition'
@@ -214,23 +213,43 @@ export interface VertexConfig<
 
    reaction<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
-      operation: (
-         payload$: Observable<
-            ActionCreator extends ActionCreatorWithPayload<infer P, any>
-               ? P
-               : never
-         >,
-         // TODO Maybe not a VertexInstance, more like a VertexState
-         vertex: VertexInstance<Fields, Dependencies>
-      ) => Observable<UnknownAction>
+      mapper: (
+         payload: ActionCreator extends ActionCreatorWithPayload<infer P, any>
+            ? P
+            : never
+         // TODO state: VertexState<any>
+      ) => UnknownAction
    ): this
 
    fieldsReaction<K extends keyof Fields>(
       fields: K[],
-      operation: (pickedState: {
+      mapper: (pickedState: {
          [PK in K]: Fields[PK]['value']
       }) => UnknownAction
    ): this
+
+   // TODO
+   // reaction$<ActionCreator extends BaseActionCreator<any, any>>(
+   //    actionCreator: ActionCreator,
+   //    mapper: (
+   //       payload$: Observable<
+   //          ActionCreator extends ActionCreatorWithPayload<infer P, any>
+   //             ? P
+   //             : never
+   //       >
+   //       // TODO state: VertexState<any>
+   //    ) => Observable<UnknownAction>
+   // ): this
+
+   // TODO
+   // fieldsReaction$<K extends keyof Fields>(
+   //    fields: K[],
+   //    mapper: (
+   //       pickedState$: Observable<{
+   //          [PK in K]: Fields[PK]['value']
+   //       }>
+   //    ) => Observable<UnknownAction>
+   // ): this
 
    // TODO
    // computeFromLoadableFields()

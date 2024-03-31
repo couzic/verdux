@@ -1,23 +1,13 @@
 import { Reducer, combineReducers } from '@reduxjs/toolkit'
-import { filter, map, merge, pipe, scan, share, tap } from 'rxjs'
+import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { VertexConfig } from '../config/VertexConfig'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import {
    VertexInjectableConfig,
    isInjectedConfig
 } from '../config/VertexInjectableConfig'
-import { VertexFieldState } from '../state/VertexFieldState'
-import { VertexReduxState } from '../state/VertexReduxState'
-import { VertexData } from '../vertex/VertexData'
 import { VertexId } from '../vertex/VertexId'
 import { GraphCore } from './GraphCore'
-import { GraphPipeline } from './GraphPipeline'
-import {
-   GraphTransformable,
-   GraphTransformation,
-   VertexTransformable,
-   VertexTransformation
-} from './Transformable'
 
 export const computeGraphCore = (
    vertexConfigs: Array<VertexInjectableConfig>
@@ -31,25 +21,14 @@ export const computeGraphCore = (
          : vertexConfigs[0].rootVertex
    ) as VertexConfigImpl
 
-   /** Upstream vertices guaranteed to precede downstream vertices */
-   const exhaustiveVertexConfigs: VertexConfigImpl[] = []
-   const vertexConfigsBySingleUpstreamVertexId: Record<
-      VertexId,
-      VertexConfigImpl[]
-   > = {}
-   const vertexConfigsWithMultipleUpstreamVertices: VertexConfigImpl[] = []
-   const vertexConfigById: Record<VertexId, VertexConfig<any>> = {}
-   const vertexConfigsByUpstreamReducerId: Record<
-      VertexId,
-      Array<VertexConfig<any>>
-   > = {}
+   const exhaustiveVertexConfigById: Record<VertexId, VertexConfigImpl> = {}
+   const vertexConfigsByUpstreamVertexId: Record<VertexId, VertexConfigImpl[]> =
+      {}
    const injectedDependenciesByVertexId: Record<
       VertexId,
       Record<string, any>
    > = {}
-   const dependenciesByVertexId: Record<VertexId, Record<string, any>> = {}
-
-   const indexWithUpstreamConfigs = (
+   const indexWithUpstreamVertices = (
       injectableConfig: VertexInjectableConfig<any, any>
    ) => {
       const config = (
@@ -57,50 +36,66 @@ export const computeGraphCore = (
             ? injectableConfig.config
             : injectableConfig
       ) as VertexConfigImpl
-      if (vertexConfigById[config.id]) return // already indexed
+      if (exhaustiveVertexConfigById[config.id]) return // already indexed
       if (config.rootVertex !== rootVertexConfig)
-         // TODO Check config is not root OR config.upstreamVertices.length >= 0
          throw new Error('all vertex configs must have the same root vertex')
-      // TODO check there are no cycles by checking if the config is not already awaiting upstream configs to be indexed
-      config.upstreamVertices.forEach(indexWithUpstreamConfigs)
-      vertexConfigById[config.id] = config
+      exhaustiveVertexConfigById[config.id] = config
+      config.upstreamVertices.forEach(upstreamConfig => {
+         if (!vertexConfigsByUpstreamVertexId[upstreamConfig.id]) {
+            vertexConfigsByUpstreamVertexId[upstreamConfig.id] = []
+         }
+         vertexConfigsByUpstreamVertexId[upstreamConfig.id].push(config)
+         indexWithUpstreamVertices(upstreamConfig)
+      })
       injectedDependenciesByVertexId[config.id] = isInjectedConfig(
          injectableConfig
       )
          ? injectableConfig.injectedDependencies
          : {}
-      indexByUpstreamVertex(config)
-      indexByUpstreamReducer(config)
-      exhaustiveVertexConfigs.push(config)
    }
+   vertexConfigs.forEach(indexWithUpstreamVertices)
 
-   const indexByUpstreamVertex = (config: VertexConfigImpl) => {
-      if (config.upstreamVertices.length === 1) {
-         const upstreamVertexId = config.upstreamVertices[0].id
-         const siblingVertexConfigs =
-            vertexConfigsBySingleUpstreamVertexId[upstreamVertexId]
-         if (siblingVertexConfigs) siblingVertexConfigs.push(config)
-         else vertexConfigsBySingleUpstreamVertexId[upstreamVertexId] = [config]
-      } else if (config.upstreamVertices.length > 1) {
-         vertexConfigsWithMultipleUpstreamVertices.push(config)
-      }
+   /** Upstream vertices guaranteed to precede downstream vertices */
+   const sortedVertexConfigs: VertexConfigImpl[] = []
+   const sortedVertexConfigById: Record<VertexId, VertexConfigImpl> = {}
+   const indexWithDownstreamVertices = (config: VertexConfigImpl) => {
+      if (sortedVertexConfigById[config.id]) return // already indexed
+      sortedVertexConfigById[config.id] = config
+      sortedVertexConfigs.push(config)
+      const downstreamConfigs = vertexConfigsByUpstreamVertexId[config.id] || []
+      downstreamConfigs.forEach(downstreamConfig => {
+         if (
+            downstreamConfig.upstreamVertices.every(
+               config => sortedVertexConfigById[config.id]
+            )
+         ) {
+            indexWithDownstreamVertices(downstreamConfig)
+         }
+      })
    }
+   indexWithDownstreamVertices(rootVertexConfig)
 
-   const indexByUpstreamReducer = (config: VertexConfigImpl) => {
+   const vertexConfigsByClosestCommonAncestorId: Record<
+      VertexId,
+      VertexConfigImpl[]
+   > = {}
+   sortedVertexConfigs.forEach(config => {
+      if (config === rootVertexConfig) return
       const closestCommonAncestorId = config.findClosestCommonAncestor()
-      if (config.id === closestCommonAncestorId) return // It's the root vertex
-      if (!vertexConfigsByUpstreamReducerId[closestCommonAncestorId]) {
-         vertexConfigsByUpstreamReducerId[closestCommonAncestorId] = []
+      if (!vertexConfigsByClosestCommonAncestorId[closestCommonAncestorId]) {
+         vertexConfigsByClosestCommonAncestorId[closestCommonAncestorId] = []
       }
-      vertexConfigsByUpstreamReducerId[closestCommonAncestorId].push(config)
-   }
-
-   vertexConfigs.forEach(indexWithUpstreamConfigs)
+      vertexConfigsByClosestCommonAncestorId[closestCommonAncestorId].push(
+         config
+      )
+   })
 
    ///////////////////
    // DEPENDENCIES //
    /////////////////
-   exhaustiveVertexConfigs.forEach(config => {
+   const dependenciesByVertexId: Record<VertexId, Record<string, any>> = {}
+
+   sortedVertexConfigs.forEach(config => {
       dependenciesByVertexId[config.id] = config.buildVertexDependencies(
          dependenciesByVertexId,
          injectedDependenciesByVertexId[config.id]
@@ -112,10 +107,11 @@ export const computeGraphCore = (
    ////////////
    const createReduxReducer = (vertexConfig: VertexConfig<any>): Reducer => {
       const downstreamVertexConfigs =
-         vertexConfigsByUpstreamReducerId[vertexConfig.id] || []
+         vertexConfigsByClosestCommonAncestorId[vertexConfig.id] || []
       if (downstreamVertexConfigs.length === 0)
-         return combineReducers({ vertex: vertexConfig.reducer })
-
+         return combineReducers({
+            vertex: vertexConfig.reducer
+         })
       const downstreamReducersByName = {} as Record<string, Reducer<any>>
       downstreamVertexConfigs.forEach(config => {
          downstreamReducersByName[config.name] = createReduxReducer(config)
@@ -127,176 +123,35 @@ export const computeGraphCore = (
    }
    const rootReducer = createReduxReducer(rootVertexConfig)
 
-   //////////////////////
-   // TRANSFORMATIONS //
-   ////////////////////
-   const sortedVertexIds: VertexId[] = []
-   const isVertexSorted: Record<VertexId, boolean> = {}
-   const graphTansformations: GraphTransformation[] = []
-   const sortDownstreamVertexIds = (config: VertexConfigImpl) => {
-      if (isVertexSorted[config.id]) return
-      isVertexSorted[config.id] = true
-      sortedVertexIds.push(config.id)
-      addGraphTransformation(config)
-      const downstreamVertexConfigs =
-         vertexConfigsBySingleUpstreamVertexId[config.id] || []
-      downstreamVertexConfigs.forEach(sortDownstreamVertexIds)
+   ///////////////
+   // SUBGRAPH //
+   /////////////
+   const vertexIdsInSubgraph: Record<VertexId, VertexId[]> = {}
+   const trackedActionsInSubgraph: Record<
+      VertexId,
+      BaseActionCreator<any, any>[]
+   > = {}
+   const indexSubgraph = (config: VertexConfigImpl) => {
+      const ids = [config.id]
+      const trackedActions = [...config.trackedActions]
+      const downstreamConfigs =
+         vertexConfigsByClosestCommonAncestorId[config.id] || []
+      downstreamConfigs.forEach(downstreamConfig => {
+         indexSubgraph(downstreamConfig)
+         ids.push(...vertexIdsInSubgraph[downstreamConfig.id])
+         trackedActions.push(...trackedActionsInSubgraph[downstreamConfig.id])
+      })
+      vertexIdsInSubgraph[config.id] = ids
+      trackedActionsInSubgraph[config.id] = trackedActions
    }
-
-   const addGraphTransformation = (config: VertexConfigImpl) => {
-      const upstreamReducerId = config.findClosestCommonAncestor()
-      const isRootVertex = config.id === upstreamReducerId
-      const getReduxState: (
-         vertices: Record<VertexId, VertexData>
-      ) => VertexReduxState = isRootVertex
-         ? vertices => vertices[config.id].reduxState
-         : vertices =>
-              vertices[upstreamReducerId].reduxState.downstream[config.name]
-      const { upstreamVertices, fieldsByUpstreamVertexId } = config.builder
-      const vertexTransformations = config.transformations as [
-         VertexTransformation
-      ]
-      const graphTransformation: GraphTransformation =
-         inputGraphTransformable$ => {
-            let lastInputVertices: Record<VertexId, VertexData>
-            let lastVertexFields: Record<string, VertexFieldState>
-            const maybeChanged$ = inputGraphTransformable$.pipe(
-               map(graphTransformable => {
-                  lastInputVertices = graphTransformable.vertices
-                  // TODO Optimize: check if changed before building fields from redux state
-                  // FIELDS FROM REDUX STATE
-                  const reduxState = getReduxState(graphTransformable.vertices)
-                  const vertexFields = {} as Record<string, VertexFieldState>
-                  Object.keys(reduxState.vertex).forEach(key => {
-                     vertexFields[key] = {
-                        status: 'loaded',
-                        value: reduxState.vertex[key],
-                        errors: []
-                     }
-                  })
-                  // FIELDS FROM UPSTREAM VERTICES
-                  upstreamVertices.forEach(upstreamVertex => {
-                     const upstreamFields =
-                        graphTransformable.vertices[upstreamVertex.id].fields
-                     fieldsByUpstreamVertexId[upstreamVertex.id].forEach(
-                        field => {
-                           vertexFields[field] = upstreamFields[field]
-                        }
-                     )
-                  })
-                  return {
-                     graphTransformable,
-                     vertexFields
-                  }
-               }),
-               scan(
-                  (previous, next) => {
-                     const hasChanged = !previous
-                        ? true
-                        : // TODO use compareFields()
-                          Object.keys(next.vertexFields).some(field => {
-                             const previousField = previous.vertexFields[field]
-                             const nextField = next.vertexFields[field]
-                             return (
-                                previousField.status !== nextField.status ||
-                                previousField.value !== nextField.value
-                             )
-                          })
-                     return { ...next, hasChanged }
-                  },
-                  undefined as any as {
-                     graphTransformable: GraphTransformable
-                     vertexFields: Record<string, VertexFieldState>
-                     hasChanged: boolean
-                  }
-               ),
-               share()
-            )
-            const hasChanged$ = maybeChanged$.pipe(filter(_ => _.hasChanged))
-            const hasNotChanged$ = maybeChanged$.pipe(
-               filter(_ => !_.hasChanged)
-            )
-            const vertexTransformableWhenChanged$ = hasChanged$.pipe(
-               map(
-                  ({
-                     graphTransformable,
-                     vertexFields
-                  }): VertexTransformable => ({
-                     ...graphTransformable,
-                     vertexFields
-                  })
-               ),
-               ...vertexTransformations,
-               tap(_ => (lastVertexFields = _.vertexFields))
-            )
-            const vertexTransformableWhenNotChanged$ = hasNotChanged$.pipe(
-               map(
-                  ({ graphTransformable }): VertexTransformable => ({
-                     ...graphTransformable,
-                     vertexFields: lastVertexFields
-                  })
-               )
-            )
-            return merge(
-               vertexTransformableWhenChanged$,
-               vertexTransformableWhenNotChanged$
-            ).pipe(
-               map(
-                  (vertexTransformable): GraphTransformable => ({
-                     ...vertexTransformable,
-                     vertices: {
-                        ...lastInputVertices,
-                        [config.id]: {
-                           reduxState: getReduxState(lastInputVertices),
-                           fields: vertexTransformable.vertexFields
-                        }
-                     }
-                  })
-               )
-            )
-         }
-      // TODO downstream vertex transformations should be skipped if vertex fields have not changed
-      graphTansformations.push(graphTransformation)
-   }
-
-   sortDownstreamVertexIds(rootVertexConfig)
-   vertexConfigsWithMultipleUpstreamVertices.forEach(sortDownstreamVertexIds)
-
-   // TODO Add all vertices in graph data
-   // TODO Apply transformations for each vertex IN CORRECT ORDER
-   // TODO Make sure a transformation is called only if its upstream vertex has changed
-   const pipeline: GraphPipeline = pipe(
-      map(({ reduxState, action }) => {
-         const rootVertexReduxState = reduxState.vertex
-         const fields = {} as Record<string, VertexFieldState>
-         Object.keys(rootVertexReduxState).forEach(key => {
-            fields[key] = {
-               status: 'loaded',
-               value: rootVertexReduxState[key],
-               errors: []
-            }
-         })
-         return {
-            vertices: {
-               [rootVertexConfig.id]: {
-                  reduxState,
-                  fields
-               }
-            },
-            fieldsReactions: [],
-            reactions: [],
-            action
-         }
-      }),
-      ...(graphTansformations as [GraphTransformation])
-   )
+   indexSubgraph(rootVertexConfig)
 
    return {
-      vertexIds: sortedVertexIds,
-      vertexConfigsBySingleUpstreamVertexId,
-      vertexConfigById,
+      vertexConfigs: sortedVertexConfigs,
+      vertexConfigsByClosestCommonAncestorId,
+      vertexIdsInSubgraph,
+      trackedActionsInSubgraph,
       dependenciesByVertexId,
-      rootReducer,
-      pipeline
+      rootReducer
    }
 }
