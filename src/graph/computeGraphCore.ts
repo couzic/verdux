@@ -75,9 +75,8 @@ export const computeGraphCore = (
    }
    indexWithDownstreamVertices(rootVertexConfig)
 
-   const vertexConfigsByClosestCommonAncestorId: Record<
-      VertexId,
-      VertexConfigImpl[]
+   const vertexConfigsByClosestCommonAncestorId: Partial<
+      Record<VertexId, VertexConfigImpl[]>
    > = {}
    sortedVertexConfigs.forEach(config => {
       if (config === rootVertexConfig) return
@@ -85,7 +84,7 @@ export const computeGraphCore = (
       if (!vertexConfigsByClosestCommonAncestorId[closestCommonAncestorId]) {
          vertexConfigsByClosestCommonAncestorId[closestCommonAncestorId] = []
       }
-      vertexConfigsByClosestCommonAncestorId[closestCommonAncestorId].push(
+      vertexConfigsByClosestCommonAncestorId[closestCommonAncestorId]!.push(
          config
       )
    })

@@ -1,4 +1,4 @@
-import { VertexFields } from './VertexFields'
+import { VertexFields } from '../run/VertexFields'
 
 export const pickFields = (
    toPick: string[],

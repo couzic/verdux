@@ -15,7 +15,9 @@ export const runSubgraph = (
 ): GraphRun =>
    pipe(
       runVertex(config, graphInfo.dependenciesByVertexId[config.id]),
-      ...(graphInfo.vertexConfigsByClosestCommonAncestorId[config.id].map(
+      ...((
+         graphInfo.vertexConfigsByClosestCommonAncestorId[config.id] || []
+      ).map(
          (downstreamConfig): GraphRun =>
             data$ => {
                let latestInputFieldsByVertexId: Record<VertexId, VertexFields> =

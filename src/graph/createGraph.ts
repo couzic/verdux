@@ -1,43 +1,44 @@
 import { Middleware, UnknownAction, configureStore } from '@reduxjs/toolkit'
-import { createEpicMiddleware } from 'redux-observable'
-import { ReplaySubject, Subject, map } from 'rxjs'
+import { Subject } from 'rxjs'
 import { VertexConfig } from '../config/VertexConfig'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { VertexInjectableConfig } from '../config/VertexInjectableConfig'
-import { VertexFieldState } from '../state/VertexFieldState'
+import { GraphRunData } from '../run/RunData'
+import { runSubgraph } from '../run/runSubgraph'
 import { createFIFO } from '../util/FIFO'
 import { VertexId } from '../vertex/VertexId'
 import { VertexInstance } from '../vertex/VertexInstance'
 import { createVertexInstance } from '../vertex/createVertexInstance'
 import { Graph } from './Graph'
-import { GraphSeed } from './GraphSeed'
 import { computeGraphCore } from './computeGraphCore'
-import { emitVertexFieldStates } from './emitVertexFieldStates'
-import { GraphTransformable } from './Transformable'
 
 export const createGraph = (options: {
    vertices: Array<VertexInjectableConfig<any>>
    devtools?: (params: any) => void
 }): Graph => {
    const graphConfig = computeGraphCore(options.vertices)
-   const {
-      vertexIds,
-      vertexConfigById,
-      dependenciesByVertexId,
-      rootReducer,
-      pipeline
-   } = graphConfig
+   const { vertexConfigs, rootReducer } = graphConfig
 
-   const vertexConfigs = vertexIds.map(id => vertexConfigById[id])
+   // TODO
+   // const epicMiddleware: Middleware = createEpicMiddleware()
 
-   const epicMiddleware: Middleware = createEpicMiddleware()
+   const graphRunInput$: Subject<GraphRunData> = new Subject()
 
-   const redux$: Subject<GraphSeed> = new Subject()
+   const rootVertexConfig = vertexConfigs[0]
 
    const verduxMiddleware: Middleware = store => next => action => {
       const result = next(action)
       const reduxState = store.getState()
-      redux$.next({ reduxState, action: action as UnknownAction })
+      graphRunInput$.next({
+         action: action as UnknownAction,
+         reduxStateByVertexId: {
+            [rootVertexConfig.id]: reduxState
+         },
+         fieldsByVertexId: {},
+         changedFieldsByVertexId: {},
+         fieldsReactions: [],
+         reactions: []
+      })
       return result
    }
 
@@ -51,52 +52,52 @@ export const createGraph = (options: {
       //    getDefaultMiddleware().concat(epicMiddleware)
    })
 
-   const graphTransformable$ = pipeline(redux$)
+   const graphRunOutput$ = runSubgraph(
+      rootVertexConfig as VertexConfigImpl,
+      graphConfig
+   )(graphRunInput$)
 
    const fieldsReactionsFIFO = createFIFO<UnknownAction>()
    const reactionsFIFO = createFIFO<UnknownAction>()
 
-   const vertexFieldStatesStreamById: Record<
-      VertexId,
-      Subject<Record<string, VertexFieldState>>
-   > = {}
    const vertexInstanceById: Record<VertexId, VertexInstance<any, any>> = {}
    vertexConfigs.forEach(config => {
-      const fields$ = new ReplaySubject<Record<string, VertexFieldState>>(1)
-      vertexFieldStatesStreamById[config.id] = fields$
-      vertexInstanceById[config.id] = createVertexInstance(config, fields$, {})
       // TODO Dependencies
+      vertexInstanceById[config.id] = createVertexInstance(config, {})
    })
 
-   const outputGraphTransformable$ = new Subject<GraphTransformable>()
-   graphTransformable$.subscribe(transformable => {
-      transformable.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
-      transformable.reactions.forEach(_ => reactionsFIFO.push(_))
+   graphRunOutput$.subscribe(data => {
+      data.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
+      data.reactions.forEach(_ => reactionsFIFO.push(_))
       if (fieldsReactionsFIFO.hasNext()) {
          reduxStore.dispatch(fieldsReactionsFIFO.pop()!)
       } else if (reactionsFIFO.hasNext()) {
          reduxStore.dispatch(reactionsFIFO.pop()!)
       } else {
-         outputGraphTransformable$.next(transformable)
-         // TODO Side effects
+         vertexConfigs.forEach(config => {
+            const fields = data.fieldsByVertexId[config.id]
+            const changedFields = data.changedFieldsByVertexId[config.id]
+            vertexInstanceById[config.id].__pushFields(fields, changedFields)
+         })
       }
    })
-   emitVertexFieldStates(
-      outputGraphTransformable$,
-      vertexFieldStatesStreamById,
-      vertexIds
-   )
 
-   redux$.next({ reduxState: reduxStore.getState() })
+   graphRunInput$.next({
+      action: undefined,
+      reduxStateByVertexId: {
+         [rootVertexConfig.id]: reduxStore.getState()
+      },
+      fieldsByVertexId: {},
+      changedFieldsByVertexId: {},
+      fieldsReactions: [],
+      reactions: []
+   })
 
-   const epics = [] as any[]
-
-   const dispatch = (action: UnknownAction) => {
-      reduxStore.dispatch(action)
-   }
+   // TODO
+   // const epics = [] as any[]
 
    const graph: Graph = {
-      dispatch,
+      dispatch: (action: UnknownAction) => reduxStore.dispatch(action),
       getVertexInstance: (vertexConfig: VertexConfig<any>) => {
          const vertexInstance = vertexInstanceById[vertexConfig.id]
          if (!vertexInstance)
@@ -119,33 +120,3 @@ export const createGraph = (options: {
 
    return graph
 }
-
-///////////////////
-// sideEffect() //
-/////////////////
-// ;(config as VertexConfigImpl<Type>).sideEffects.forEach(sideEffect => {
-//    epics.push(
-//       mergeMap((action: UnknownAction) => {
-//          if (action.type === sideEffect.actionCreator.type) {
-//             sideEffect.operation(action.payload, vertex)
-//          }
-//          return NEVER
-//       })
-//    )
-// })
-
-/////////////////
-// reaction() //
-///////////////
-// ;(config as VertexConfigImpl<Type>).reactions.forEach(reaction => {
-//    const epic = (action$: Observable<UnknownAction>) =>
-//       reaction.operation(
-//          action$.pipe(
-//             ofType(reaction.actionCreator.type),
-//             map(_ => _.payload)
-//          ),
-//          vertex
-//       )
-//    epics.push(epic)
-// })
-// return vertex

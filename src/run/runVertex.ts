@@ -8,7 +8,7 @@ import { extractVertexFields } from './extractVertexFields'
 
 export const runVertex = (
    config: VertexConfigImpl,
-   dependencies: any
+   dependencies: any = {}
 ): GraphRun => {
    const extractFields = extractVertexFields(config)
    return data$ => {

@@ -3,6 +3,7 @@ import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
 import { computeFromFields } from '../operation/computeFromFields'
+import { loadFromFields } from '../operation/loadFromFields'
 import { reaction } from '../operation/reaction'
 import { VertexRun } from '../run/VertexRun'
 import { VertexId } from '../vertex/VertexId'
@@ -116,8 +117,12 @@ export class VertexConfigImpl<
    }
 
    loadFromFields(fields: any[], loaders: any): any {
-      // TODO Restore
-      // this.transformations.push(loadFromFields(this.id, fields, loaders))
+      this._injectableOperations.push(dependencies =>
+         loadFromFields(
+            fields,
+            typeof loaders === 'function' ? loaders(dependencies) : loaders
+         )
+      )
       return this
    }
 

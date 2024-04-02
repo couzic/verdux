@@ -2,7 +2,6 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createVertexInstance } from './createVertexInstance'
-import { Subject } from 'rxjs'
 
 describe(createVertexInstance.name, () => {
    describe('single root vertex', () => {
@@ -24,12 +23,14 @@ describe(createVertexInstance.name, () => {
       let latestLoadableState: any
       let latestPick: any
       it('creates vertex instance', () => {
-         const fields$ = new Subject<any>()
-         const vertex = createVertexInstance(rootVertexConfig, fields$, {})
-         fields$.next({
-            name: { status: 'loaded', value: '', errors: [] },
-            age: { status: 'loaded', value: 0, errors: [] }
-         })
+         const vertex = createVertexInstance(rootVertexConfig, {})
+         vertex.__pushFields(
+            {
+               name: { status: 'loaded', value: '', errors: [] },
+               age: { status: 'loaded', value: 0, errors: [] }
+            },
+            { name: true, age: true }
+         )
          vertex.state$.subscribe(state => {
             latestState = state
          })
@@ -73,23 +74,117 @@ describe(createVertexInstance.name, () => {
          })
       })
 
+      it('handles undefined or empty changed fields', () => {
+         const vertex = createVertexInstance(rootVertexConfig, {})
+         let pickedEmissions = 0
+         vertex.loadableState$.subscribe(() => {
+            pickedEmissions++
+         })
+         vertex.__pushFields(
+            {
+               name: { status: 'loaded', value: '', errors: [] },
+               age: { status: 'loaded', value: 0, errors: [] }
+            },
+            { name: true, age: true }
+         )
+         vertex.__pushFields(
+            {
+               name: { status: 'loaded', value: '', errors: [] },
+               age: { status: 'loaded', value: 0, errors: [] }
+            },
+            undefined
+         )
+         vertex.__pushFields(
+            {
+               name: { status: 'loaded', value: '', errors: [] },
+               age: { status: 'loaded', value: 0, errors: [] }
+            },
+            {}
+         )
+         expect(pickedEmissions).to.equal(1)
+      })
+
+      describe('vertex with empty state', () => {
+         const emptyStateVertexConfig = configureRootVertex({
+            slice: createSlice({
+               name: 'root',
+               initialState: {},
+               reducers: {}
+            })
+         })
+         it('pushed first state even if changed fields are empty', () => {
+            const vertex = createVertexInstance(emptyStateVertexConfig, {})
+            let pickedEmissions = 0
+            vertex.loadableState$.subscribe(() => {
+               pickedEmissions++
+            })
+            vertex.__pushFields({}, {})
+            expect(pickedEmissions).to.equal(1)
+         })
+
+         it('pushed first state even if changed fields are undefined', () => {
+            const vertex = createVertexInstance(emptyStateVertexConfig, {})
+            let pickedEmissions = 0
+            vertex.loadableState$.subscribe(() => {
+               pickedEmissions++
+            })
+            vertex.__pushFields({}, undefined)
+            expect(pickedEmissions).to.equal(1)
+         })
+      })
+
       describe('picked fields', () => {
          it('are not emitted when they have not changed', () => {
-            const fields$ = new Subject<any>()
-            const vertex = createVertexInstance(rootVertexConfig, fields$, {})
+            const vertex = createVertexInstance(rootVertexConfig, {})
             let pickedEmissions = 0
             vertex.pick(['name']).subscribe(() => {
                pickedEmissions++
             })
-            fields$.next({
-               name: { status: 'loaded', value: '', errors: [] },
-               age: { status: 'loaded', value: 0, errors: [] }
-            })
-            fields$.next({
-               name: { status: 'loaded', value: '', errors: [] },
-               age: { status: 'loaded', value: 1, errors: [] }
-            })
+            vertex.__pushFields(
+               {
+                  name: { status: 'loaded', value: '', errors: [] },
+                  age: { status: 'loaded', value: 0, errors: [] }
+               },
+               { name: true, age: true }
+            )
+            vertex.__pushFields(
+               {
+                  name: { status: 'loaded', value: '', errors: [] },
+                  age: { status: 'loaded', value: 1, errors: [] }
+               },
+               { age: true }
+            )
             expect(pickedEmissions).to.equal(1)
+         })
+
+         it('are emitted as many times as they have changed', () => {
+            const vertex = createVertexInstance(rootVertexConfig, {})
+            let pickedEmissions = 0
+            vertex.pick(['name', 'age']).subscribe(() => {
+               pickedEmissions++
+            })
+            vertex.__pushFields(
+               {
+                  name: { status: 'loaded', value: '', errors: [] },
+                  age: { status: 'loaded', value: 0, errors: [] }
+               },
+               { name: true, age: true }
+            )
+            vertex.__pushFields(
+               {
+                  name: { status: 'loaded', value: 'Bob', errors: [] },
+                  age: { status: 'loaded', value: 0, errors: [] }
+               },
+               { name: true }
+            )
+            vertex.__pushFields(
+               {
+                  name: { status: 'loaded', value: 'Bob', errors: [] },
+                  age: { status: 'loaded', value: 1, errors: [] }
+               },
+               { age: true }
+            )
+            expect(pickedEmissions).to.equal(3)
          })
       })
    })
