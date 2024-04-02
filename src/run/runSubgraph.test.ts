@@ -1,15 +1,13 @@
 import { PayloadAction, createAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
-import { Subject, of } from 'rxjs'
+import { Subject } from 'rxjs'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { GraphInfo } from './GraphInfo'
 import { GraphRunData } from './RunData'
 import { runSubgraph } from './runSubgraph'
 
-const sut = runSubgraph
-
-describe(sut.name, () => {
+describe(runSubgraph.name, () => {
    it('handles simplest case', () => {
       const rootVertexConfig = configureRootVertex({
          slice: createSlice({
