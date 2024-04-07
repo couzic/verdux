@@ -6,6 +6,7 @@ import { computeFromFields } from '../operation/computeFromFields'
 import { loadFromFields } from '../operation/loadFromFields'
 import { reaction } from '../operation/reaction'
 import { VertexRun } from '../run/VertexRun'
+import { VertexState } from '../state/VertexState'
 import { VertexId } from '../vertex/VertexId'
 import { VertexConfig } from './VertexConfig'
 import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
@@ -127,7 +128,7 @@ export class VertexConfigImpl<
    }
 
    load(loaders: any): any {
-      // TODO mark fields as loadable
+      // TODO
       // this.internalStateTransformations.push(loadTransformation(loaders))
       return this
    }
@@ -150,10 +151,7 @@ export class VertexConfigImpl<
 
    reaction<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
-      mapper: (
-         payload: any
-         // TODO state: VertexState<any>
-      ) => UnknownAction
+      mapper: (payload: any, state: VertexState<any>) => UnknownAction
    ) {
       if (!this.trackedActions.includes(actionCreator)) {
          this.trackedActions.push(actionCreator)

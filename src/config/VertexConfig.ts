@@ -7,13 +7,13 @@ import {
 import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
+import { VertexState } from '../state/VertexState'
 import { IsDependablePlainObject, IsPlainObject } from '../util/IsPlainObject'
 import { VertexId } from '../vertex/VertexId'
 import { Dependable } from './Dependable'
 import { HasLoadable } from './HasLoadable'
 import { VertexFieldsDefinition } from './VertexFieldsDefinition'
 import { VertexInjectedConfig } from './VertexInjectedConfig'
-
 export interface VertexConfig<
    Fields extends VertexFieldsDefinition = any,
    Dependencies extends Record<string, any> = any
@@ -76,7 +76,6 @@ export interface VertexConfig<
 
    computeFromFields<
       K extends keyof Fields,
-      // TODO ComputedValues instead of Computers
       Computers extends Record<
          string,
          (pickedState: { [PK in K]: Fields[PK]['value'] }) => any
@@ -216,8 +215,8 @@ export interface VertexConfig<
       mapper: (
          payload: ActionCreator extends ActionCreatorWithPayload<infer P, any>
             ? P
-            : never
-         // TODO state: VertexState<any>
+            : never,
+         state: VertexState<any>
       ) => UnknownAction
    ): this
 
@@ -236,8 +235,8 @@ export interface VertexConfig<
    //          ActionCreator extends ActionCreatorWithPayload<infer P, any>
    //             ? P
    //             : never
-   //       >
-   //       // TODO state: VertexState<any>
+   //       >,
+   //       state: VertexState<any>
    //    ) => Observable<UnknownAction>
    // ): this
 
