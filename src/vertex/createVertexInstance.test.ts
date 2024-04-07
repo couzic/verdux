@@ -1,5 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
+import { of } from 'rxjs'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createVertexInstance } from './createVertexInstance'
 
@@ -76,9 +77,9 @@ describe(createVertexInstance.name, () => {
 
       it('handles undefined or empty changed fields', () => {
          const vertex = createVertexInstance(rootVertexConfig, {})
-         let pickedEmissions = 0
+         let emissions = 0
          vertex.loadableState$.subscribe(() => {
-            pickedEmissions++
+            emissions++
          })
          vertex.__pushFields(
             {
@@ -101,7 +102,7 @@ describe(createVertexInstance.name, () => {
             },
             {}
          )
-         expect(pickedEmissions).to.equal(1)
+         expect(emissions).to.equal(1)
       })
 
       describe('vertex with empty state', () => {
@@ -186,6 +187,41 @@ describe(createVertexInstance.name, () => {
             )
             expect(pickedEmissions).to.equal(3)
          })
+      })
+   })
+
+   describe('single root vertex loading from nullable field', () => {
+      const dataMapVertexConfig = configureRootVertex({
+         slice: createSlice({
+            name: 'dataMap',
+            initialState: { clickedDept: null as null | number },
+            reducers: {}
+         }),
+         dependencies: {}
+      }).loadFromFields(['clickedDept'], {
+         deptData: () => of(null)
+      })
+      it('picks from nullable field', () => {
+         const vertex = createVertexInstance(dataMapVertexConfig, {})
+         vertex.__pushFields(
+            {
+               clickedDept: { status: 'loaded', value: null, errors: [] },
+               deptData: { status: 'loading', value: undefined, errors: [] }
+            },
+            { clickedDept: true, deptData: true }
+         )
+         vertex.__pushFields(
+            {
+               clickedDept: { status: 'loaded', value: null, errors: [] },
+               deptData: { status: 'loaded', value: null, errors: [] }
+            },
+            { deptData: true }
+         )
+         let pickedEmissions = 0
+         vertex.pick(['clickedDept']).subscribe(loadableState => {
+            pickedEmissions++
+         })
+         expect(pickedEmissions).to.equal(1)
       })
    })
 })

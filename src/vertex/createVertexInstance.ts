@@ -1,4 +1,4 @@
-import { ReplaySubject, filter, map } from 'rxjs'
+import { ReplaySubject, filter, map, merge, skip, take, tap } from 'rxjs'
 import { VertexConfig } from '../config/VertexConfig'
 import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
 import { VertexChangedFields } from '../run/VertexFields'
@@ -46,12 +46,18 @@ export const createVertexInstance = <
          return currentLoadableState
       },
       pick(fields) {
-         return pushed$.pipe(
-            filter(_ =>
-               fields.some(field => Boolean(_.changedFields[field as string]))
-            ),
-            map(_ => pickLoadableState(_.loadableState, fields as any)),
-            map(_ => combineFields(_.fields))
+         return merge(
+            pushed$.pipe(take(1)),
+            pushed$.pipe(
+               skip(1),
+               filter(_ =>
+                  fields.some(field =>
+                     Boolean(_.changedFields[field as string])
+                  )
+               )
+            )
+         ).pipe(
+            map(_ => pickLoadableState(_.loadableState, fields as any))
          ) as any
       },
       __pushFields(fields, changedFields) {

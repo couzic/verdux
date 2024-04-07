@@ -1,6 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
-import { Subject } from 'rxjs'
+import { Subject, of } from 'rxjs'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from './createGraph'
 
@@ -173,6 +173,28 @@ describe(createGraph.name, () => {
             name: 'John',
             uppercaseName: undefined
          })
+      })
+   })
+   describe('root vertex loading from nullable field', () => {
+      const dataMapVertexConfig = configureRootVertex({
+         slice: createSlice({
+            name: 'dataMap',
+            initialState: { clickedDept: null as null | number },
+            reducers: {}
+         })
+      }).loadFromFields(['clickedDept'], {
+         deptData: () => of(null)
+      })
+      it('picks from nullable field', () => {
+         const graph = createGraph({
+            vertices: [dataMapVertexConfig]
+         })
+         const vertex = graph.getVertexInstance(dataMapVertexConfig)
+         let pickedEmissions = 0
+         vertex.pick(['clickedDept']).subscribe(() => {
+            pickedEmissions++
+         })
+         expect(pickedEmissions).to.equal(1)
       })
    })
 })

@@ -1,8 +1,8 @@
-import { VertexFieldState } from './VertexFieldState'
+import { VertexFields } from '../run/VertexFields'
 import { VertexLoadableState } from './VertexLoadableState'
 
 export const combineFields = (
-   fields: Record<string, VertexFieldState>
+   fields: VertexFields
 ): VertexLoadableState<any> => {
    const state = {} as any
    let loading = false

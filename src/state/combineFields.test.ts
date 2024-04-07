@@ -1,10 +1,10 @@
 import { expect } from 'chai'
-import { VertexFieldState } from './VertexFieldState'
+import { VertexFields } from '../run/VertexFields'
 import { combineFields } from './combineFields'
 
 describe(combineFields.name, () => {
    it('combines fields', () => {
-      const fields: Record<string, VertexFieldState> = {
+      const fields: VertexFields = {
          name: { status: 'loaded', value: 'Bob', errors: [] },
          age: { status: 'loaded', value: 40, errors: [] }
       }
@@ -16,7 +16,7 @@ describe(combineFields.name, () => {
       })
    })
    it('handles loading fields', () => {
-      const fields: Record<string, VertexFieldState> = {
+      const fields: VertexFields = {
          name: { status: 'loaded', value: 'Bob', errors: [] },
          age: { status: 'loading', value: undefined, errors: [] }
       }
@@ -29,7 +29,7 @@ describe(combineFields.name, () => {
    })
    it('handles fields in error', () => {
       const error = new Error()
-      const fields: Record<string, VertexFieldState> = {
+      const fields: VertexFields = {
          name: { status: 'loading', value: undefined, errors: [] },
          age: { status: 'error', value: undefined, errors: [error] }
       }

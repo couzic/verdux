@@ -1,9 +1,6 @@
-import { VertexFieldState } from './VertexFieldState'
+import { VertexFields } from '../run/VertexFields'
 
-export const compareFields = (
-   previous: Record<string, VertexFieldState>,
-   next: Record<string, VertexFieldState>
-) => {
+export const compareFields = (previous: VertexFields, next: VertexFields) => {
    let previousEqualsNext = true
    Object.keys(previous).forEach(key => {
       if (previous[key] === next[key]) {
