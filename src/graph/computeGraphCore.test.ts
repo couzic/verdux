@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit'
+import { PayloadAction, createAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { VertexConfig } from '../config/VertexConfig'
 import { configureRootVertex } from '../config/configureRootVertex'
@@ -51,12 +51,13 @@ describe(sut.name, () => {
    it('creates graph config for single vertex', () => {
       const vertexConfig = configureSimpleVertex('root')
       const graphConfig = sut([vertexConfig])
-      expect(graphConfig.vertexConfigs).to.deep.equal([vertexConfig])
-      expect(graphConfig.vertexIdsInSubgraph).to.deep.equal({
-         [vertexConfig.id]: [vertexConfig.id]
-      })
-      expect(graphConfig.dependenciesByVertexId).to.deep.equal({
-         [vertexConfig.id]: {}
+      expect(graphConfig).to.deep.equal({
+         rootReducer: graphConfig.rootReducer,
+         vertexConfigs: [vertexConfig],
+         vertexIdsInSubgraph: { [vertexConfig.id]: [vertexConfig.id] },
+         vertexConfigsByClosestCommonAncestorId: {},
+         trackedActionsInSubgraph: { [vertexConfig.id]: [] },
+         dependenciesByVertexId: { [vertexConfig.id]: {} }
       })
    })
 
@@ -66,10 +67,28 @@ describe(sut.name, () => {
          upstreamVertexConfig: rootVertexConfig
       })
       const graphConfig = sut([downstreamVertexConfig, rootVertexConfig])
-      expect(graphConfig.vertexConfigs).to.deep.equal([
-         rootVertexConfig,
-         downstreamVertexConfig
-      ])
+      expect(graphConfig).to.deep.equal({
+         rootReducer: graphConfig.rootReducer,
+         vertexConfigs: [rootVertexConfig, downstreamVertexConfig],
+         vertexIdsInSubgraph: {
+            [rootVertexConfig.id]: [
+               rootVertexConfig.id,
+               downstreamVertexConfig.id
+            ],
+            [downstreamVertexConfig.id]: [downstreamVertexConfig.id]
+         },
+         vertexConfigsByClosestCommonAncestorId: {
+            [rootVertexConfig.id]: [downstreamVertexConfig]
+         },
+         trackedActionsInSubgraph: {
+            [rootVertexConfig.id]: [],
+            [downstreamVertexConfig.id]: []
+         },
+         dependenciesByVertexId: {
+            [rootVertexConfig.id]: {},
+            [downstreamVertexConfig.id]: {}
+         }
+      })
    })
 
    it('orders depth first', () => {
@@ -293,6 +312,54 @@ describe(sut.name, () => {
          ).to.deep.equal({
             name: 'Steve'
          })
+      })
+   })
+
+   it('indexes tracked actions', () => {
+      const trackedAction = createAction('trackedAction')
+      const rootVertexConfig = configureRootVertex({
+         slice: createSlice({
+            name: 'root',
+            initialState: {},
+            reducers: {}
+         })
+      })
+      const downstreamSlice = createSlice({
+         name: 'downstreamVertexName',
+         initialState: { name: '' },
+         reducers: {
+            setName: (state, action: PayloadAction<string>) => {
+               state.name = action.payload
+            }
+         }
+      })
+      const downstreamVertexConfig = rootVertexConfig
+         .configureDownstreamVertex({
+            slice: downstreamSlice as any
+         })
+         .reaction(trackedAction, () => downstreamSlice.actions.setName('Bob'))
+      const graphConfig = sut([rootVertexConfig, downstreamVertexConfig])
+      expect(graphConfig).to.deep.equal({
+         rootReducer: graphConfig.rootReducer,
+         vertexConfigs: [rootVertexConfig, downstreamVertexConfig],
+         vertexConfigsByClosestCommonAncestorId: {
+            [rootVertexConfig.id]: [downstreamVertexConfig]
+         },
+         vertexIdsInSubgraph: {
+            [rootVertexConfig.id]: [
+               rootVertexConfig.id,
+               downstreamVertexConfig.id
+            ],
+            [downstreamVertexConfig.id]: [downstreamVertexConfig.id]
+         },
+         trackedActionsInSubgraph: {
+            [rootVertexConfig.id]: [trackedAction],
+            [downstreamVertexConfig.id]: [trackedAction]
+         },
+         dependenciesByVertexId: {
+            [rootVertexConfig.id]: {},
+            [downstreamVertexConfig.id]: {}
+         }
       })
    })
 })

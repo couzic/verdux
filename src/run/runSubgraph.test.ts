@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import { Subject } from 'rxjs'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { configureRootVertex } from '../config/configureRootVertex'
-import { GraphInfo } from './GraphInfo'
+import { computeGraphCore } from '../graph/computeGraphCore'
 import { GraphRunData } from './RunData'
 import { runSubgraph } from './runSubgraph'
 
@@ -16,12 +16,7 @@ describe(runSubgraph.name, () => {
             reducers: {}
          })
       }) as VertexConfigImpl
-      const graphInfo: GraphInfo = {
-         vertexConfigsByClosestCommonAncestorId: { [rootVertexConfig.id]: [] },
-         vertexIdsInSubgraph: { [rootVertexConfig.id]: [rootVertexConfig.id] },
-         trackedActionsInSubgraph: { [rootVertexConfig.id]: [] },
-         dependenciesByVertexId: { [rootVertexConfig.id]: {} }
-      }
+      const graphInfo = computeGraphCore([rootVertexConfig])
       const graphRun = runSubgraph(rootVertexConfig, graphInfo)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
@@ -64,24 +59,10 @@ describe(runSubgraph.name, () => {
             })
          }
       ) as VertexConfigImpl
-      const graphInfo: GraphInfo = {
-         vertexConfigsByClosestCommonAncestorId: {
-            [rootVertexConfig.id]: [downstreamVertexConfig],
-            [downstreamVertexConfig.id]: []
-         },
-         vertexIdsInSubgraph: {
-            [rootVertexConfig.id]: [
-               rootVertexConfig.id,
-               downstreamVertexConfig.id
-            ],
-            [downstreamVertexConfig.id]: [downstreamVertexConfig.id]
-         },
-         trackedActionsInSubgraph: {
-            [rootVertexConfig.id]: [],
-            [downstreamVertexConfig.id]: []
-         },
-         dependenciesByVertexId: { [rootVertexConfig.id]: {} }
-      }
+      const graphInfo = computeGraphCore([
+         rootVertexConfig,
+         downstreamVertexConfig
+      ])
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
@@ -163,24 +144,10 @@ describe(runSubgraph.name, () => {
          .reaction(trackedAction, () =>
             downstreamSlice.actions.setName('Bob')
          ) as VertexConfigImpl
-      const graphInfo: GraphInfo = {
-         vertexConfigsByClosestCommonAncestorId: {
-            [rootVertexConfig.id]: [downstreamVertexConfig],
-            [downstreamVertexConfig.id]: []
-         },
-         vertexIdsInSubgraph: {
-            [rootVertexConfig.id]: [
-               rootVertexConfig.id,
-               downstreamVertexConfig.id
-            ],
-            [downstreamVertexConfig.id]: [downstreamVertexConfig.id]
-         },
-         trackedActionsInSubgraph: {
-            [rootVertexConfig.id]: [trackedAction],
-            [downstreamVertexConfig.id]: [trackedAction]
-         },
-         dependenciesByVertexId: { [rootVertexConfig.id]: {} }
-      }
+      const graphInfo = computeGraphCore([
+         rootVertexConfig,
+         downstreamVertexConfig
+      ])
       const graphRun = runSubgraph(rootVertexConfig, graphInfo)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
