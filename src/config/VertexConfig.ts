@@ -227,18 +227,20 @@ export interface VertexConfig<
       }) => UnknownAction
    ): this
 
-   // TODO
-   // reaction$<ActionCreator extends BaseActionCreator<any, any>>(
-   //    actionCreator: ActionCreator,
-   //    mapper: (
-   //       payload$: Observable<
-   //          ActionCreator extends ActionCreatorWithPayload<infer P, any>
-   //             ? P
-   //             : never
-   //       >,
-   //       state: VertexState<any>
-   //    ) => Observable<UnknownAction>
-   // ): this
+   reaction$<ActionCreator extends BaseActionCreator<any, any>>(
+      actionCreator: ActionCreator,
+      mapper: (
+         input$: Observable<{
+            payload: ActionCreator extends ActionCreatorWithPayload<
+               infer P,
+               any
+            >
+               ? P
+               : never
+            state: VertexState<any>
+         }>
+      ) => Observable<UnknownAction>
+   ): this
 
    // TODO
    // fieldsReaction$<K extends keyof Fields>(

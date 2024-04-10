@@ -5,6 +5,7 @@ import { Observable } from 'rxjs'
 import { computeFromFields } from '../operation/computeFromFields'
 import { loadFromFields } from '../operation/loadFromFields'
 import { reaction } from '../operation/reaction'
+import { reaction$ } from '../operation/reaction$'
 import { VertexRun } from '../run/VertexRun'
 import { VertexState } from '../state/VertexState'
 import { VertexId } from '../vertex/VertexId'
@@ -157,6 +158,22 @@ export class VertexConfigImpl<
          this.trackedActions.push(actionCreator)
       }
       this._injectableOperations.push(() => reaction(actionCreator, mapper))
+      return this
+   }
+
+   reaction$<ActionCreator extends BaseActionCreator<any, any>>(
+      actionCreator: ActionCreator,
+      mapper: (
+         input$: Observable<{
+            payload: any
+            state: VertexState<any>
+         }>
+      ) => Observable<UnknownAction>
+   ) {
+      if (!this.trackedActions.includes(actionCreator)) {
+         this.trackedActions.push(actionCreator)
+      }
+      this._injectableOperations.push(() => reaction$(actionCreator, mapper))
       return this
    }
 
