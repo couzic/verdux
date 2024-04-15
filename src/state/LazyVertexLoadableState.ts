@@ -1,7 +1,7 @@
 import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
 import { VertexFields } from '../run/VertexFields'
 import { VertexLoadableState } from './VertexLoadableState'
-import { combineFields } from './combineFields'
+import { toVertexLoadableState } from './toVertexLoadableState'
 
 export class LazyVertexLoadableState<Fields extends VertexFieldsDefinition>
    implements VertexLoadableState<Fields>
@@ -12,7 +12,7 @@ export class LazyVertexLoadableState<Fields extends VertexFieldsDefinition>
 
    private initializeValue() {
       if (this.value === undefined) {
-         this.value = combineFields(this._fields)
+         this.value = toVertexLoadableState(this._fields)
       }
    }
 

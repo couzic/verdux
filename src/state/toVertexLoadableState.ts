@@ -1,7 +1,7 @@
 import { VertexFields } from '../run/VertexFields'
 import { VertexLoadableState } from './VertexLoadableState'
 
-export const combineFields = (
+export const toVertexLoadableState = (
    fields: VertexFields
 ): VertexLoadableState<any> => {
    const state = {} as any

@@ -1,8 +1,8 @@
 import { map } from 'rxjs'
 import { VertexRun } from '../run/VertexRun'
 import { LazyVertexLoadableStateWithDependencies } from '../state/LazyVertexLoadableStateWithDependencies'
-import { combineFields } from '../state/combineFields'
 import { pickFields } from '../state/pickFields'
+import { toVertexState } from '../state/toVertexState'
 
 export const fieldsReaction =
    (fields: string[], mapper: any) =>
@@ -10,7 +10,7 @@ export const fieldsReaction =
       map(data => {
          if (fields.some(field => data.changedFields[field])) {
             const pickedFields = pickFields(fields, data.fields)
-            const pickedState = combineFields(pickedFields).state
+            const pickedState = toVertexState(pickedFields)
             const loadableState = new LazyVertexLoadableStateWithDependencies(
                data.fields,
                dependencies

@@ -3,7 +3,7 @@ import { VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
 import { compareVertexFields } from '../run/compareVertexFields'
 import { VertexState } from '../state/VertexState'
-import { combineFields } from '../state/combineFields'
+import { toVertexLoadableState } from '../state/toVertexLoadableState'
 import { pickFields } from '../state/pickFields'
 
 export const computeFromFields =
@@ -57,7 +57,7 @@ export const computeFromFields =
             )
             if (hasChanged) {
                const picked = pickFields(fields, data.fields)
-               const combined = combineFields(picked)
+               const combined = toVertexLoadableState(picked)
                const computedFields =
                   combined.status === 'loaded'
                      ? computeLoadedFields(combined.state)

@@ -11,7 +11,7 @@ import {
 import { VertexRunData } from '../run/RunData'
 import { VertexChangedFields, VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
-import { combineFields } from '../state/combineFields'
+import { toVertexLoadableState } from '../state/toVertexLoadableState'
 import { pickFields } from '../state/pickFields'
 
 export const loadFromFields =
@@ -57,7 +57,7 @@ export const loadFromFields =
                changedFields: { ...data.changedFields, ...changedLoadingFields }
             })
             const picked = pickFields(fields, data.fields)
-            const { state, status } = combineFields(picked)
+            const { state, status } = toVertexLoadableState(picked)
             // TODO Pass down errors
             if (status !== 'loaded') {
                return loading$.pipe(tap(data => (latestOutputData = data)))

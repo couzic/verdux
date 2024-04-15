@@ -4,7 +4,7 @@ import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
 import { VertexChangedFields } from '../run/VertexFields'
 import { VertexLoadableState } from '../state/VertexLoadableState'
 import { VertexState } from '../state/VertexState'
-import { combineFields } from '../state/combineFields'
+import { toVertexLoadableState } from '../state/toVertexLoadableState'
 import { pickLoadableState } from '../state/pickLoadableState'
 import { VertexInstance } from './VertexInstance'
 
@@ -67,7 +67,7 @@ export const createVertexInstance = <
             }
          }
          lastPushed = {
-            loadableState: combineFields(fields),
+            loadableState: toVertexLoadableState(fields),
             changedFields: { ...changedFields }
          }
          currentState = lastPushed.loadableState.state

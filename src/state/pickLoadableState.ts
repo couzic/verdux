@@ -1,5 +1,5 @@
 import { VertexLoadableState } from './VertexLoadableState'
-import { combineFields } from './combineFields'
+import { toVertexLoadableState } from './toVertexLoadableState'
 
 export const pickLoadableState = (
    loadableState: VertexLoadableState<any>,
@@ -9,5 +9,5 @@ export const pickLoadableState = (
    keys.forEach(key => {
       pickedFields[key] = loadableState.fields[key]
    })
-   return combineFields(pickedFields)
+   return toVertexLoadableState(pickedFields)
 }
