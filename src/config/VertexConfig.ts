@@ -7,7 +7,7 @@ import {
 import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
-import { VertexState } from '../state/VertexState'
+import { VertexLoadableState } from '../state/VertexLoadableState'
 import { IsDependablePlainObject, IsPlainObject } from '../util/IsPlainObject'
 import { VertexId } from '../vertex/VertexId'
 import { Dependable } from './Dependable'
@@ -213,32 +213,42 @@ export interface VertexConfig<
    reaction<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
       mapper: (
-         payload: ActionCreator extends ActionCreatorWithPayload<infer P, any>
-            ? P
-            : never,
-         state: VertexState<any>
-      ) => UnknownAction
-   ): this
-
-   fieldsReaction<K extends keyof Fields>(
-      fields: K[],
-      mapper: (pickedState: {
-         [PK in K]: Fields[PK]['value']
-      }) => UnknownAction
-   ): this
-
-   reaction$<ActionCreator extends BaseActionCreator<any, any>>(
-      actionCreator: ActionCreator,
-      mapper: (
-         input$: Observable<{
+         input: VertexLoadableState<Fields> & {
+            dependencies: Dependencies
             payload: ActionCreator extends ActionCreatorWithPayload<
                infer P,
                any
             >
                ? P
                : never
-            state: VertexState<any>
-         }>
+         }
+      ) => UnknownAction
+   ): this
+
+   fieldsReaction<K extends keyof Fields>(
+      fields: K[],
+      mapper: (
+         pickedState: {
+            [PK in K]: Fields[PK]['value']
+         },
+         input: VertexLoadableState<Fields> & { dependencies: Dependencies }
+      ) => UnknownAction
+   ): this
+
+   reaction$<ActionCreator extends BaseActionCreator<any, any>>(
+      actionCreator: ActionCreator,
+      mapper: (
+         input$: Observable<
+            VertexLoadableState<Fields> & {
+               payload: ActionCreator extends ActionCreatorWithPayload<
+                  infer P,
+                  any
+               >
+                  ? P
+                  : never
+            }
+         >,
+         dependencies: Dependencies
       ) => Observable<UnknownAction>
    ): this
 

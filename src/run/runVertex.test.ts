@@ -52,7 +52,7 @@ describe(runVertex.name, () => {
                }
             }
          })
-      }) as VertexConfigImpl
+      }) as unknown as VertexConfigImpl
       const graphRun = runVertex(rootVertexConfig)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
@@ -98,7 +98,7 @@ describe(runVertex.name, () => {
          })
       }).computeFromFields(['name'], {
          uppercaseName: ({ name }) => name.toUpperCase()
-      }) as VertexConfigImpl
+      }) as unknown as VertexConfigImpl
       const graphRun = runVertex(rootVertexConfig)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {

@@ -22,7 +22,7 @@ describe(sut.name, () => {
       reaction$(
          trackedAction,
          map(action => outputAction(action.payload))
-      )(of(input)).subscribe(output => {
+      )({})(of(input)).subscribe(output => {
          outputEmissions++
          lastOutput = output
       })
@@ -49,11 +49,11 @@ describe(sut.name, () => {
       reaction$(
          trackedAction,
          map(action => outputAction(action.payload))
-      )(of(input)).subscribe(() => outputEmissions++)
+      )({})(of(input)).subscribe(() => outputEmissions++)
       expect(outputEmissions).to.equal(1)
    })
 
-   it('has access to state', () => {
+   it('has correct input', () => {
       const trackedAction = createAction('trackedAction')
       const outputAction = createAction('outputAction')
       const input: VertexRunData = {
@@ -70,17 +70,19 @@ describe(sut.name, () => {
          reactions: []
       }
       let outputEmissions = 0
-      let latestAccessedState: any
+      let latestInput: any
       reaction$(
          trackedAction,
-         map(({ state }) => {
-            latestAccessedState = state
+         map(input => {
+            latestInput = input
             return outputAction()
          })
-      )(of(input)).subscribe(() => {
+      )({})(of(input)).subscribe(() => {
          outputEmissions++
       })
-      expect(latestAccessedState).to.deep.equal({ name: 'Bob' })
+      expect(latestInput.state).to.deep.equal({
+         name: 'Bob'
+      })
    })
 
    // TODO Output error

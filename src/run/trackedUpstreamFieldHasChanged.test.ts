@@ -15,7 +15,7 @@ describe(sut.name, () => {
             initialState: { trackedField: '', untrackedField: '' },
             reducers: {}
          })
-      }) as VertexConfigImpl
+      }) as unknown as VertexConfigImpl
       const downstreamVertexConfig = rootVertexConfig.configureDownstreamVertex(
          {
             slice: createSlice({
@@ -67,7 +67,7 @@ describe(sut.name, () => {
             initialState: { trackedField: '' },
             reducers: {}
          })
-      }) as VertexConfigImpl
+      }) as unknown as VertexConfigImpl
       const downstreamVertexConfig = rootVertexConfig.configureDownstreamVertex(
          {
             slice: createSlice({
@@ -77,7 +77,7 @@ describe(sut.name, () => {
             }),
             upstreamFields: ['trackedField']
          }
-      ) as VertexConfigImpl
+      ) as unknown as VertexConfigImpl
       const data: GraphRunData = {
          action: undefined,
          reduxStateByVertexId: {

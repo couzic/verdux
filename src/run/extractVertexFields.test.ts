@@ -19,7 +19,7 @@ describe(sut.name, () => {
                }
             }
          })
-      }) as VertexConfigImpl
+      }) as unknown as VertexConfigImpl
       const runData: GraphRunData = {
          action: undefined,
          fieldsReactions: [],
@@ -63,7 +63,7 @@ describe(sut.name, () => {
             }),
             upstreamFields: ['name']
          }
-      ) as VertexConfigImpl
+      ) as unknown as VertexConfigImpl
       const runData: GraphRunData = {
          action: undefined,
          fieldsReactions: [],

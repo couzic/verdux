@@ -7,7 +7,7 @@ import { loadFromFields } from '../operation/loadFromFields'
 import { reaction } from '../operation/reaction'
 import { reaction$ } from '../operation/reaction$'
 import { VertexRun } from '../run/VertexRun'
-import { VertexState } from '../state/VertexState'
+import { VertexLoadableState } from '../state/VertexLoadableState'
 import { VertexId } from '../vertex/VertexId'
 import { VertexConfig } from './VertexConfig'
 import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
@@ -152,37 +152,46 @@ export class VertexConfigImpl<
 
    reaction<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
-      mapper: (payload: any, state: VertexState<any>) => UnknownAction
+      mapper: (
+         payload: any,
+         vertex: VertexLoadableState<Fields> & { dependencies: Dependencies }
+      ) => UnknownAction
    ) {
       if (!this.trackedActions.includes(actionCreator)) {
          this.trackedActions.push(actionCreator)
       }
-      this._injectableOperations.push(() => reaction(actionCreator, mapper))
+      this._injectableOperations.push(reaction(actionCreator, mapper as any))
       return this
    }
 
    reaction$<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
       mapper: (
-         input$: Observable<{
-            payload: any
-            state: VertexState<any>
-         }>
+         input$: Observable<
+            VertexLoadableState<Fields> & {
+               payload: any
+            }
+         >,
+         dependencies: Dependencies
       ) => Observable<UnknownAction>
    ) {
       if (!this.trackedActions.includes(actionCreator)) {
          this.trackedActions.push(actionCreator)
       }
-      this._injectableOperations.push(() => reaction$(actionCreator, mapper))
+      this._injectableOperations.push(reaction$(actionCreator, mapper as any))
       return this
    }
 
    fieldsReaction<K extends keyof Fields>(
       fields: K[],
-      operation: (pickedState: {
-         [PK in K]: Fields[PK]['value']
-      }) => UnknownAction
+      operation: (
+         pickedState: {
+            [PK in K]: Fields[PK]['value']
+         },
+         vertex: VertexLoadableState<Fields> & { dependencies: Dependencies }
+      ) => UnknownAction
    ) {
+      // TODO implement
       return this
    }
 
