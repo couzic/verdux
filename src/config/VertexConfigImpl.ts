@@ -3,6 +3,7 @@ import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
 import { computeFromFields } from '../operation/computeFromFields'
+import { fieldsReaction } from '../operation/fieldsReaction'
 import { loadFromFields } from '../operation/loadFromFields'
 import { reaction } from '../operation/reaction'
 import { reaction$ } from '../operation/reaction$'
@@ -184,14 +185,14 @@ export class VertexConfigImpl<
 
    fieldsReaction<K extends keyof Fields>(
       fields: K[],
-      operation: (
+      mapper: (
          pickedState: {
             [PK in K]: Fields[PK]['value']
          },
          vertex: VertexLoadableState<Fields> & { dependencies: Dependencies }
       ) => UnknownAction
    ) {
-      // TODO implement
+      this._injectableOperations.push(fieldsReaction(fields as any, mapper))
       return this
    }
 

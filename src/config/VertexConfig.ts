@@ -231,7 +231,7 @@ export interface VertexConfig<
          pickedState: {
             [PK in K]: Fields[PK]['value']
          },
-         input: VertexLoadableState<Fields> & { dependencies: Dependencies }
+         vertex: VertexLoadableState<Fields> & { dependencies: Dependencies }
       ) => UnknownAction
    ): this
 

@@ -197,4 +197,32 @@ describe(createGraph.name, () => {
          expect(pickedEmissions).to.equal(1)
       })
    })
+   describe('root vertex with field reaction', () => {
+      const rootSlice = createSlice({
+         name: 'root',
+         initialState: {
+            name: '',
+            nameLength: 0
+         },
+         reducers: {
+            setName: (state, action: PayloadAction<string>) => {
+               state.name = action.payload
+            },
+            setNameLength: (state, action: PayloadAction<number>) => {
+               state.nameLength = action.payload
+            }
+         }
+      })
+      const { setName, setNameLength } = rootSlice.actions
+      const rootVertexConfig = configureRootVertex({
+         slice: rootSlice
+      }).fieldsReaction(['name'], ({ name }) => setNameLength(name.length))
+      it('loads field', () => {
+         const graph = createGraph({ vertices: [rootVertexConfig] })
+         const rootVertex = graph.getVertexInstance(rootVertexConfig)
+         expect(rootVertex.currentState.nameLength).to.equal(0)
+         graph.dispatch(setName('John'))
+         expect(rootVertex.currentState.nameLength).to.equal(4)
+      })
+   })
 })
