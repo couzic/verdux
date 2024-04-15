@@ -232,7 +232,7 @@ export interface VertexConfig<
             [PK in K]: Fields[PK]['value']
          },
          vertex: VertexLoadableState<Fields> & { dependencies: Dependencies }
-      ) => UnknownAction
+      ) => UnknownAction | null
    ): this
 
    reaction$<ActionCreator extends BaseActionCreator<any, any>>(

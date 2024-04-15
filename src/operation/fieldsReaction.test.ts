@@ -64,4 +64,13 @@ describe(fieldsReaction.name, () => {
       })(dependencies)(of(input)).subscribe(output => (lastOutput = output))
       expect(accessedDependencies).to.deep.equal(dependencies)
    })
+
+   it('ignores null mapper outputs', () => {
+      const input = createRunData({ name: 'Bob' })
+      let lastOutput: any = undefined
+      fieldsReaction(['name'], ({ name }: any) => {
+         return null
+      })({})(of(input)).subscribe(output => (lastOutput = output))
+      expect(lastOutput).to.equal(input)
+   })
 })

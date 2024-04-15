@@ -16,6 +16,10 @@ export const fieldsReaction =
                dependencies
             )
             const reaction = mapper(pickedState, loadableState)
+            if (reaction === null) {
+               return data
+            }
+            // TODO check if mapper output is a valid reaction
             return {
                ...data,
                fieldsReactions: [...data.fieldsReactions, reaction]
