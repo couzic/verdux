@@ -197,6 +197,37 @@ describe(createGraph.name, () => {
          expect(pickedEmissions).to.equal(1)
       })
    })
+   describe('root vertex with reaction', () => {
+      const rootSlice = createSlice({
+         name: 'root',
+         initialState: {
+            name: '',
+            nameLength: 0
+         },
+         reducers: {
+            setName: (state, action: PayloadAction<string>) => {
+               state.name = action.payload
+            },
+            setNameLength: (state, action: PayloadAction<number>) => {
+               state.nameLength = action.payload
+            }
+         }
+      })
+      const { setName, setNameLength } = rootSlice.actions
+      const rootVertexConfig = configureRootVertex({
+         slice: rootSlice
+      }).reaction(setName, ({ payload }) => setNameLength(payload.length))
+      it('does not consume field change of original field', () => {
+         const graph = createGraph({ vertices: [rootVertexConfig] })
+         const rootVertex = graph.getVertexInstance(rootVertexConfig)
+         let pickEmissions = 0
+         rootVertex.pick(['name']).subscribe(() => {
+            pickEmissions++
+         })
+         graph.dispatch(setName('John'))
+         expect(pickEmissions).to.equal(2)
+      })
+   })
    describe('root vertex with field reaction', () => {
       const rootSlice = createSlice({
          name: 'root',
@@ -228,6 +259,16 @@ describe(createGraph.name, () => {
          graph.dispatch(setName('John'))
          expect(rootVertex.currentState.nameLength).to.equal(4)
          expect(reactions).to.equal(1)
+      })
+      it('does not consume field change of original field', () => {
+         const graph = createGraph({ vertices: [rootVertexConfig] })
+         const rootVertex = graph.getVertexInstance(rootVertexConfig)
+         let pickEmissions = 0
+         rootVertex.pick(['name']).subscribe(() => {
+            pickEmissions++
+         })
+         graph.dispatch(setName('John'))
+         expect(pickEmissions).to.equal(2)
       })
    })
 })

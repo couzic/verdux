@@ -66,19 +66,38 @@ export const createGraph = (options: {
       vertexInstanceById[config.id] = createVertexInstance(config, {})
    })
 
+   let savedChangedFieldsByVertexId: Record<symbol, Record<string, any>> = {}
+   const saveChangedFields = (data: GraphRunData) => {
+      const changedFields = data.changedFieldsByVertexId
+      Object.getOwnPropertySymbols(changedFields).forEach(vertexId => {
+         if (savedChangedFieldsByVertexId[vertexId] === undefined) {
+            savedChangedFieldsByVertexId[vertexId] = {}
+         }
+         savedChangedFieldsByVertexId[vertexId] = {
+            ...savedChangedFieldsByVertexId[vertexId],
+            ...changedFields[vertexId]
+         }
+      })
+   }
    graphRunOutput$.subscribe(data => {
       data.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
       data.reactions.forEach(_ => reactionsFIFO.push(_))
       if (fieldsReactionsFIFO.hasNext()) {
+         saveChangedFields(data)
          reduxStore.dispatch(fieldsReactionsFIFO.pop()!)
       } else if (reactionsFIFO.hasNext()) {
+         saveChangedFields(data)
          reduxStore.dispatch(reactionsFIFO.pop()!)
       } else {
          vertexConfigs.forEach(config => {
             const fields = data.fieldsByVertexId[config.id]
-            const changedFields = data.changedFieldsByVertexId[config.id]
+            const changedFields = {
+               ...savedChangedFieldsByVertexId[config.id],
+               ...data.changedFieldsByVertexId[config.id]
+            }
             vertexInstanceById[config.id].__pushFields(fields, changedFields)
          })
+         savedChangedFieldsByVertexId = {}
       }
    })
 
