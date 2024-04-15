@@ -214,15 +214,20 @@ describe(createGraph.name, () => {
          }
       })
       const { setName, setNameLength } = rootSlice.actions
+      let reactions = 0
       const rootVertexConfig = configureRootVertex({
          slice: rootSlice
-      }).fieldsReaction(['name'], ({ name }) => setNameLength(name.length))
-      it('loads field', () => {
+      }).fieldsReaction(['name'], ({ name }) => {
+         reactions++
+         return setNameLength(name.length)
+      })
+      it('reacts on first field changed after initial run', () => {
          const graph = createGraph({ vertices: [rootVertexConfig] })
          const rootVertex = graph.getVertexInstance(rootVertexConfig)
          expect(rootVertex.currentState.nameLength).to.equal(0)
          graph.dispatch(setName('John'))
          expect(rootVertex.currentState.nameLength).to.equal(4)
+         expect(reactions).to.equal(1)
       })
    })
 })

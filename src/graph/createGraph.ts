@@ -90,7 +90,8 @@ export const createGraph = (options: {
       fieldsByVertexId: {},
       changedFieldsByVertexId: {},
       fieldsReactions: [],
-      reactions: []
+      reactions: [],
+      initialRun: true
    })
 
    // TODO

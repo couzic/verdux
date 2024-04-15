@@ -27,6 +27,19 @@ const createRunData = (fieldValues: Record<string, any>): VertexRunData => {
 }
 
 describe(fieldsReaction.name, () => {
+   it('ignores initial values', () => {
+      const input = {
+         ...createRunData({ name: 'Bob' }),
+         initialRun: true as const
+      }
+      let callsToMapper = 0
+      fieldsReaction(['name'], () => {
+         callsToMapper++
+         return null
+      })({})(of(input)).subscribe()
+      expect(callsToMapper).to.equal(0)
+   })
+
    it('reacts to tracked field change', () => {
       const outputAction = createAction<string>('outputAction')
       const input = createRunData({ name: 'Bob' })

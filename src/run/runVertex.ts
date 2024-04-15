@@ -33,7 +33,8 @@ export const runVertex = (
                fields,
                changedFields,
                fieldsReactions: data.fieldsReactions,
-               reactions: data.reactions
+               reactions: data.reactions,
+               initialRun: data.initialRun
             }
          }),
          ...config.getInjectedOperations(dependencies),
