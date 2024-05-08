@@ -3,6 +3,7 @@ import { expect } from 'chai'
 import { map, of } from 'rxjs'
 import { VertexRunData } from '../run/RunData'
 import { reaction$ } from './reaction$'
+import { fakeBaseQuery } from '@reduxjs/toolkit/query'
 
 const sut = reaction$
 
@@ -15,7 +16,8 @@ describe(sut.name, () => {
          fields: {},
          changedFields: {},
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: false
       }
       let outputEmissions = 0
       let lastOutput: any = undefined
@@ -43,7 +45,8 @@ describe(sut.name, () => {
          fields: {},
          changedFields: {},
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       let outputEmissions = 0
       reaction$(
@@ -67,7 +70,8 @@ describe(sut.name, () => {
          },
          changedFields: {},
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       let outputEmissions = 0
       let latestInput: any

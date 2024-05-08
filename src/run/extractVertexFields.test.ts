@@ -31,7 +31,8 @@ describe(sut.name, () => {
             }
          },
          fieldsByVertexId: {},
-         changedFieldsByVertexId: {}
+         changedFieldsByVertexId: {},
+         initialRun: true
       }
       const fields = extractVertexFields(rootVertexConfig)(runData)
       expect(fields).to.deep.equal({
@@ -90,7 +91,8 @@ describe(sut.name, () => {
          },
          changedFieldsByVertexId: {
             [rootVertexConfig.id]: { name: true }
-         }
+         },
+         initialRun: true
       }
       const fields = extractVertexFields(downstreamVertexConfig)(runData)
       expect(fields).to.deep.equal({

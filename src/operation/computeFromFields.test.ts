@@ -19,7 +19,8 @@ describe(sut.name, () => {
             name: true
          },
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       let lastOutput: VertexRunData | undefined = undefined
       run(of(input)).subscribe(output => {
@@ -41,7 +42,8 @@ describe(sut.name, () => {
             name: true
          },
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       let lastOutput: VertexRunData | undefined = undefined
       run(of(input)).subscribe(output => {
@@ -73,7 +75,8 @@ describe(sut.name, () => {
             name: true
          },
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       let lastOutput: VertexRunData | undefined = undefined
       run(of(input, { ...input, changedFields: {} })).subscribe(output => {
@@ -107,7 +110,8 @@ describe(sut.name, () => {
             name: true
          },
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       })
       expect(lastOutput!.fields.uppercaseName.status).to.equal('loading')
 
@@ -120,7 +124,8 @@ describe(sut.name, () => {
             name: true
          },
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: false
       })
       expect(lastOutput!.fields.uppercaseName).to.deep.equal({
          status: 'loaded',
@@ -144,7 +149,8 @@ describe(sut.name, () => {
             name: true
          },
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       let lastOutput: VertexRunData | undefined = undefined
       run(of(input)).subscribe(output => {

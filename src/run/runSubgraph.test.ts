@@ -30,7 +30,8 @@ describe(runSubgraph.name, () => {
             }
          },
          fieldsByVertexId: {},
-         changedFieldsByVertexId: {}
+         changedFieldsByVertexId: {},
+         initialRun: true
       }
       const input$ = new Subject<GraphRunData>()
       graphRun(input$).subscribe(output => (lastOutput = output))
@@ -78,7 +79,8 @@ describe(runSubgraph.name, () => {
             [downstreamVertexConfig.id]: { vertex: {}, downstream: {} }
          },
          fieldsByVertexId: {},
-         changedFieldsByVertexId: {}
+         changedFieldsByVertexId: {},
+         initialRun: true
       }
       let outputEmissions = 0
       const input$ = new Subject<GraphRunData>()
@@ -167,7 +169,8 @@ describe(runSubgraph.name, () => {
             }
          },
          fieldsByVertexId: {},
-         changedFieldsByVertexId: {}
+         changedFieldsByVertexId: {},
+         initialRun: true
       }
       const input$ = new Subject<GraphRunData>()
       graphRun(input$).subscribe(output => (lastOutput = output))

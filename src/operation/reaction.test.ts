@@ -15,7 +15,8 @@ describe(sut.name, () => {
          fields: {},
          changedFields: {},
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       let lastOutput: any = undefined
       reaction(trackedAction, () => outputAction())({})(of(input)).subscribe(
@@ -34,7 +35,8 @@ describe(sut.name, () => {
          fields: {},
          changedFields: {},
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       let lastOutput: any = undefined
       reaction(trackedAction, () => {

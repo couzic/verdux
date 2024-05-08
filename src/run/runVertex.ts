@@ -52,7 +52,8 @@ export const runVertex = (
                changedFieldsByVertexId: {
                   ...latestInput.graphRunData.changedFieldsByVertexId,
                   [config.id]: data.changedFields
-               }
+               },
+               initialRun: data.initialRun
             })
          )
       )

@@ -28,7 +28,8 @@ describe(runVertex.name, () => {
             }
          },
          fieldsByVertexId: {},
-         changedFieldsByVertexId: {}
+         changedFieldsByVertexId: {},
+         initialRun: true
       }
       const input$ = of(input)
       graphRun(input$).subscribe(output => (lastOutput = output))
@@ -66,7 +67,8 @@ describe(runVertex.name, () => {
             }
          },
          fieldsByVertexId: {},
-         changedFieldsByVertexId: {}
+         changedFieldsByVertexId: {},
+         initialRun: true
       }
       const input$ = of(input)
       graphRun(input$).subscribe(output => (lastOutput = output))
@@ -112,7 +114,8 @@ describe(runVertex.name, () => {
             }
          },
          fieldsByVertexId: {},
-         changedFieldsByVertexId: {}
+         changedFieldsByVertexId: {},
+         initialRun: true
       }
       const input$ = of(input)
       graphRun(input$).subscribe(output => (lastOutput = output))
@@ -156,7 +159,8 @@ describe(runVertex.name, () => {
             }
          },
          fieldsByVertexId: {},
-         changedFieldsByVertexId: {}
+         changedFieldsByVertexId: {},
+         initialRun: false
       }
       const input$ = of(input)
       graphRun(input$).subscribe(output => (lastOutput = output))
@@ -198,7 +202,8 @@ describe(runVertex.name, () => {
             }
          },
          fieldsByVertexId: {},
-         changedFieldsByVertexId: {}
+         changedFieldsByVertexId: {},
+         initialRun: false
       }
       const input$ = of(input)
       graphRun(input$).subscribe(output => (lastOutput = output))

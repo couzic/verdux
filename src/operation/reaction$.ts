@@ -45,7 +45,8 @@ export const reaction$ =
                action: undefined,
                changedFields: {},
                fieldsReactions: [],
-               reactions: [outputAction]
+               reactions: [outputAction],
+               initialRun: false
             })
          ),
          catchError(error => {

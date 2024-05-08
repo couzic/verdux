@@ -7,7 +7,7 @@ export interface RunData {
    action: UnknownAction | undefined
    fieldsReactions: UnknownAction[]
    reactions: UnknownAction[]
-   initialRun?: boolean
+   initialRun: boolean
 }
 
 export interface GraphRunData extends RunData {

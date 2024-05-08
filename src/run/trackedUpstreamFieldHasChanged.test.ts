@@ -55,7 +55,8 @@ describe(sut.name, () => {
             [rootVertexConfig.id]: { untrackedField: true }
          },
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       expect(sut(downstreamVertexConfig, data)).to.be.false
    })
@@ -102,7 +103,8 @@ describe(sut.name, () => {
             [rootVertexConfig.id]: { trackedField: true }
          },
          fieldsReactions: [],
-         reactions: []
+         reactions: [],
+         initialRun: true
       }
       expect(sut(downstreamVertexConfig, data)).to.be.true
    })
