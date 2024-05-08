@@ -1,9 +1,9 @@
 import { expect } from 'chai'
-import { Subject, of, tap } from 'rxjs'
+import { NEVER, Subject, from, of, tap } from 'rxjs'
 import { VertexRunData } from '../run/RunData'
 import { loadFromFields } from './loadFromFields'
 
-const createRunData = (fields: Record<string, any>): VertexRunData => {
+const createInitialRunData = (fields: Record<string, any>): VertexRunData => {
    const changedFields: Record<string, true> = {}
    Object.keys(fields).forEach(fieldName => {
       changedFields[fieldName] = true
@@ -13,13 +13,14 @@ const createRunData = (fields: Record<string, any>): VertexRunData => {
       fields,
       changedFields,
       fieldsReactions: [],
-      reactions: []
+      reactions: [],
+      initialRun: true
    }
 }
 
 describe(loadFromFields.name, () => {
    it('loads from picked field', () => {
-      const inputData = createRunData({
+      const inputData = createInitialRunData({
          name: {
             status: 'loaded',
             value: 'John',
@@ -75,7 +76,7 @@ describe(loadFromFields.name, () => {
       describe('when input field is loaded', () => {
          beforeEach(() => {
             inputData$.next(
-               createRunData({
+               createInitialRunData({
                   name: {
                      status: 'loaded',
                      value: 'John',
@@ -157,7 +158,7 @@ describe(loadFromFields.name, () => {
          })
       })
       describe('when input field is LOADING', () => {
-         const firstInputData = createRunData({
+         const firstInputData = createInitialRunData({
             name: {
                status: 'loading',
                value: undefined,
@@ -209,7 +210,8 @@ describe(loadFromFields.name, () => {
                },
                changedFields: {
                   name: true
-               }
+               },
+               initialRun: false
             }
             beforeEach(() => inputData$.next(secondInputData))
             it('still has loading output fields', () => {
@@ -244,7 +246,8 @@ describe(loadFromFields.name, () => {
                      },
                      changedFields: {
                         irrelevant: true
-                     }
+                     },
+                     initialRun: false
                   })
                })
                it('does not call loaders again', () => {
@@ -254,6 +257,128 @@ describe(loadFromFields.name, () => {
                })
             })
          })
+      })
+   })
+   it('emits reactions once and only once', () => {
+      const inputData: VertexRunData = {
+         ...createInitialRunData({
+            name: {
+               status: 'loaded',
+               value: 'John',
+               errors: []
+            }
+         }),
+         reactions: [{ type: 'a' }],
+         fieldsReactions: [{ type: 'b' }]
+      }
+      let latestOutputData: VertexRunData | undefined = undefined
+      let outputDataEmissions = 0
+      loadFromFields(['name'], {
+         uppercaseName: (state: any) => of(state.name.toUpperCase())
+      })(of(inputData)).subscribe(outputData => {
+         outputDataEmissions++
+         latestOutputData = outputData
+      })
+      expect(outputDataEmissions).to.equal(2)
+      expect(latestOutputData!.reactions).to.deep.equal([])
+      expect(latestOutputData!.fieldsReactions).to.deep.equal([])
+   })
+   it('passes down irrelevant reactions', () => {
+      const inputData = createInitialRunData({
+         name: {
+            status: 'loaded',
+            value: 'John',
+            errors: []
+         }
+      })
+      let latestOutputData: VertexRunData | undefined = undefined
+      let outputDataEmissions = 0
+      loadFromFields(['name'], {
+         uppercaseName: (state: any) => of(state.name.toUpperCase())
+      })(
+         from([
+            inputData,
+            {
+               ...inputData,
+               changedFields: {},
+               reactions: [{ type: 'a' }],
+               fieldsReactions: [{ type: 'b' }],
+               initialRun: false
+            }
+         ])
+      ).subscribe(outputData => {
+         outputDataEmissions++
+         latestOutputData = outputData
+      })
+      expect(outputDataEmissions).to.equal(3)
+      expect(latestOutputData!.reactions).to.deep.equal([{ type: 'a' }])
+      expect(latestOutputData!.fieldsReactions).to.deep.equal([{ type: 'b' }])
+   })
+   it('emits changed fields once and only once', () => {
+      const inputData = createInitialRunData({
+         name: {
+            status: 'loaded',
+            value: 'John',
+            errors: []
+         }
+      })
+      let latestOutputData: VertexRunData | undefined = undefined
+      let outputDataEmissions = 0
+      loadFromFields(['name'], {
+         uppercaseName: () => NEVER
+      })(
+         from([
+            inputData,
+            { ...inputData, changedFields: {}, initialRun: false }
+         ])
+      ).subscribe(outputData => {
+         outputDataEmissions++
+         latestOutputData = outputData
+      })
+      expect(outputDataEmissions).to.equal(2)
+      expect(latestOutputData!.changedFields).to.deep.equal({})
+   })
+   it('passes down irrelevant field changes', () => {
+      const inputData = createInitialRunData({
+         name: {
+            status: 'loaded',
+            value: 'John',
+            errors: []
+         },
+         irrelevant: {
+            status: 'loaded',
+            value: 'initial',
+            errors: []
+         }
+      })
+      let latestOutputData: VertexRunData | undefined = undefined
+      let outputDataEmissions = 0
+      loadFromFields(['name'], {
+         uppercaseName: () => NEVER
+      })(
+         from([
+            inputData,
+            {
+               ...inputData,
+               fields: {
+                  ...inputData.fields,
+                  irrelevant: {
+                     status: 'loaded' as const,
+                     value: 'changed',
+                     errors: []
+                  }
+               },
+               changedFields: { irrelevant: true as const },
+               initialRun: false
+            }
+         ])
+      ).subscribe(outputData => {
+         outputDataEmissions++
+         latestOutputData = outputData
+      })
+      expect(outputDataEmissions).to.equal(2)
+      expect(latestOutputData!.changedFields).to.deep.equal({
+         irrelevant: true
       })
    })
 })

@@ -11,13 +11,12 @@ import {
 import { VertexRunData } from '../run/RunData'
 import { VertexChangedFields, VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
-import { toVertexLoadableState } from '../state/toVertexLoadableState'
 import { pickFields } from '../state/pickFields'
+import { toVertexLoadableState } from '../state/toVertexLoadableState'
 
 export const loadFromFields =
    (fields: string[], loaders: any): VertexRun =>
    data$ => {
-      let latestOutputData: VertexRunData
       const loadingFields: VertexFields = {}
       const loadableFieldNames = Object.keys(loaders)
       loadableFieldNames.forEach(fieldName => {
@@ -27,8 +26,10 @@ export const loadFromFields =
             errors: []
          }
       })
-
+      let latestInputFields: VertexFields | undefined = undefined
+      let latestOutputFields = loadingFields
       const inputDataMaybeChanged$ = data$.pipe(
+         tap(data => (latestInputFields = data.fields)),
          map(data => ({
             data,
             hasChanged: !fields.every(
@@ -44,8 +45,8 @@ export const loadFromFields =
             const changedLoadingFields: VertexChangedFields = {}
             loadableFieldNames.forEach(fieldName => {
                if (
-                  latestOutputData === undefined ||
-                  latestOutputData.fields[fieldName].status !== 'loading'
+                  data.initialRun ||
+                  latestOutputFields[fieldName].status !== 'loading'
                ) {
                   changedLoadingFields[fieldName] = true
                }
@@ -60,7 +61,8 @@ export const loadFromFields =
             const { state, status } = toVertexLoadableState(picked)
             // TODO Pass down errors
             if (status !== 'loaded') {
-               return loading$.pipe(tap(data => (latestOutputData = data)))
+               latestOutputFields = loadingFields
+               return loading$
             }
 
             const loaders$ = loadableFieldNames.map(fieldName => {
@@ -81,21 +83,27 @@ export const loadFromFields =
                )
             })
             const loaded$ = merge(...loaders$).pipe(
-               map(
-                  ({ fieldName, field }): VertexRunData => ({
-                     ...latestOutputData,
+               map(({ fieldName, field }): VertexRunData => {
+                  const outputFields = {
+                     ...latestOutputFields,
+                     [fieldName]: field
+                  }
+                  latestOutputFields = outputFields
+                  return {
+                     action: undefined,
                      fields: {
-                        ...latestOutputData.fields,
-                        [fieldName]: field
+                        ...latestInputFields,
+                        ...outputFields
                      },
-                     changedFields: { [fieldName]: true }
-                  })
-               )
+                     changedFields: { [fieldName]: true },
+                     reactions: [],
+                     fieldsReactions: [],
+                     initialRun: false
+                  }
+               })
             )
 
-            const loadable$ = merge(loading$, loaded$).pipe(
-               tap(data => (latestOutputData = data))
-            )
+            const loadable$ = merge(loading$, loaded$)
 
             return loadable$
          })
@@ -103,7 +111,10 @@ export const loadFromFields =
 
       const inputDataHasNotChanged$ = inputDataMaybeChanged$.pipe(
          filter(_ => !_.hasChanged),
-         map(() => latestOutputData)
+         map(({ data }) => ({
+            ...data,
+            fields: { ...data.fields, ...latestOutputFields }
+         }))
       )
 
       return merge(inputDataHasChanged$, inputDataHasNotChanged$)
