@@ -1,1 +1,1 @@
-export type VertexId = symbol
+export type VertexId = string

@@ -4,7 +4,6 @@ import { IsPlainObject } from '../util/IsPlainObject'
 import { VertexConfig } from './VertexConfig'
 import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
 import { VertexConfigImpl } from './VertexConfigImpl'
-import { createVertexId } from './createVertexId'
 
 export const configureRootVertex = <
    ReduxFields extends Record<string, any>,
@@ -32,7 +31,7 @@ export const configureRootVertex = <
    const { name, getInitialState, reducer } =
       'slice' in options ? options.slice : { ...options, ...options.reducer }
    const nameOrDefault = name || 'root'
-   const id = createVertexId(nameOrDefault)
+   const id = nameOrDefault
    const builder = new VertexConfigBuilderImpl(id)
    if (options.dependencies) {
       builder.addDependencies(options.dependencies)

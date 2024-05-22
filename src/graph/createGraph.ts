@@ -67,10 +67,10 @@ export const createGraph = (options: {
       vertexInstanceById[config.id] = createVertexInstance(config, {})
    })
 
-   let savedChangedFieldsByVertexId: Record<symbol, Record<string, any>> = {}
+   let savedChangedFieldsByVertexId: Record<VertexId, Record<string, any>> = {}
    const saveChangedFields = (data: GraphRunData) => {
       const changedFields = data.changedFieldsByVertexId
-      Object.getOwnPropertySymbols(changedFields).forEach(vertexId => {
+      Object.keys(changedFields).forEach(vertexId => {
          if (savedChangedFieldsByVertexId[vertexId] === undefined) {
             savedChangedFieldsByVertexId[vertexId] = {}
          }

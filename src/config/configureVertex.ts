@@ -5,7 +5,6 @@ import { VertexConfigBuilder } from './VertexConfigBuilder'
 import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
 import { VertexConfigImpl } from './VertexConfigImpl'
 import { VertexFieldsDefinition } from './VertexFieldsDefinition'
-import { createVertexId } from './createVertexId'
 
 export function configureVertex<
    ReduxState extends any,
@@ -33,8 +32,10 @@ export function configureVertex<
 ): VertexConfig<Fields, Dependencies> {
    const { name, getInitialState, reducer } =
       'slice' in options ? options.slice : { ...options, ...options.reducer }
-   const id = createVertexId(name)
-   const builder = build(new VertexConfigBuilderImpl(id))
+   const builder = build(
+      new VertexConfigBuilderImpl(name)
+   ) as VertexConfigBuilderImpl
+   const id = builder.vertexId
    return new VertexConfigImpl(
       name,
       id,

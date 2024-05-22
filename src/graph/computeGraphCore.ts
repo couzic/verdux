@@ -36,7 +36,14 @@ export const computeGraphCore = (
             ? injectableConfig.config
             : injectableConfig
       ) as VertexConfigImpl
-      if (exhaustiveVertexConfigById[config.id]) return // already indexed
+      const alreadyIndexedConfig = exhaustiveVertexConfigById[config.id]
+      if (alreadyIndexedConfig) {
+         if (alreadyIndexedConfig === config) {
+            return // already indexed
+         } else {
+            throw new Error(`Duplicate vertex id: ${config.id}`)
+         }
+      }
       if (config.rootVertex !== rootVertexConfig)
          throw new Error('all vertex configs must have the same root vertex')
       exhaustiveVertexConfigById[config.id] = config

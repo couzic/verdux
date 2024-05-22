@@ -17,8 +17,15 @@ export class VertexConfigBuilderImpl<
    ) => Dependencies
    private readonly fieldIsLoadable: Record<string, boolean> = {}
 
-   constructor(public readonly vertexId: VertexId) {
+   constructor(private readonly name: string) {
       this.buildDependencies = () => ({}) as Dependencies
+   }
+
+   get vertexId(): VertexId {
+      if (this.isRoot()) return this.name
+      const closestCommonAncestor = this.findClosestCommonAncestor()
+      if (closestCommonAncestor.isRoot()) return this.name
+      return closestCommonAncestor.vertexId + '.' + this.name
    }
 
    isRoot(): boolean {
