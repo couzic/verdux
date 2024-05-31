@@ -5,6 +5,7 @@ import { Observable } from 'rxjs'
 import { computeFromFields } from '../operation/computeFromFields'
 import { fieldsReaction } from '../operation/fieldsReaction'
 import { loadFromFields } from '../operation/loadFromFields'
+import { load } from '../operation/load'
 import { reaction } from '../operation/reaction'
 import { reaction$ } from '../operation/reaction$'
 import { VertexRun } from '../run/VertexRun'
@@ -130,8 +131,9 @@ export class VertexConfigImpl<
    }
 
    load(loaders: any): any {
-      // TODO
-      // this.internalStateTransformations.push(loadTransformation(loaders))
+      this._injectableOperations.push(dependencies =>
+         load(typeof loaders === 'function' ? loaders(dependencies) : loaders)
+      )
       return this
    }
 
