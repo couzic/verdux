@@ -1,2 +1,6 @@
-export type DependencyProviders<Dependencies extends Record<string, any>> =
-   Record<string, (dependencies: Dependencies) => any>
+import { VertexType } from '../VertexType'
+
+export type DependencyProviders<Type extends VertexType = any> = Record<
+   string,
+   (dependencies: Type['dependencies']) => any
+>
