@@ -23,6 +23,7 @@ const createRunData = (fieldValues: Record<string, any>): VertexRunData => {
       changedFields,
       fieldsReactions: [],
       reactions: [],
+      sideEffects: [],
       initialRun: false
    }
 }

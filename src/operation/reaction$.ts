@@ -46,6 +46,7 @@ export const reaction$ =
                changedFields: {},
                fieldsReactions: [],
                reactions: [outputAction],
+               sideEffects: [],
                initialRun: false
             })
          ),

@@ -3,6 +3,9 @@ import { Subject } from 'rxjs'
 import { VertexConfig } from '../config/VertexConfig'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { VertexInjectableConfig } from '../config/VertexInjectableConfig'
+import { VerduxDevTools } from '../devtools/VerduxDevTools'
+import { serializeGraphRunOutput } from '../devtools/serializeGraphRunOutput'
+import { serializeGraphStructure } from '../devtools/serializeGraphStructure'
 import { GraphRunData } from '../run/RunData'
 import { runSubgraph } from '../run/runSubgraph'
 import { createFIFO } from '../util/FIFO'
@@ -14,13 +17,16 @@ import { computeGraphCore } from './computeGraphCore'
 
 export const createGraph = (options: {
    vertices: Array<VertexInjectableConfig<any>>
-   devtools?: (params: any) => void
+   devtools?: VerduxDevTools
 }): Graph => {
-   const graphConfig = computeGraphCore(options.vertices)
-   const { vertexConfigs, rootReducer } = graphConfig
+   const { devtools } = options
 
-   // TODO
-   // const epicMiddleware: Middleware = createEpicMiddleware()
+   const graphCore = computeGraphCore(options.vertices)
+   const { vertexConfigs, rootReducer } = graphCore
+   if (devtools) {
+      const graphStructure = serializeGraphStructure(graphCore)
+      devtools.sendGraphStructure(graphStructure)
+   }
 
    const graphRunInput$: Subject<GraphRunData> = new Subject()
 
@@ -38,6 +44,7 @@ export const createGraph = (options: {
          changedFieldsByVertexId: {},
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: false
       })
       return result
@@ -48,18 +55,16 @@ export const createGraph = (options: {
       // TODO Remove thunk ?
       middleware: getDefaultMiddleware =>
          getDefaultMiddleware().concat(verduxMiddleware)
-      // middleware: getDefaultMiddleware =>
-      // TODO epics
-      //    getDefaultMiddleware().concat(epicMiddleware)
    })
 
    const graphRunOutput$ = runSubgraph(
       rootVertexConfig as VertexConfigImpl,
-      graphConfig
+      graphCore
    )(graphRunInput$)
 
    const fieldsReactionsFIFO = createFIFO<UnknownAction>()
    const reactionsFIFO = createFIFO<UnknownAction>()
+   const sideEffectsFIFO = createFIFO<() => void>()
 
    const vertexInstanceById: Record<VertexId, VertexInstance<any, any>> = {}
    vertexConfigs.forEach(config => {
@@ -81,8 +86,13 @@ export const createGraph = (options: {
       })
    }
    graphRunOutput$.subscribe(data => {
+      if (devtools) {
+         const serializedOutput = serializeGraphRunOutput(data)
+         devtools.sendGraphRunOutput(serializedOutput)
+      }
       data.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
       data.reactions.forEach(_ => reactionsFIFO.push(_))
+      data.sideEffects.forEach(_ => sideEffectsFIFO.push(_))
       if (fieldsReactionsFIFO.hasNext()) {
          saveChangedFields(data)
          reduxStore.dispatch(fieldsReactionsFIFO.pop()!)
@@ -99,6 +109,10 @@ export const createGraph = (options: {
             vertexInstanceById[config.id].__pushFields(fields, changedFields)
          })
          savedChangedFieldsByVertexId = {}
+         while (sideEffectsFIFO.hasNext()) {
+            const sideEffect = sideEffectsFIFO.pop()!
+            sideEffect()
+         }
       }
    })
 
@@ -111,11 +125,9 @@ export const createGraph = (options: {
       changedFieldsByVertexId: {},
       fieldsReactions: [],
       reactions: [],
+      sideEffects: [],
       initialRun: true
    })
-
-   // TODO
-   // const epics = [] as any[]
 
    const graph: Graph = {
       dispatch: (action: UnknownAction) => reduxStore.dispatch(action),
@@ -130,14 +142,6 @@ export const createGraph = (options: {
          return vertexInstance
       }
    }
-
-   // TODO Dev Tools
-   // if (options.devtools) {
-   //    options.devtools({
-   //       graph,
-   //       exhaustiveVertexConfigs
-   //    })
-   // }
 
    return graph
 }

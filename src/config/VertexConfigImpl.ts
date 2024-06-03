@@ -1,11 +1,16 @@
 import { Reducer, Slice, UnknownAction } from '@reduxjs/toolkit'
-import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
+import {
+   ActionCreatorWithPayload,
+   BaseActionCreator
+} from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
 import { computeFromFields } from '../operation/computeFromFields'
 import { fieldsReaction } from '../operation/fieldsReaction'
 import { loadFromFields } from '../operation/loadFromFields'
 import { load } from '../operation/load'
+import { sideEffect } from '../operation/sideEffect'
+import { loadFromFields$ } from '../operation/loadFromFields$'
 import { reaction } from '../operation/reaction'
 import { reaction$ } from '../operation/reaction$'
 import { VertexRun } from '../run/VertexRun'
@@ -138,20 +143,17 @@ export class VertexConfigImpl<
    }
 
    loadFromFields$(fields: any[], loaders: any): any {
-      // TODO mark fields as loadable
-      // this.internalStateTransformations.push(
-      //    loadFromFieldsStreamTransformation(fields, loaders)
-      // )
+      this._injectableOperations.push(dependencies =>
+         loadFromFields$(
+            fields,
+            typeof loaders === 'function' ? loaders(dependencies) : loaders
+         )
+      )
       return this
    }
 
-   loadFromStream(input$: Observable<any>, loaders: any): any {
-      // TODO mark fields as loadable
-      // this.internalStateTransformations.push(
-      //    loadFromStreamTransformation(input$, loaders)
-      // )
-      return this
-   }
+   // loadFromStream(input$: Observable<any>, loaders: any): any {
+   // }
 
    reaction<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
@@ -198,12 +200,23 @@ export class VertexConfigImpl<
       return this
    }
 
-   // TODO Implement
-   // sideEffect<ActionCreator extends BaseActionCreator<any, any>>(
-   //    actionCreator: ActionCreator,
-   //    operation: (payload: ActionCreator, vertex: VertexInstance<Type>) => void
-   // ) {
-   //    // this.sideEffects.push({ actionCreator, operation })
-   //    return this
-   // }
+   sideEffect<ActionCreator extends BaseActionCreator<any, any>>(
+      actionCreator: ActionCreator,
+      callback: (
+         input: VertexLoadableState<Fields> & {
+            dependencies: Dependencies
+            payload: ActionCreator extends ActionCreatorWithPayload<
+               infer P,
+               any
+            >
+               ? P
+               : never
+         }
+      ) => void
+   ) {
+      this._injectableOperations.push(
+         sideEffect(actionCreator, callback as any)
+      )
+      return this
+   }
 }

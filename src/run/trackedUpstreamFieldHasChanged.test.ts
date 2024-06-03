@@ -56,6 +56,7 @@ describe(sut.name, () => {
          },
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       expect(sut(downstreamVertexConfig, data)).to.be.false
@@ -104,6 +105,7 @@ describe(sut.name, () => {
          },
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       expect(sut(downstreamVertexConfig, data)).to.be.true

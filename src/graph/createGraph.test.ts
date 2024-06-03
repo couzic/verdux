@@ -271,4 +271,30 @@ describe(createGraph.name, () => {
          expect(pickEmissions).to.equal(2)
       })
    })
+   describe('root vertex with side effect', () => {
+      const rootSlice = createSlice({
+         name: 'root',
+         initialState: {
+            name: '',
+            nameLength: 0
+         },
+         reducers: {
+            setName: (state, action: PayloadAction<string>) => {
+               state.name = action.payload
+            }
+         }
+      })
+      const { setName } = rootSlice.actions
+      let effectTriggered = false
+      const rootVertexConfig = configureRootVertex({
+         slice: rootSlice
+      }).sideEffect(setName, ({ payload }) => {
+         effectTriggered = true
+      })
+      it('does not consume field change of original field', () => {
+         const graph = createGraph({ vertices: [rootVertexConfig] })
+         graph.dispatch(setName('John'))
+         expect(effectTriggered).to.be.true
+      })
+   })
 })

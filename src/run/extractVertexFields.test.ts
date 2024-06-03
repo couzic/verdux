@@ -24,6 +24,7 @@ describe(sut.name, () => {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: { name: '' },
@@ -69,6 +70,7 @@ describe(sut.name, () => {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: { name: '' },

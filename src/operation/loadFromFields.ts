@@ -98,6 +98,7 @@ export const loadFromFields =
                      changedFields: { [fieldName]: true },
                      reactions: [],
                      fieldsReactions: [],
+                     sideEffects: [],
                      initialRun: false
                   }
                })

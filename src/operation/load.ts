@@ -68,6 +68,7 @@ export const load =
                fields: { ...latestInputFields, ...outputFields },
                changedFields: { [fieldName]: true as const },
                reactions: [],
+               sideEffects: [],
                fieldsReactions: []
             }
          })

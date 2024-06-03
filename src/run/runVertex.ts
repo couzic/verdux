@@ -34,6 +34,7 @@ export const runVertex = (
                changedFields,
                fieldsReactions: data.fieldsReactions,
                reactions: data.reactions,
+               sideEffects: data.sideEffects,
                initialRun: data.initialRun
             }
          }),
@@ -43,6 +44,7 @@ export const runVertex = (
                action: data.action,
                fieldsReactions: data.fieldsReactions,
                reactions: data.reactions,
+               sideEffects: data.sideEffects,
                reduxStateByVertexId:
                   latestInput.graphRunData.reduxStateByVertexId,
                fieldsByVertexId: {

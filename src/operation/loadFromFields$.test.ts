@@ -1,7 +1,16 @@
 import { expect } from 'chai'
-import { NEVER, Subject, from, of, tap } from 'rxjs'
+import {
+   NEVER,
+   Observable,
+   Subject,
+   from,
+   isObservable,
+   map,
+   of,
+   tap
+} from 'rxjs'
 import { VertexRunData } from '../run/RunData'
-import { loadFromFields } from './loadFromFields'
+import { loadFromFields$ } from './loadFromFields$'
 
 const createInitialRunData = (fields: Record<string, any>): VertexRunData => {
    const changedFields: Record<string, true> = {}
@@ -19,7 +28,7 @@ const createInitialRunData = (fields: Record<string, any>): VertexRunData => {
    }
 }
 
-describe(loadFromFields.name, () => {
+describe(loadFromFields$.name, () => {
    it('loads from picked field', () => {
       const inputData = createInitialRunData({
          name: {
@@ -33,10 +42,13 @@ describe(loadFromFields.name, () => {
             errors: []
          }
       })
-      loadFromFields(['name'], {
-         uppercaseName: (state: any) => {
-            expect(state).to.deep.equal({ name: 'John' })
-            return of(state.name.toUpperCase())
+      loadFromFields$(['name'], {
+         uppercaseName: (fields$: Observable<{ name: string }>) => {
+            expect(isObservable(fields$)).to.be.true
+            fields$.subscribe(fields => {
+               expect(fields).to.deep.equal({ name: 'John' })
+            })
+            return fields$.pipe(map(fields => fields.name.toUpperCase()))
          }
       })(of(inputData)).subscribe()
    })
@@ -47,24 +59,14 @@ describe(loadFromFields.name, () => {
       let receivedUppercaseName$: Subject<string>
       let latestOutputData: VertexRunData | undefined = undefined
       let outputDataEmissions: number
-      let callsToLowercaseLoader: number
-      let callsToUppercaseLoader: number
       beforeEach(() => {
          outputDataEmissions = 0
-         callsToLowercaseLoader = 0
-         callsToUppercaseLoader = 0
          inputData$ = new Subject()
          receivedLowercaseName$ = new Subject()
          receivedUppercaseName$ = new Subject()
-         const outputData$ = loadFromFields(['name'], {
-            lowercaseName: () => {
-               callsToLowercaseLoader++
-               return receivedLowercaseName$
-            },
-            uppercaseName: () => {
-               callsToUppercaseLoader++
-               return receivedUppercaseName$
-            }
+         const outputData$ = loadFromFields$(['name'], {
+            lowercaseName: () => receivedLowercaseName$,
+            uppercaseName: () => receivedUppercaseName$
          })(inputData$.pipe(tap(data => (latestInputData = data))))
          outputData$.subscribe(outputData => {
             outputDataEmissions++
@@ -133,7 +135,7 @@ describe(loadFromFields.name, () => {
                   lowercaseName: true
                })
             })
-            describe('when new input field is received', () => {
+            describe('when new input fields are received', () => {
                beforeEach(() => {
                   inputData$.next({
                      ...latestInputData,
@@ -168,6 +170,29 @@ describe(loadFromFields.name, () => {
                   expect(latestOutputData?.changedFields).to.deep.equal({
                      name: true,
                      lowercaseName: true
+                  })
+               })
+            })
+            describe('when second loaded value is received', () => {
+               beforeEach(() => {
+                  receivedUppercaseName$.next('JANE')
+               })
+               it('has loaded output field', () => {
+                  expect(latestOutputData?.fields).to.deep.equal({
+                     ...latestInputData.fields,
+                     lowercaseName: {
+                        status: 'loaded',
+                        value: 'john',
+                        errors: []
+                     },
+                     uppercaseName: {
+                        status: 'loaded',
+                        value: 'JANE',
+                        errors: []
+                     }
+                  })
+                  expect(latestOutputData?.changedFields).to.deep.equal({
+                     uppercaseName: true
                   })
                })
             })
@@ -232,10 +257,6 @@ describe(loadFromFields.name, () => {
                uppercaseName: true
             })
          })
-         it('does not call loaders', () => {
-            expect(callsToLowercaseLoader).to.equal(0)
-            expect(callsToUppercaseLoader).to.equal(0)
-         })
          describe('when input fields becomes LOADED', () => {
             const secondInputData: VertexRunData = {
                ...firstInputData,
@@ -271,30 +292,6 @@ describe(loadFromFields.name, () => {
                   name: true
                })
             })
-            describe('when another irrelevant field changes', () => {
-               beforeEach(() => {
-                  inputData$.next({
-                     ...secondInputData,
-                     fields: {
-                        ...latestOutputData!.fields,
-                        irrelevant: {
-                           status: 'loaded',
-                           value: 'something else',
-                           errors: []
-                        }
-                     },
-                     changedFields: {
-                        irrelevant: true
-                     },
-                     initialRun: false
-                  })
-               })
-               it('does not call loaders again', () => {
-                  expect(callsToLowercaseLoader).to.equal(1)
-                  expect(callsToUppercaseLoader).to.equal(1)
-                  expect(outputDataEmissions).to.equal(3)
-               })
-            })
          })
       })
    })
@@ -312,8 +309,9 @@ describe(loadFromFields.name, () => {
       }
       let latestOutputData: VertexRunData | undefined = undefined
       let outputDataEmissions = 0
-      loadFromFields(['name'], {
-         uppercaseName: (state: any) => of(state.name.toUpperCase())
+      loadFromFields$(['name'], {
+         uppercaseName: (fields$: Observable<{ name: 'John' }>) =>
+            fields$.pipe(map(fields => fields.name.toUpperCase()))
       })(of(inputData)).subscribe(outputData => {
          outputDataEmissions++
          latestOutputData = outputData
@@ -332,8 +330,9 @@ describe(loadFromFields.name, () => {
       })
       let latestOutputData: VertexRunData | undefined = undefined
       let outputDataEmissions = 0
-      loadFromFields(['name'], {
-         uppercaseName: (state: any) => of(state.name.toUpperCase())
+      loadFromFields$(['name'], {
+         uppercaseName: (fields$: Observable<{ name: 'John' }>) =>
+            fields$.pipe(map(fields => fields.name.toUpperCase()))
       })(
          from([
             inputData,
@@ -363,7 +362,7 @@ describe(loadFromFields.name, () => {
       })
       let latestOutputData: VertexRunData | undefined = undefined
       let outputDataEmissions = 0
-      loadFromFields(['name'], {
+      loadFromFields$(['name'], {
          uppercaseName: () => NEVER
       })(
          from([
@@ -392,7 +391,7 @@ describe(loadFromFields.name, () => {
       })
       let latestOutputData: VertexRunData | undefined = undefined
       let outputDataEmissions = 0
-      loadFromFields(['name'], {
+      loadFromFields$(['name'], {
          uppercaseName: () => NEVER
       })(
          from([
@@ -421,6 +420,3 @@ describe(loadFromFields.name, () => {
       })
    })
 })
-
-// TODO when input field is in error
-// TODO when loader throws error

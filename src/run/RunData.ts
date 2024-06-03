@@ -7,6 +7,7 @@ export interface RunData {
    action: UnknownAction | undefined
    fieldsReactions: UnknownAction[]
    reactions: UnknownAction[]
+   sideEffects: Array<() => void>
    initialRun: boolean
 }
 

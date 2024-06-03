@@ -20,6 +20,7 @@ describe(sut.name, () => {
          },
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       let lastOutput: VertexRunData | undefined = undefined
@@ -43,6 +44,7 @@ describe(sut.name, () => {
          },
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       let lastOutput: VertexRunData | undefined = undefined
@@ -76,6 +78,7 @@ describe(sut.name, () => {
          },
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       let lastOutput: VertexRunData | undefined = undefined
@@ -111,6 +114,7 @@ describe(sut.name, () => {
          },
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       })
       expect(lastOutput!.fields.uppercaseName.status).to.equal('loading')
@@ -125,6 +129,7 @@ describe(sut.name, () => {
          },
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: false
       })
       expect(lastOutput!.fields.uppercaseName).to.deep.equal({
@@ -150,6 +155,7 @@ describe(sut.name, () => {
          },
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       let lastOutput: VertexRunData | undefined = undefined

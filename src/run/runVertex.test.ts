@@ -21,6 +21,7 @@ describe(runVertex.name, () => {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: {},
@@ -60,6 +61,7 @@ describe(runVertex.name, () => {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: { name: '' },
@@ -107,6 +109,7 @@ describe(runVertex.name, () => {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: { name: 'Bob' },
@@ -152,6 +155,7 @@ describe(runVertex.name, () => {
          action: trackedAction(),
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: {},
@@ -195,6 +199,7 @@ describe(runVertex.name, () => {
          action: trackedAction(),
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: {},

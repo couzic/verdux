@@ -182,33 +182,34 @@ export interface VertexConfig<
            Dependencies
         >
 
-   loadFromStream<Input, LoadableFields>(
-      input$: Dependable<Dependencies, Observable<Input>>,
-      loaders: Dependable<
-         Dependencies,
-         {
-            [LFK in keyof LoadableFields]: (
-               input: Input
-            ) => Observable<LoadableFields[LFK]>
-         }
-      >
-   ): IsDependablePlainObject<Dependencies, typeof loaders> extends false
-      ? never
-      : VertexConfig<
-           {
-              [FK in
-                 | keyof LoadableFields
-                 | keyof Fields]: FK extends keyof LoadableFields
-                 ? {
-                      loadable: true
-                      value: LoadableFields[FK]
-                   }
-                 : FK extends keyof Fields
-                   ? Fields[FK]
-                   : never
-           },
-           Dependencies
-        >
+   // TODO Maybe later
+   // loadFromStream<Input, LoadableFields>(
+   //    input$: Dependable<Dependencies, Observable<Input>>,
+   //    loaders: Dependable<
+   //       Dependencies,
+   //       {
+   //          [LFK in keyof LoadableFields]: (
+   //             input: Input
+   //          ) => Observable<LoadableFields[LFK]>
+   //       }
+   //    >
+   // ): IsDependablePlainObject<Dependencies, typeof loaders> extends false
+   //    ? never
+   //    : VertexConfig<
+   //         {
+   //            [FK in
+   //               | keyof LoadableFields
+   //               | keyof Fields]: FK extends keyof LoadableFields
+   //               ? {
+   //                    loadable: true
+   //                    value: LoadableFields[FK]
+   //                 }
+   //               : FK extends keyof Fields
+   //                 ? Fields[FK]
+   //                 : never
+   //         },
+   //         Dependencies
+   //      >
 
    reaction<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
@@ -250,6 +251,21 @@ export interface VertexConfig<
          >,
          dependencies: Dependencies
       ) => Observable<UnknownAction>
+   ): this
+
+   sideEffect<ActionCreator extends BaseActionCreator<any, any>>(
+      actionCreator: ActionCreator,
+      callback: (
+         input: VertexLoadableState<Fields> & {
+            dependencies: Dependencies
+            payload: ActionCreator extends ActionCreatorWithPayload<
+               infer P,
+               any
+            >
+               ? P
+               : never
+         }
+      ) => void
    ): this
 
    // TODO

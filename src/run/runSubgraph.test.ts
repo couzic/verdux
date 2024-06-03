@@ -23,6 +23,7 @@ describe(runSubgraph.name, () => {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: {},
@@ -69,6 +70,7 @@ describe(runSubgraph.name, () => {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: {},
@@ -156,6 +158,7 @@ describe(runSubgraph.name, () => {
          action: trackedAction(),
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          reduxStateByVertexId: {
             [rootVertexConfig.id]: {
                vertex: {},

@@ -17,6 +17,7 @@ describe(sut.name, () => {
          changedFields: {},
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: false
       }
       let outputEmissions = 0
@@ -46,6 +47,7 @@ describe(sut.name, () => {
          changedFields: {},
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       let outputEmissions = 0
@@ -71,6 +73,7 @@ describe(sut.name, () => {
          changedFields: {},
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       let outputEmissions = 0

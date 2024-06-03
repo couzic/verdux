@@ -16,6 +16,7 @@ describe(sut.name, () => {
          changedFields: {},
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       let lastOutput: any = undefined
@@ -29,13 +30,13 @@ describe(sut.name, () => {
    })
    it('handles error in action mapper', () => {
       const trackedAction = createAction('trackedAction')
-      const outputAction = createAction('outputAction')
       const input: VertexRunData = {
          action: trackedAction(),
          fields: {},
          changedFields: {},
          fieldsReactions: [],
          reactions: [],
+         sideEffects: [],
          initialRun: true
       }
       let lastOutput: any = undefined
