@@ -1,34 +1,11 @@
-import { VertexType } from '../VertexType'
+import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
 
-export type VertexState<Type extends VertexType> = {
-   [K in VertexStateKey<Type>]: K extends keyof Type['loadableFields']
-      ? Type['loadableFields'][K] | undefined
-      : K extends keyof Type['readonlyFields']
-      ? Type['readonlyFields'][K]
-      : K extends keyof Type['reduxState']
-      ? Type['reduxState'][K]
-      : never
+export type VertexState<Fields extends VertexFieldsDefinition> = {
+   [K in keyof Fields]: Fields[K]['loadable'] extends true
+      ? Fields[K]['value'] | undefined
+      : Fields[K]['value']
 }
 
-export type VertexErrorState<Type extends VertexType> = {
-   [K in VertexStateKey<Type>]: K extends keyof Type['loadableFields']
-      ? Type['loadableFields'][K] | undefined | Error
-      : K extends keyof Type['readonlyFields']
-      ? Type['readonlyFields'][K] | Error
-      : K extends keyof Type['reduxState']
-      ? Type['reduxState'][K]
-      : never
+export type VertexLoadedState<Fields extends VertexFieldsDefinition> = {
+   [K in keyof Fields]: Fields[K]['value']
 }
-
-export type VertexLoadedState<Type extends VertexType> = {
-   [K in VertexStateKey<Type>]: K extends keyof Type['loadableFields']
-      ? Type['loadableFields'][K]
-      : K extends keyof Type['readonlyFields']
-      ? Type['readonlyFields'][K]
-      : K extends keyof Type['reduxState']
-      ? Type['reduxState'][K]
-      : never
-}
-
-export type VertexStateKey<Type extends VertexType> =
-   keyof (Type['reduxState'] & Type['readonlyFields'] & Type['loadableFields'])
