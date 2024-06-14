@@ -8,16 +8,16 @@ import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
 import { VertexLoadableState } from '../state/VertexLoadableState'
-import { IsDependablePlainObject, IsPlainObject } from '../util/IsPlainObject'
+import { IsPlainObject } from '../util/IsPlainObject'
 import { VertexId } from '../vertex/VertexId'
-import { Dependable } from './Dependable'
 import { HasLoadable } from './HasLoadable'
 import { VertexFieldsDefinition } from './VertexFieldsDefinition'
 import { VertexInjectedConfig } from './VertexInjectedConfig'
+
 export interface VertexConfig<
    Fields extends VertexFieldsDefinition = any,
    Dependencies extends Record<string, any> = any
-> {
+> extends VertexOperations<Fields, Dependencies, false> {
    readonly rootVertex: VertexConfig
    readonly name: string
    readonly id: VertexId
@@ -74,6 +74,32 @@ export interface VertexConfig<
       dependencies: Partial<Dependencies>
    ): VertexInjectedConfig<Fields, Dependencies>
 
+   withDependencies<OutputFields extends VertexFieldsDefinition>(
+      f: (
+         dependencies: Dependencies,
+         config: VertexOperationsOnly<Fields, Dependencies>
+      ) => VertexOperationsOnly<OutputFields, Dependencies>
+   ): VertexConfig<OutputFields, Dependencies>
+}
+
+type VertexConfigOrOperationsOnly<
+   Fields extends VertexFieldsDefinition,
+   Dependencies extends Record<string, any>,
+   OperationsOnly extends boolean
+> = OperationsOnly extends true
+   ? VertexOperations<Fields, Dependencies, true>
+   : VertexConfig<Fields, Dependencies>
+
+export type VertexOperationsOnly<
+   Fields extends VertexFieldsDefinition,
+   Dependencies extends Record<string, any>
+> = VertexOperations<Fields, Dependencies, true>
+
+export interface VertexOperations<
+   Fields extends VertexFieldsDefinition,
+   Dependencies extends Record<string, any>,
+   OperationsOnly extends boolean
+> {
    computeFromFields<
       K extends keyof Fields,
       Computers extends Record<
@@ -82,10 +108,10 @@ export interface VertexConfig<
       >
    >(
       fields: K[],
-      computers: Dependable<Dependencies, Computers>
+      computers: Computers
    ): IsPlainObject<Computers> extends false
       ? never
-      : VertexConfig<
+      : VertexConfigOrOperationsOnly<
            {
               [FK in keyof Computers | keyof Fields]: FK extends keyof Computers
                  ? {
@@ -96,22 +122,20 @@ export interface VertexConfig<
                    ? Fields[FK]
                    : never
            },
-           Dependencies
+           Dependencies,
+           OperationsOnly
         >
 
    loadFromFields<K extends keyof Fields, LoadableFields>(
       fields: K[],
-      loaders: Dependable<
-         Dependencies,
-         {
-            [LFK in keyof LoadableFields]: (pickedState: {
-               [PK in K]: Fields[PK]['value']
-            }) => Observable<LoadableFields[LFK]>
-         }
-      >
-   ): IsDependablePlainObject<Dependencies, LoadableFields> extends false
+      loaders: {
+         [LFK in keyof LoadableFields]: (pickedState: {
+            [PK in K]: Fields[PK]['value']
+         }) => Observable<LoadableFields[LFK]>
+      }
+   ): IsPlainObject<LoadableFields> extends false
       ? never
-      : VertexConfig<
+      : VertexConfigOrOperationsOnly<
            {
               [FK in
                  | keyof LoadableFields
@@ -124,19 +148,15 @@ export interface VertexConfig<
                    ? Fields[FK]
                    : never
            },
-           Dependencies
+           Dependencies,
+           OperationsOnly
         >
 
-   load<LoadableFields>(
-      loaders: Dependable<
-         Dependencies,
-         {
-            [LFK in keyof LoadableFields]: Observable<LoadableFields[LFK]>
-         }
-      >
-   ): IsDependablePlainObject<Dependencies, typeof loaders> extends false
+   load<LoadableFields>(loaders: {
+      [LFK in keyof LoadableFields]: Observable<LoadableFields[LFK]>
+   }): IsPlainObject<typeof loaders> extends false
       ? never
-      : VertexConfig<
+      : VertexConfigOrOperationsOnly<
            {
               [FK in
                  | keyof LoadableFields
@@ -149,24 +169,22 @@ export interface VertexConfig<
                    ? Fields[FK]
                    : never
            },
-           Dependencies
+           Dependencies,
+           OperationsOnly
         >
 
    loadFromFields$<K extends keyof Fields, LoadableFields>(
       fields: K[],
-      loaders: Dependable<
-         Dependencies,
-         {
-            [LFK in keyof LoadableFields]: (
-               fields$: Observable<{
-                  [PK in K]: Fields[PK]['value']
-               }>
-            ) => Observable<LoadableFields[LFK]>
-         }
-      >
-   ): IsDependablePlainObject<Dependencies, typeof loaders> extends false
+      loaders: {
+         [LFK in keyof LoadableFields]: (
+            fields$: Observable<{
+               [PK in K]: Fields[PK]['value']
+            }>
+         ) => Observable<LoadableFields[LFK]>
+      }
+   ): IsPlainObject<typeof loaders> extends false
       ? never
-      : VertexConfig<
+      : VertexConfigOrOperationsOnly<
            {
               [FK in
                  | keyof LoadableFields
@@ -179,7 +197,8 @@ export interface VertexConfig<
                    ? Fields[FK]
                    : never
            },
-           Dependencies
+           Dependencies,
+           OperationsOnly
         >
 
    // TODO Maybe later
@@ -215,7 +234,6 @@ export interface VertexConfig<
       actionCreator: ActionCreator,
       mapper: (
          input: VertexLoadableState<Fields> & {
-            dependencies: Dependencies
             payload: ActionCreator extends ActionCreatorWithPayload<
                infer P,
                any
@@ -232,7 +250,7 @@ export interface VertexConfig<
          pickedState: {
             [PK in K]: Fields[PK]['value']
          },
-         vertex: VertexLoadableState<Fields> & { dependencies: Dependencies }
+         vertex: VertexLoadableState<Fields>
       ) => UnknownAction | null
    ): this
 
@@ -248,8 +266,7 @@ export interface VertexConfig<
                   ? P
                   : never
             }
-         >,
-         dependencies: Dependencies
+         >
       ) => Observable<UnknownAction>
    ): this
 
@@ -257,7 +274,6 @@ export interface VertexConfig<
       actionCreator: ActionCreator,
       callback: (
          input: VertexLoadableState<Fields> & {
-            dependencies: Dependencies
             payload: ActionCreator extends ActionCreatorWithPayload<
                infer P,
                any

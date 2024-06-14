@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { configureVertex } from '../config/configureVertex'
-import { computeGraphCore } from './computeGraphCore'
+import { computeGraphCoreInfo } from './computeGraphCoreInfo'
 import { createGraph } from './createGraph'
 
 const rootVertexConfig = configureRootVertex({
@@ -20,7 +20,7 @@ const namedSlice = (name: string) =>
       reducers: {}
    })
 
-describe(computeGraphCore.name + ' (duplicate vertex ids)', () => {
+describe(computeGraphCoreInfo.name + ' (duplicate vertex ids)', () => {
    it('throws error on duplicate root id', () => {
       const downstreamVertexConfig = rootVertexConfig.configureDownstreamVertex(
          {

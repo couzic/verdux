@@ -297,4 +297,25 @@ describe(createGraph.name, () => {
          expect(effectTriggered).to.be.true
       })
    })
+   describe('root vertex with dependencies', () => {
+      const rootSlice = createSlice({
+         name: 'root',
+         initialState: {},
+         reducers: {}
+      })
+      const rootVertexConfig = configureRootVertex({
+         slice: rootSlice,
+         dependencies: {
+            name: () => 'Bob'
+         }
+      }).withDependencies((dependencies, config) => {
+         expect(dependencies).to.deep.equal({ name: 'Bob' })
+         return config.load({ loadedName: of(dependencies.name) })
+      })
+      it('provides access to dependency', () => {
+         const graph = createGraph({ vertices: [rootVertexConfig] })
+         const vertex = graph.getVertexInstance(rootVertexConfig)
+         expect(vertex.currentState).to.deep.equal({ loadedName: 'Bob' })
+      })
+   })
 })

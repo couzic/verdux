@@ -25,7 +25,7 @@ describe(sut.name, () => {
       reaction$(
          trackedAction,
          map(action => outputAction(action.payload))
-      )({})(of(input)).subscribe(output => {
+      )(of(input)).subscribe(output => {
          outputEmissions++
          lastOutput = output
       })
@@ -54,7 +54,7 @@ describe(sut.name, () => {
       reaction$(
          trackedAction,
          map(action => outputAction(action.payload))
-      )({})(of(input)).subscribe(() => outputEmissions++)
+      )(of(input)).subscribe(() => outputEmissions++)
       expect(outputEmissions).to.equal(1)
    })
 
@@ -84,7 +84,7 @@ describe(sut.name, () => {
             latestInput = input
             return outputAction()
          })
-      )({})(of(input)).subscribe(() => {
+      )(of(input)).subscribe(() => {
          outputEmissions++
       })
       expect(latestInput.state).to.deep.equal({

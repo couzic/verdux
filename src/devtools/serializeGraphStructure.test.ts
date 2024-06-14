@@ -2,7 +2,7 @@ import { createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { VertexConfig } from '../config/VertexConfig'
 import { configureRootVertex } from '../config/configureRootVertex'
-import { computeGraphCore } from '../graph/computeGraphCore'
+import { computeGraphCoreInfo } from '../graph/computeGraphCoreInfo'
 import { serializeGraphStructure } from './serializeGraphStructure'
 
 const createSimpleSlice = (name: string) =>
@@ -37,7 +37,7 @@ const sut = serializeGraphStructure
 describe(sut.name, () => {
    it('handles single vertex graph', () => {
       const vertexConfig = configureSimpleVertex('root')
-      const core = computeGraphCore([vertexConfig])
+      const core = computeGraphCoreInfo([vertexConfig])
       const serializedStructure = serializeGraphStructure(core)
       expect(serializedStructure).to.deep.equal({
          vertices: [
@@ -56,7 +56,10 @@ describe(sut.name, () => {
       const downstreamVertexConfig = configureSimpleVertex('downstream', {
          upstreamVertexConfig: rootVertexConfig
       })
-      const core = computeGraphCore([rootVertexConfig, downstreamVertexConfig])
+      const core = computeGraphCoreInfo([
+         rootVertexConfig,
+         downstreamVertexConfig
+      ])
       const serializedStructure = serializeGraphStructure(core)
       expect(serializedStructure).to.deep.equal({
          vertices: [
@@ -92,7 +95,7 @@ describe(sut.name, () => {
             upstreamVertexConfig: downstreamVertexConfig
          }
       )
-      const core = computeGraphCore([
+      const core = computeGraphCoreInfo([
          rootVertexConfig,
          downstreamVertexConfig,
          deepDownstreamVertexConfig
@@ -149,7 +152,10 @@ describe(sut.name, () => {
             upstreamFields: ['name']
          }
       )
-      const core = computeGraphCore([rootVertexConfig, downstreamVertexConfig])
+      const core = computeGraphCoreInfo([
+         rootVertexConfig,
+         downstreamVertexConfig
+      ])
       const serializedStructure = serializeGraphStructure(core)
       expect(serializedStructure).to.deep.equal({
          vertices: [

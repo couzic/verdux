@@ -20,7 +20,7 @@ describe(sut.name, () => {
          initialRun: true
       }
       let lastOutput: any = undefined
-      reaction(trackedAction, () => outputAction())({})(of(input)).subscribe(
+      reaction(trackedAction, () => outputAction())(of(input)).subscribe(
          output => (lastOutput = output)
       )
       expect(lastOutput).to.deep.equal({
@@ -42,7 +42,7 @@ describe(sut.name, () => {
       let lastOutput: any = undefined
       reaction(trackedAction, () => {
          throw new Error('error')
-      })({})(of(input)).subscribe(output => (lastOutput = output))
+      })(of(input)).subscribe(output => (lastOutput = output))
       expect(lastOutput).to.deep.equal(input)
    })
 })

@@ -2,7 +2,7 @@ import { filter, map, merge, pipe, share, tap } from 'rxjs'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { VertexReduxState } from '../state/VertexReduxState'
 import { VertexId } from '../vertex/VertexId'
-import { GraphInfo } from './GraphInfo'
+import { GraphCoreInfo } from '../graph/GraphCoreInfo'
 import { GraphRun } from './GraphRun'
 import { GraphRunData } from './RunData'
 import { VertexFields } from './VertexFields'
@@ -11,12 +11,12 @@ import { trackedUpstreamFieldHasChanged } from './trackedUpstreamFieldHasChanged
 
 export const runSubgraph = (
    config: VertexConfigImpl,
-   graphInfo: GraphInfo
+   coreInfo: GraphCoreInfo
 ): GraphRun =>
    pipe(
-      runVertex(config, graphInfo.dependenciesByVertexId[config.id]),
+      runVertex(config, coreInfo),
       ...((
-         graphInfo.vertexConfigsByClosestCommonAncestorId[config.id] || []
+         coreInfo.vertexConfigsByClosestCommonAncestorId[config.id] || []
       ).map(
          (downstreamConfig): GraphRun =>
             data$ => {
@@ -48,7 +48,7 @@ export const runSubgraph = (
                   latestReduxState
                const hasTrackedAction = (data: GraphRunData) =>
                   data.action &&
-                  graphInfo.trackedActionsInSubgraph[downstreamConfig.id].some(
+                  coreInfo.trackedActionsInSubgraph[downstreamConfig.id].some(
                      action => action.type === data.action?.type
                   )
                const subgraphShouldRun = (data: GraphRunData) =>
@@ -70,13 +70,13 @@ export const runSubgraph = (
                      latestReduxState =
                         data.reduxStateByVertexId[downstreamConfig.id]
                   }),
-                  runSubgraph(downstreamConfig, graphInfo),
+                  runSubgraph(downstreamConfig, coreInfo),
                   tap(output => {
                      const outputFieldsByVertexId: Record<
                         VertexId,
                         VertexFields
                      > = {}
-                     graphInfo.vertexIdsInSubgraph[downstreamConfig.id].forEach(
+                     coreInfo.vertexIdsInSubgraph[downstreamConfig.id].forEach(
                         vertexId => {
                            outputFieldsByVertexId[vertexId] =
                               output.fieldsByVertexId[vertexId]

@@ -5,6 +5,7 @@ import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { GraphRunData } from './RunData'
 import { runVertex } from './runVertex'
+import { computeGraphCoreInfo } from '../graph/computeGraphCoreInfo'
 
 describe(runVertex.name, () => {
    it('handles simplest case', () => {
@@ -15,7 +16,8 @@ describe(runVertex.name, () => {
             reducers: {}
          })
       }) as VertexConfigImpl
-      const graphRun = runVertex(rootVertexConfig)
+      const coreInfo = computeGraphCoreInfo([rootVertexConfig])
+      const graphRun = runVertex(rootVertexConfig, coreInfo)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
@@ -55,7 +57,8 @@ describe(runVertex.name, () => {
             }
          })
       }) as unknown as VertexConfigImpl
-      const graphRun = runVertex(rootVertexConfig)
+      const coreInfo = computeGraphCoreInfo([rootVertexConfig])
+      const graphRun = runVertex(rootVertexConfig, coreInfo)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
@@ -103,7 +106,8 @@ describe(runVertex.name, () => {
       }).computeFromFields(['name'], {
          uppercaseName: ({ name }) => name.toUpperCase()
       }) as unknown as VertexConfigImpl
-      const graphRun = runVertex(rootVertexConfig)
+      const coreInfo = computeGraphCoreInfo([rootVertexConfig])
+      const graphRun = runVertex(rootVertexConfig, coreInfo)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
@@ -149,7 +153,8 @@ describe(runVertex.name, () => {
             reducers: {}
          })
       }).reaction(trackedAction, () => outputAction()) as VertexConfigImpl
-      const graphRun = runVertex(rootVertexConfig)
+      const coreInfo = computeGraphCoreInfo([rootVertexConfig])
+      const graphRun = runVertex(rootVertexConfig, coreInfo)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: trackedAction(),
@@ -193,7 +198,8 @@ describe(runVertex.name, () => {
          trackedAction,
          map(() => outputAction())
       ) as VertexConfigImpl
-      const graphRun = runVertex(rootVertexConfig)
+      const coreInfo = computeGraphCoreInfo([rootVertexConfig])
+      const graphRun = runVertex(rootVertexConfig, coreInfo)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: trackedAction(),

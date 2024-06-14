@@ -38,7 +38,7 @@ describe(fieldsReaction.name, () => {
       fieldsReaction(['name'], () => {
          callsToMapper++
          return null
-      })({})(of(input)).subscribe()
+      })(of(input)).subscribe()
       expect(callsToMapper).to.equal(0)
    })
 
@@ -46,7 +46,7 @@ describe(fieldsReaction.name, () => {
       const outputAction = createAction<string>('outputAction')
       const input = createRunData({ name: 'Bob' })
       let lastOutput: any = undefined
-      fieldsReaction(['name'], ({ name }: any) => outputAction(name))({})(
+      fieldsReaction(['name'], ({ name }: any) => outputAction(name))(
          of(input)
       ).subscribe(output => (lastOutput = output))
       expect(lastOutput).to.deep.equal({
@@ -63,21 +63,8 @@ describe(fieldsReaction.name, () => {
       fieldsReaction(['name'], ({ name }: any, { status }: any) => {
          accessedStatus = status
          return outputAction(name)
-      })({})(of(input)).subscribe(output => (lastOutput = output))
+      })(of(input)).subscribe(output => (lastOutput = output))
       expect(accessedStatus).to.equal('loaded')
-   })
-
-   it('has access to dependencies', () => {
-      const outputAction = createAction<string>('outputAction')
-      const input = createRunData({ name: 'Bob' })
-      let lastOutput: any = undefined
-      let accessedDependencies: any
-      const dependencies = { someDependency: 'someDependency' }
-      fieldsReaction(['name'], ({ name }: any, { dependencies }: any) => {
-         accessedDependencies = dependencies
-         return outputAction(name)
-      })(dependencies)(of(input)).subscribe(output => (lastOutput = output))
-      expect(accessedDependencies).to.deep.equal(dependencies)
    })
 
    it('ignores null mapper outputs', () => {
@@ -85,7 +72,7 @@ describe(fieldsReaction.name, () => {
       let lastOutput: any = undefined
       fieldsReaction(['name'], ({ name }: any) => {
          return null
-      })({})(of(input)).subscribe(output => (lastOutput = output))
+      })(of(input)).subscribe(output => (lastOutput = output))
       expect(lastOutput).to.equal(input)
    })
 })

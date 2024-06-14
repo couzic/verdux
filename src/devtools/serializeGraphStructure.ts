@@ -1,4 +1,4 @@
-import { GraphCore } from '../graph/GraphCore'
+import { GraphCoreInfo } from '../graph/GraphCoreInfo'
 import {
    SerializedEdgeStructure,
    SerializedGraphStructure,
@@ -6,9 +6,10 @@ import {
 } from './SerializedGraphStructure'
 
 export const serializeGraphStructure = (
-   graphCore: GraphCore
+   graphCoreInfo: GraphCoreInfo
 ): SerializedGraphStructure => {
-   const { vertexConfigs, vertexConfigsByClosestCommonAncestorId } = graphCore
+   const { vertexConfigs, vertexConfigsByClosestCommonAncestorId } =
+      graphCoreInfo
    const vertices = vertexConfigs.map(
       (vertexConfig, idx): SerializedVertexStructure => ({
          id: vertexConfig.id,

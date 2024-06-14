@@ -13,7 +13,7 @@ import { VertexId } from '../vertex/VertexId'
 import { VertexInstance } from '../vertex/VertexInstance'
 import { createVertexInstance } from '../vertex/createVertexInstance'
 import { Graph } from './Graph'
-import { computeGraphCore } from './computeGraphCore'
+import { computeGraphCoreInfo } from './computeGraphCoreInfo'
 
 export const createGraph = (options: {
    vertices: Array<VertexInjectableConfig<any>>
@@ -21,10 +21,10 @@ export const createGraph = (options: {
 }): Graph => {
    const { devtools } = options
 
-   const graphCore = computeGraphCore(options.vertices)
-   const { vertexConfigs, rootReducer } = graphCore
+   const coreInfo = computeGraphCoreInfo(options.vertices)
+   const { vertexConfigs, rootReducer } = coreInfo
    if (devtools) {
-      const graphStructure = serializeGraphStructure(graphCore)
+      const graphStructure = serializeGraphStructure(coreInfo)
       devtools.sendGraphStructure(graphStructure)
    }
 
@@ -59,7 +59,7 @@ export const createGraph = (options: {
 
    const graphRunOutput$ = runSubgraph(
       rootVertexConfig as VertexConfigImpl,
-      graphCore
+      coreInfo
    )(graphRunInput$)
 
    const fieldsReactionsFIFO = createFIFO<UnknownAction>()

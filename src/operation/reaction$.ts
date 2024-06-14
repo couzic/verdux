@@ -20,11 +20,9 @@ export const reaction$ =
    (
       trackedAction: BaseActionCreator<any, any>,
       mapper: (
-         input$: Observable<VertexLoadableState<any> & { payload: any }>,
-         dependencies: any
+         input$: Observable<VertexLoadableState<any> & { payload: any }>
       ) => Observable<UnknownAction>
-   ) =>
-   (dependencies: any): VertexRun =>
+   ): VertexRun =>
    data$ => {
       let latestInputFields: VertexFields
       const inputData$ = data$.pipe(
@@ -38,7 +36,7 @@ export const reaction$ =
                data.action.type === trackedAction.type
          ),
          map(data => new Reaction$Input(data.action!.payload, data.fields)),
-         input$ => mapper(input$, dependencies),
+         input$ => mapper(input$),
          map(
             (outputAction): VertexRunData => ({
                fields: latestInputFields,

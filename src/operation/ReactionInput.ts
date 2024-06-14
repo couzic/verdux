@@ -8,7 +8,6 @@ export class ReactionInput<
 > extends LazyVertexLoadableState<Fields> {
    constructor(
       public readonly payload: Payload,
-      public readonly dependencies: any,
       _fields: VertexFields
    ) {
       super(_fields)

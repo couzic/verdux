@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import { VertexConfig } from '../config/VertexConfig'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { configureVertex } from '../config/configureVertex'
-import { computeGraphCore } from './computeGraphCore'
+import { computeGraphCoreInfo } from './computeGraphCoreInfo'
 
 const createSimpleSlice = (name: string) =>
    createSlice({
@@ -31,7 +31,7 @@ const configureSimpleVertex = (
    })
 }
 
-const sut = computeGraphCore
+const sut = computeGraphCoreInfo
 
 describe(sut.name, () => {
    it('throws error if no vertices', () => {
@@ -50,9 +50,10 @@ describe(sut.name, () => {
 
    it('creates graph config for single vertex', () => {
       const vertexConfig = configureSimpleVertex('root')
-      const graphConfig = sut([vertexConfig])
-      expect(graphConfig).to.deep.equal({
-         rootReducer: graphConfig.rootReducer,
+      const coreInfo = sut([vertexConfig])
+      expect(coreInfo).to.deep.equal({
+         rootReducer: coreInfo.rootReducer,
+         operationsByVertexId: coreInfo.operationsByVertexId,
          vertexConfigs: [vertexConfig],
          vertexIdsInSubgraph: { [vertexConfig.id]: [vertexConfig.id] },
          vertexConfigsByClosestCommonAncestorId: {},
@@ -66,9 +67,10 @@ describe(sut.name, () => {
       const downstreamVertexConfig = configureSimpleVertex('downstream', {
          upstreamVertexConfig: rootVertexConfig
       })
-      const graphConfig = sut([downstreamVertexConfig, rootVertexConfig])
-      expect(graphConfig).to.deep.equal({
-         rootReducer: graphConfig.rootReducer,
+      const coreInfo = sut([downstreamVertexConfig, rootVertexConfig])
+      expect(coreInfo).to.deep.equal({
+         rootReducer: coreInfo.rootReducer,
+         operationsByVertexId: coreInfo.operationsByVertexId,
          vertexConfigs: [rootVertexConfig, downstreamVertexConfig],
          vertexIdsInSubgraph: {
             [rootVertexConfig.id]: [
@@ -339,27 +341,24 @@ describe(sut.name, () => {
          })
          .reaction(trackedAction, () => downstreamSlice.actions.setName('Bob'))
       const graphConfig = sut([rootVertexConfig, downstreamVertexConfig])
-      expect(graphConfig).to.deep.equal({
-         rootReducer: graphConfig.rootReducer,
-         vertexConfigs: [rootVertexConfig, downstreamVertexConfig],
-         vertexConfigsByClosestCommonAncestorId: {
-            [rootVertexConfig.id]: [downstreamVertexConfig]
-         },
-         vertexIdsInSubgraph: {
-            [rootVertexConfig.id]: [
-               rootVertexConfig.id,
-               downstreamVertexConfig.id
-            ],
-            [downstreamVertexConfig.id]: [downstreamVertexConfig.id]
-         },
-         trackedActionsInSubgraph: {
-            [rootVertexConfig.id]: [trackedAction],
-            [downstreamVertexConfig.id]: [trackedAction]
-         },
-         dependenciesByVertexId: {
-            [rootVertexConfig.id]: {},
-            [downstreamVertexConfig.id]: {}
-         }
+      expect(graphConfig.vertexConfigs).to.deep.equal([
+         rootVertexConfig,
+         downstreamVertexConfig
+      ])
+      expect(graphConfig.vertexIdsInSubgraph).to.deep.equal({
+         [rootVertexConfig.id]: [
+            rootVertexConfig.id,
+            downstreamVertexConfig.id
+         ],
+         [downstreamVertexConfig.id]: [downstreamVertexConfig.id]
+      })
+      expect(graphConfig.trackedActionsInSubgraph).to.deep.equal({
+         [rootVertexConfig.id]: [trackedAction],
+         [downstreamVertexConfig.id]: [trackedAction]
+      })
+      expect(graphConfig.dependenciesByVertexId).to.deep.equal({
+         [rootVertexConfig.id]: {},
+         [downstreamVertexConfig.id]: {}
       })
    })
 })

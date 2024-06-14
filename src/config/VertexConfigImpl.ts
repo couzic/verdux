@@ -1,24 +1,13 @@
 import { Reducer, Slice, UnknownAction } from '@reduxjs/toolkit'
-import {
-   ActionCreatorWithPayload,
-   BaseActionCreator
-} from '@reduxjs/toolkit/dist/createAction'
+import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
-import { computeFromFields } from '../operation/computeFromFields'
-import { fieldsReaction } from '../operation/fieldsReaction'
-import { loadFromFields } from '../operation/loadFromFields'
-import { load } from '../operation/load'
-import { sideEffect } from '../operation/sideEffect'
-import { loadFromFields$ } from '../operation/loadFromFields$'
-import { reaction } from '../operation/reaction'
-import { reaction$ } from '../operation/reaction$'
 import { VertexRun } from '../run/VertexRun'
-import { VertexLoadableState } from '../state/VertexLoadableState'
 import { VertexId } from '../vertex/VertexId'
-import { VertexConfig } from './VertexConfig'
+import { VertexConfig, VertexOperationsOnly } from './VertexConfig'
 import { VertexConfigBuilderImpl } from './VertexConfigBuilderImpl'
 import { VertexFieldsDefinition } from './VertexFieldsDefinition'
+import { VertexOperationsBuilder } from './VertexOperationsBuilder'
 import { configureVertex } from './configureVertex'
 
 export class VertexConfigImpl<
@@ -36,16 +25,28 @@ export class VertexConfigImpl<
       return this.builder.upstreamVertices
    }
 
-   private readonly _injectableOperations: Array<
-      (dependencies: Dependencies) => VertexRun
+   private readonly _operationsToInject: Array<
+      (
+         dependencies: Dependencies,
+         config: VertexOperationsOnly<any, any>
+      ) => VertexOperationsOnly<any, any>
    > = []
-   public getInjectedOperations(dependencies: Dependencies): [VertexRun] {
-      return this._injectableOperations.map(injectableOperation =>
-         injectableOperation(dependencies)
-      ) as any
-   }
 
-   public readonly trackedActions: BaseActionCreator<any, any>[] = []
+   resolveOperations(dependencies: Dependencies): {
+      operations: [VertexRun]
+      trackedActions: BaseActionCreator<any, any>[]
+   } {
+      let operationsBuilder = new VertexOperationsBuilder()
+      this._operationsToInject.forEach(operationToInject => {
+         operationsBuilder = operationToInject(
+            dependencies,
+            operationsBuilder
+         ) as any
+      })
+      const operations = operationsBuilder.operations
+      const trackedActions = operationsBuilder.trackedActions
+      return { operations, trackedActions }
+   }
 
    constructor(
       public readonly name: string,
@@ -92,6 +93,16 @@ export class VertexConfigImpl<
       })
    }
 
+   withDependencies<OutputFields extends VertexFieldsDefinition>(
+      f: (
+         dependencies: Dependencies,
+         config: VertexOperationsOnly<Fields, Dependencies>
+      ) => VertexOperationsOnly<OutputFields, Dependencies>
+   ): VertexConfig<OutputFields, Dependencies> {
+      this._operationsToInject.push(f)
+      return this as any
+   }
+
    findClosestCommonAncestor() {
       return this.builder.findClosestCommonAncestor().vertexId
    }
@@ -114,40 +125,27 @@ export class VertexConfigImpl<
    }
 
    computeFromFields(fields: any[], computers: any): any {
-      this._injectableOperations.push(dependencies =>
-         computeFromFields(
-            fields,
-            typeof computers === 'function'
-               ? computers(dependencies)
-               : computers
-         )
+      this._operationsToInject.push((_, config) =>
+         config.computeFromFields(fields, computers)
       )
       return this
    }
 
    loadFromFields(fields: any[], loaders: any): any {
-      this._injectableOperations.push(dependencies =>
-         loadFromFields(
-            fields,
-            typeof loaders === 'function' ? loaders(dependencies) : loaders
-         )
+      this._operationsToInject.push((_, config) =>
+         config.loadFromFields(fields, loaders)
       )
       return this
    }
 
    load(loaders: any): any {
-      this._injectableOperations.push(dependencies =>
-         load(typeof loaders === 'function' ? loaders(dependencies) : loaders)
-      )
+      this._operationsToInject.push((_, config) => config.load(loaders))
       return this
    }
 
    loadFromFields$(fields: any[], loaders: any): any {
-      this._injectableOperations.push(dependencies =>
-         loadFromFields$(
-            fields,
-            typeof loaders === 'function' ? loaders(dependencies) : loaders
-         )
+      this._operationsToInject.push((_, config) =>
+         config.loadFromFields$(fields, loaders)
       )
       return this
    }
@@ -157,65 +155,40 @@ export class VertexConfigImpl<
 
    reaction<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
-      mapper: (
-         payload: any,
-         vertex: VertexLoadableState<Fields> & { dependencies: Dependencies }
-      ) => UnknownAction
+      mapper: (input: any) => UnknownAction
    ) {
-      if (!this.trackedActions.includes(actionCreator)) {
-         this.trackedActions.push(actionCreator)
-      }
-      this._injectableOperations.push(reaction(actionCreator, mapper as any))
+      this._operationsToInject.push((_, config) =>
+         config.reaction(actionCreator, mapper)
+      )
       return this
    }
 
    reaction$<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
-      mapper: (
-         input$: Observable<
-            VertexLoadableState<Fields> & {
-               payload: any
-            }
-         >,
-         dependencies: Dependencies
-      ) => Observable<UnknownAction>
+      mapper: (input$: Observable<any>) => Observable<UnknownAction>
    ) {
-      if (!this.trackedActions.includes(actionCreator)) {
-         this.trackedActions.push(actionCreator)
-      }
-      this._injectableOperations.push(reaction$(actionCreator, mapper as any))
+      this._operationsToInject.push((_, config) =>
+         config.reaction$(actionCreator, mapper)
+      )
       return this
    }
 
    fieldsReaction<K extends keyof Fields>(
       fields: K[],
-      mapper: (
-         pickedState: {
-            [PK in K]: Fields[PK]['value']
-         },
-         vertex: VertexLoadableState<Fields> & { dependencies: Dependencies }
-      ) => UnknownAction
+      mapper: (pickedState: any, vertex: any) => UnknownAction
    ) {
-      this._injectableOperations.push(fieldsReaction(fields as any, mapper))
+      this._operationsToInject.push((_, config) =>
+         config.fieldsReaction(fields, mapper)
+      )
       return this
    }
 
    sideEffect<ActionCreator extends BaseActionCreator<any, any>>(
       actionCreator: ActionCreator,
-      callback: (
-         input: VertexLoadableState<Fields> & {
-            dependencies: Dependencies
-            payload: ActionCreator extends ActionCreatorWithPayload<
-               infer P,
-               any
-            >
-               ? P
-               : never
-         }
-      ) => void
+      callback: (input: any) => void
    ) {
-      this._injectableOperations.push(
-         sideEffect(actionCreator, callback as any)
+      this._operationsToInject.push((_, config) =>
+         config.sideEffect(actionCreator, callback)
       )
       return this
    }

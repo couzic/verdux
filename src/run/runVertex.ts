@@ -1,5 +1,6 @@
 import { map } from 'rxjs'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
+import { GraphCoreInfo } from '../graph/GraphCoreInfo'
 import { GraphRun } from './GraphRun'
 import { GraphRunData, VertexRunData } from './RunData'
 import { VertexFields } from './VertexFields'
@@ -8,7 +9,7 @@ import { extractVertexFields } from './extractVertexFields'
 
 export const runVertex = (
    config: VertexConfigImpl,
-   dependencies: any = {}
+   graphCoreInfo: GraphCoreInfo
 ): GraphRun => {
    const extractFields = extractVertexFields(config)
    return data$ => {
@@ -38,7 +39,7 @@ export const runVertex = (
                initialRun: data.initialRun
             }
          }),
-         ...config.getInjectedOperations(dependencies),
+         ...graphCoreInfo.operationsByVertexId[config.id],
          map(
             (data): GraphRunData => ({
                action: data.action,

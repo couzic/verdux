@@ -6,12 +6,13 @@ import {
    VertexInjectableConfig,
    isInjectedConfig
 } from '../config/VertexInjectableConfig'
+import { VertexRun } from '../run/VertexRun'
 import { VertexId } from '../vertex/VertexId'
-import { GraphCore } from './GraphCore'
+import { GraphCoreInfo } from './GraphCoreInfo'
 
-export const computeGraphCore = (
+export const computeGraphCoreInfo = (
    vertexConfigs: Array<VertexInjectableConfig>
-): GraphCore => {
+): GraphCoreInfo => {
    if ((vertexConfigs || []).length === 0)
       throw new Error('createGraph() requires a non-empty vertices array')
 
@@ -100,12 +101,22 @@ export const computeGraphCore = (
    // DEPENDENCIES //
    /////////////////
    const dependenciesByVertexId: Record<VertexId, Record<string, any>> = {}
+   const operationsByVertexId: Record<VertexId, [VertexRun]> = {}
+   const trackedActionsByVertexId: Record<
+      VertexId,
+      BaseActionCreator<any, any>[]
+   > = {}
 
    sortedVertexConfigs.forEach(config => {
       dependenciesByVertexId[config.id] = config.buildVertexDependencies(
          dependenciesByVertexId,
          injectedDependenciesByVertexId[config.id]
       )
+      const { operations, trackedActions } = config.resolveOperations(
+         dependenciesByVertexId[config.id]
+      )
+      operationsByVertexId[config.id] = operations
+      trackedActionsByVertexId[config.id] = trackedActions
    })
 
    //////////////
@@ -139,7 +150,7 @@ export const computeGraphCore = (
    > = {}
    const indexSubgraph = (config: VertexConfigImpl) => {
       const ids = [config.id]
-      const trackedActions = [...config.trackedActions]
+      const trackedActions = trackedActionsByVertexId[config.id]
       const downstreamConfigs =
          vertexConfigsByClosestCommonAncestorId[config.id] || []
       downstreamConfigs.forEach(downstreamConfig => {
@@ -158,6 +169,7 @@ export const computeGraphCore = (
       vertexIdsInSubgraph,
       trackedActionsInSubgraph,
       dependenciesByVertexId,
+      operationsByVertexId,
       rootReducer
    }
 }

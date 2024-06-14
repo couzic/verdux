@@ -3,7 +3,7 @@ import { expect } from 'chai'
 import { Subject } from 'rxjs'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { configureRootVertex } from '../config/configureRootVertex'
-import { computeGraphCore } from '../graph/computeGraphCore'
+import { computeGraphCoreInfo } from '../graph/computeGraphCoreInfo'
 import { GraphRunData } from './RunData'
 import { runSubgraph } from './runSubgraph'
 
@@ -16,8 +16,8 @@ describe(runSubgraph.name, () => {
             reducers: {}
          })
       }) as VertexConfigImpl
-      const graphInfo = computeGraphCore([rootVertexConfig])
-      const graphRun = runSubgraph(rootVertexConfig, graphInfo)
+      const coreInfo = computeGraphCoreInfo([rootVertexConfig])
+      const graphRun = runSubgraph(rootVertexConfig, coreInfo)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
@@ -61,7 +61,7 @@ describe(runSubgraph.name, () => {
             })
          }
       ) as VertexConfigImpl
-      const graphInfo = computeGraphCore([
+      const coreInfo = computeGraphCoreInfo([
          rootVertexConfig,
          downstreamVertexConfig
       ])
@@ -88,7 +88,7 @@ describe(runSubgraph.name, () => {
       const input$ = new Subject<GraphRunData>()
       runSubgraph(
          rootVertexConfig,
-         graphInfo
+         coreInfo
       )(input$).subscribe(output => {
          lastOutput = output
          outputEmissions++
@@ -148,11 +148,11 @@ describe(runSubgraph.name, () => {
          .reaction(trackedAction, () =>
             downstreamSlice.actions.setName('Bob')
          ) as VertexConfigImpl
-      const graphInfo = computeGraphCore([
+      const coreInfo = computeGraphCoreInfo([
          rootVertexConfig,
          downstreamVertexConfig
       ])
-      const graphRun = runSubgraph(rootVertexConfig, graphInfo)
+      const graphRun = runSubgraph(rootVertexConfig, coreInfo)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: trackedAction(),
