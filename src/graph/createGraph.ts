@@ -71,6 +71,16 @@ export const createGraph = (options: {
       // TODO Dependencies
       vertexInstanceById[config.id] = createVertexInstance(config, {})
    })
+   if (devtools) {
+      devtools.provideForceGraphRunOutput((runOutput: GraphRunData) => {
+         const changedFields = { forced: true as const }
+         vertexConfigs.forEach(config => {
+            const fields = runOutput.fieldsByVertexId[config.id]
+            // TODO maybe have changedFields reference all the fields in case some downstream opmizations is applied
+            vertexInstanceById[config.id].__pushFields(fields, changedFields)
+         })
+      })
+   }
 
    let savedChangedFieldsByVertexId: Record<VertexId, Record<string, any>> = {}
    const saveChangedFields = (data: GraphRunData) => {
