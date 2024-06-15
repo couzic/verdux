@@ -73,10 +73,13 @@ export const createGraph = (options: {
    })
    if (devtools) {
       devtools.provideForceGraphRunOutput((runOutput: GraphRunData) => {
-         const changedFields = { forced: true as const }
          vertexConfigs.forEach(config => {
             const fields = runOutput.fieldsByVertexId[config.id]
-            // TODO maybe have changedFields reference all the fields in case some downstream opmizations is applied
+            const fieldNames = Object.keys(fields)
+            const changedFields: Record<string, true> = {}
+            fieldNames.forEach(fieldName => {
+               changedFields[fieldName] = true
+            })
             vertexInstanceById[config.id].__pushFields(fields, changedFields)
          })
       })
