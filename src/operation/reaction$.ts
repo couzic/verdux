@@ -36,7 +36,7 @@ export const reaction$ =
                data.action.type === trackedAction.type
          ),
          map(data => new Reaction$Input(data.action!.payload, data.fields)),
-         input$ => mapper(input$),
+         input$ => mapper(input$ as any),
          map(
             (outputAction): VertexRunData => ({
                fields: latestInputFields,

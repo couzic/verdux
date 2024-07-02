@@ -404,7 +404,7 @@ describe(loadFromFields.name, () => {
                   irrelevant: {
                      status: 'loaded' as const,
                      value: 'changed',
-                     errors: []
+                     errors: [] as []
                   }
                },
                changedFields: { irrelevant: true as const },

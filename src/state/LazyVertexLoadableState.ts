@@ -3,9 +3,7 @@ import { VertexFields } from '../run/VertexFields'
 import { VertexLoadableState } from './VertexLoadableState'
 import { toVertexLoadableState } from './toVertexLoadableState'
 
-export class LazyVertexLoadableState<Fields extends VertexFieldsDefinition>
-   implements VertexLoadableState<Fields>
-{
+export class LazyVertexLoadableState<Fields extends VertexFieldsDefinition> {
    private value: VertexLoadableState<Fields> | undefined = undefined
 
    constructor(private readonly _fields: VertexFields) {}

@@ -18,21 +18,12 @@ export interface VertexInstance<
    readonly state$: Observable<{
       [K in keyof VertexState<Fields>]: VertexState<Fields>[K]
    }>
-   readonly currentLoadableState: {
-      [K in keyof VertexLoadableState<Fields>]: VertexLoadableState<Fields>[K]
-   }
-   readonly loadableState$: Observable<{
-      [K in keyof VertexLoadableState<Fields>]: VertexLoadableState<Fields>[K]
-   }>
+   readonly currentLoadableState: VertexLoadableState<Fields>
+   readonly loadableState$: Observable<VertexLoadableState<Fields>>
    readonly dependencies: Dependencies
    pick<K extends keyof Fields>(
       fields: K[]
-   ): Observable<{
-      [PK in keyof PickedLoadableVertexState<
-         Fields,
-         K
-      >]: PickedLoadableVertexState<Fields, K>[PK]
-   }>
+   ): Observable<PickedLoadableVertexState<Fields, K>>
    __pushFields(
       fields: VertexFields,
       changedFields: VertexChangedFields | undefined

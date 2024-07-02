@@ -1,7 +1,22 @@
-import { VertexStatus } from '../vertex/VertexStatus'
+export type VertexFieldState<Value = any> =
+   | VertexLoadedFieldState<Value>
+   | VertexLoadingFieldState
+   | VertexErrorFieldState
 
-export interface VertexFieldState<Value = any, Status = VertexStatus> {
-   status: Status
-   errors: Status extends 'error' ? Error[] : []
-   value: Status extends 'loaded' ? Value : undefined
+export interface VertexLoadedFieldState<Value> {
+   status: 'loaded'
+   errors: []
+   value: Value
+}
+
+export interface VertexLoadingFieldState {
+   status: 'loading'
+   errors: []
+   value: undefined
+}
+
+export interface VertexErrorFieldState {
+   status: 'error'
+   errors: Error[]
+   value: undefined
 }

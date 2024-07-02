@@ -60,7 +60,7 @@ export const load =
             const outputFields = {
                ...latestOutputFields,
                [fieldName]: field
-            }
+            } as VertexFields
             latestOutputFields = outputFields
             return {
                action: undefined,

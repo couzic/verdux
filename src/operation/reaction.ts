@@ -14,7 +14,10 @@ export const reaction = (
          return data
       }
       try {
-         const input = new ReactionInput(data.action.payload, data.fields)
+         const input = new ReactionInput(
+            data.action.payload,
+            data.fields
+         ) as VertexLoadableState<any>
          return {
             ...data,
             reactions: [...data.reactions, mapper(input)]

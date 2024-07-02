@@ -1,9 +1,11 @@
 import { VertexFields } from '../run/VertexFields'
 import { VertexLoadableState } from './VertexLoadableState'
+import { VertexStatus } from '../vertex/VertexStatus'
+import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
 
-export const toVertexLoadableState = (
+export const toVertexLoadableState = <Fields extends VertexFieldsDefinition>(
    fields: VertexFields
-): VertexLoadableState<any> => {
+): VertexLoadableState<Fields> => {
    const state = {} as any
    let loading = false
    let error = false
@@ -21,7 +23,7 @@ export const toVertexLoadableState = (
          state[fieldKey] = fields[fieldKey].value
       }
    })
-   const status = error ? 'error' : loading ? 'loading' : 'loaded'
+   const status: VertexStatus = error ? 'error' : loading ? 'loading' : 'loaded'
 
-   return { state, fields, status, errors }
+   return { state, fields: fields as any, status: status as any, errors }
 }

@@ -16,7 +16,7 @@ export const sideEffect = (
          const input = new ReactionInput(data.action.payload, data.fields)
          return {
             ...data,
-            sideEffects: [...data.sideEffects, () => callback(input)]
+            sideEffects: [...data.sideEffects, () => callback(input as any)]
          }
       } catch (e: any) {
          // TODO Log error

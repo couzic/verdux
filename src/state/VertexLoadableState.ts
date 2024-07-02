@@ -1,18 +1,38 @@
 import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
-import { VertexStatus } from '../vertex/VertexStatus'
-import { VertexFieldState } from './VertexFieldState'
+import {
+   VertexErrorFieldState,
+   VertexLoadedFieldState,
+   VertexLoadingFieldState
+} from './VertexFieldState'
 import { VertexLoadedState, VertexState } from './VertexState'
 
-export type VertexLoadableState<
-   Fields extends VertexFieldsDefinition,
-   Status extends VertexStatus = VertexStatus
-> = {
-   status: Status
-   errors: Status extends 'error' ? Error[] : []
-   state: Status extends 'loaded'
-      ? VertexLoadedState<Fields>
-      : VertexState<Fields>
-   fields: {
-      [K in keyof Fields]: VertexFieldState<Fields[K]['value']>
-   }
-}
+export type VertexLoadableState<Fields extends VertexFieldsDefinition> =
+   | {
+        status: 'loaded'
+        errors: []
+        state: VertexLoadedState<Fields>
+        fields: {
+           [K in keyof Fields]: VertexLoadedFieldState<Fields[K]['value']>
+        }
+     }
+   | {
+        status: 'loading'
+        errors: []
+        state: VertexState<Fields>
+        fields: {
+           [K in keyof Fields]:
+              | VertexLoadedFieldState<Fields[K]['value']>
+              | VertexLoadingFieldState
+        }
+     }
+   | {
+        status: 'error'
+        errors: Error[]
+        state: VertexState<Fields>
+        fields: {
+           [K in keyof Fields]:
+              | VertexLoadedFieldState<Fields[K]['value']>
+              | VertexLoadingFieldState
+              | VertexErrorFieldState
+        }
+     }

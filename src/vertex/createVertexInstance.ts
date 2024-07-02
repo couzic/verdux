@@ -67,7 +67,7 @@ export const createVertexInstance = <
             }
          }
          lastPushed = {
-            loadableState: toVertexLoadableState(fields),
+            loadableState: toVertexLoadableState<Fields>(fields),
             changedFields: { ...changedFields }
          }
          currentState = lastPushed.loadableState.state
