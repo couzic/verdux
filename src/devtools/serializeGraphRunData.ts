@@ -1,5 +1,6 @@
 import { miniSerializeError } from '@reduxjs/toolkit'
-import { GraphRunData, SerializedGraphRunData } from './RunData'
+import { GraphRunData } from '../run/RunData'
+import { SerializedGraphRunData } from './SerializedGraphRunData'
 
 export const serializeGraphRunData = (
    data: GraphRunData

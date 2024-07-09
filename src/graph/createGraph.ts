@@ -4,7 +4,7 @@ import { VertexConfig } from '../config/VertexConfig'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { VertexInjectableConfig } from '../config/VertexInjectableConfig'
 import { VerduxDevTools } from '../devtools/VerduxDevTools'
-import { serializeGraphRunOutput } from '../devtools/serializeGraphRunOutput'
+import { serializeGraphRunData } from '../devtools/serializeGraphRunData'
 import { serializeGraphStructure } from '../devtools/serializeGraphStructure'
 import { GraphRunData } from '../run/RunData'
 import { runSubgraph } from '../run/runSubgraph'
@@ -83,6 +83,7 @@ export const createGraph = (options: {
             vertexInstanceById[config.id].__pushFields(fields, changedFields)
          })
       })
+      devtools.provideSerializeGraphRunData(serializeGraphRunData)
    }
 
    let savedChangedFieldsByVertexId: Record<VertexId, Record<string, any>> = {}
@@ -100,8 +101,7 @@ export const createGraph = (options: {
    }
    graphRunOutput$.subscribe(data => {
       if (devtools) {
-         const serializedOutput = serializeGraphRunOutput(data)
-         devtools.sendGraphRunOutput(serializedOutput)
+         devtools.sendGraphRunOutput(data)
       }
       data.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
       data.reactions.forEach(_ => reactionsFIFO.push(_))
