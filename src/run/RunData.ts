@@ -1,4 +1,8 @@
-import { UnknownAction } from '@reduxjs/toolkit'
+import { SerializedError, UnknownAction } from '@reduxjs/toolkit'
+import {
+   VertexLoadedFieldState,
+   VertexLoadingFieldState
+} from '../state/VertexFieldState'
 import { VertexReduxState } from '../state/VertexReduxState'
 import { VertexId } from '../vertex/VertexId'
 import { VertexChangedFields, VertexFields } from './VertexFields'
@@ -20,4 +24,25 @@ export interface GraphRunData extends RunData {
 export interface VertexRunData extends RunData {
    fields: VertexFields
    changedFields: VertexChangedFields
+}
+
+export type SerializedGraphRunData = Omit<
+   GraphRunData,
+   'sideEffects' | 'fieldsByVertexId'
+> & {
+   fieldsByVertexId: Record<
+      VertexId,
+      Record<string, SerializedVertexFieldState>
+   >
+}
+
+export type SerializedVertexFieldState<Value = any> =
+   | VertexLoadedFieldState<Value>
+   | VertexLoadingFieldState
+   | SerializedVertexErrorFieldState
+
+export interface SerializedVertexErrorFieldState {
+   status: 'error'
+   errors: SerializedError[]
+   value: undefined
 }
