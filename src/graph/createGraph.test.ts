@@ -57,6 +57,12 @@ describe(createGraph.name, () => {
          expect(latestLoadableState).to.deep.equal(expectedLoadableState)
          expect(latestPick).to.deep.equal(expectedLoadableState)
       })
+      it('creates graph without default redux middleware', () => {
+         createGraph({
+            vertices: [rootVertexConfig],
+            includeDefaultReduxMiddleware: false
+         })
+      })
       describe('single downstream vertex', () => {
          const downstreamVertexConfig =
             rootVertexConfig.configureDownstreamVertex({

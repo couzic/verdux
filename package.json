@@ -1,6 +1,6 @@
 {
    "name": "verdux",
-   "version": "0.5.7",
+   "version": "0.5.8",
    "description": "Type-safe, reactive, immutable state management",
    "keywords": [
       "typescript",
