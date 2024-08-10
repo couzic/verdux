@@ -60,7 +60,7 @@ describe(createGraph.name, () => {
       it('creates graph without default redux middleware', () => {
          createGraph({
             vertices: [rootVertexConfig],
-            includeDefaultReduxMiddleware: false
+            excludeDefaultReduxMiddleware: true
          })
       })
       describe('single downstream vertex', () => {

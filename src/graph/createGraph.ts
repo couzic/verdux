@@ -18,7 +18,7 @@ import { computeGraphCoreInfo } from './computeGraphCoreInfo'
 export const createGraph = (options: {
    vertices: Array<VertexInjectableConfig<any>>
    devtools?: VerduxDevTools
-   includeDefaultReduxMiddleware?: boolean
+   excludeDefaultReduxMiddleware?: boolean
 }): Graph => {
    const { devtools } = options
 
@@ -55,7 +55,7 @@ export const createGraph = (options: {
       reducer: rootReducer,
       // TODO Remove thunk ?
       middleware: getDefaultMiddleware =>
-         options.includeDefaultReduxMiddleware === false
+         options.excludeDefaultReduxMiddleware
             ? ([verduxMiddleware] as any)
             : getDefaultMiddleware().concat(verduxMiddleware)
    })
