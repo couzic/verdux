@@ -2,6 +2,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { Subject, of } from 'rxjs'
 import { configureRootVertex } from '../config/configureRootVertex'
+import { Vertex } from '../vertex/Vertex'
 import { createGraph } from './createGraph'
 
 describe(createGraph.name, () => {
@@ -318,10 +319,39 @@ describe(createGraph.name, () => {
          expect(dependencies).to.deep.equal({ name: 'Bob' })
          return config.load({ loadedName: of(dependencies.name) })
       })
-      it('provides access to dependency', () => {
+      let vertex: Vertex<typeof rootVertexConfig>
+      beforeEach(() => {
          const graph = createGraph({ vertices: [rootVertexConfig] })
-         const vertex = graph.getVertexInstance(rootVertexConfig)
+         vertex = graph.getVertexInstance(rootVertexConfig)
+      })
+      it('provides access to dependency', () => {
          expect(vertex.currentState).to.deep.equal({ loadedName: 'Bob' })
+      })
+      it('exposes vertex dependencies', () => {
+         expect(vertex.dependencies.name).to.equal('Bob')
+      })
+   })
+   describe('root vertex with INJECTED dependencies', () => {
+      const rootSlice = createSlice({
+         name: 'root',
+         initialState: {},
+         reducers: {}
+      })
+      const rootVertexConfig = configureRootVertex({
+         slice: rootSlice,
+         dependencies: {
+            name: () => 'Bob'
+         }
+      })
+      let vertex: Vertex<typeof rootVertexConfig>
+      beforeEach(() => {
+         const graph = createGraph({
+            vertices: [rootVertexConfig.injectedWith({ name: 'Steve' })]
+         })
+         vertex = graph.getVertexInstance(rootVertexConfig)
+      })
+      it('exposes injected vertex dependencies', () => {
+         expect(vertex.dependencies.name).to.equal('Steve')
       })
    })
 })

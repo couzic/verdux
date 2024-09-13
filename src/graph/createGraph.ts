@@ -71,8 +71,10 @@ export const createGraph = (options: {
 
    const vertexInstanceById: Record<VertexId, VertexInstance<any, any>> = {}
    vertexConfigs.forEach(config => {
-      // TODO Dependencies
-      vertexInstanceById[config.id] = createVertexInstance(config, {})
+      vertexInstanceById[config.id] = createVertexInstance(
+         config,
+         coreInfo.dependenciesByVertexId[config.id]
+      )
    })
    if (devtools) {
       devtools.provideForceGraphRunOutput((runOutput: GraphRunData) => {
