@@ -131,6 +131,13 @@ export class VertexConfigImpl<
       return this
    }
 
+   computeFromFields$(fields: any[], computers: any): any {
+      this._operationsToInject.push((_, config) =>
+         config.computeFromFields$(fields, computers)
+      )
+      return this
+   }
+
    loadFromFields(fields: any[], loaders: any): any {
       this._operationsToInject.push((_, config) =>
          config.loadFromFields(fields, loaders)

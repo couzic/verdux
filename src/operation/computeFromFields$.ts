@@ -21,29 +21,22 @@ export const computeFromFields$ =
       let latestInputFields: VertexFields | undefined = undefined
       let latestOutputFields = loadingFields
 
-      const inputFieldsMaybeChanged$ = data$.pipe(
+      const inputFieldsMaybeChangedAndLoaded$ = data$.pipe(
          tap(data => (latestInputFields = data.fields)),
          map(data => ({
             data,
-            fieldsHaveChanged: !fields.every(
-               fieldName => data.changedFields[fieldName] === undefined
-            )
-         })),
-         share()
-      )
-
-      const inputFieldsHaveChanged$ = inputFieldsMaybeChanged$.pipe(
-         filter(_ => _.fieldsHaveChanged),
-         map(_ => ({
-            ..._,
+            fieldsHaveChanged: fields.some(
+               fieldName => data.changedFields[fieldName] !== undefined
+            ),
             fieldsAreLoaded: fields.every(
-               fieldName => _.data.fields[fieldName].status === 'loaded'
+               fieldName => data.fields[fieldName].status === 'loaded'
             )
          })),
          share()
       )
 
-      const loading$ = inputFieldsHaveChanged$.pipe(
+      const loading$ = inputFieldsMaybeChangedAndLoaded$.pipe(
+         filter(_ => _.fieldsHaveChanged),
          filter(_ => !_.fieldsAreLoaded),
          map(({ data }): VertexRunData => {
             const changedLoadingFields: VertexChangedFields = {}
@@ -64,7 +57,8 @@ export const computeFromFields$ =
          tap(() => (latestOutputFields = loadingFields))
       )
 
-      const changedLoadedInputFields$ = inputFieldsHaveChanged$.pipe(
+      const changedLoadedInputFields$ = inputFieldsMaybeChangedAndLoaded$.pipe(
+         filter(_ => _.fieldsHaveChanged),
          filter(_ => _.fieldsAreLoaded),
          map(({ data }) => pickFields(fields, data.fields)),
          map(fields => toVertexState(fields)),
@@ -110,13 +104,13 @@ export const computeFromFields$ =
          })
       )
 
-      const passingThrough$ = inputFieldsMaybeChanged$.pipe(
-         filter(_ => !_.fieldsHaveChanged),
+      const passingThrough$ = inputFieldsMaybeChangedAndLoaded$.pipe(
+         filter(_ => !_.fieldsHaveChanged || _.fieldsAreLoaded),
          map(({ data }) => ({
             ...data,
             fields: { ...data.fields, ...latestOutputFields }
          }))
       )
 
-      return merge(loading$, computed$, passingThrough$)
+      return merge(loading$, passingThrough$, computed$)
    }

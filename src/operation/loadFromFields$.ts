@@ -25,8 +25,8 @@ export const loadFromFields$ =
          tap(data => (latestInputFields = data.fields)),
          map(data => ({
             data,
-            fieldsHaveChanged: !fields.every(
-               fieldName => data.changedFields[fieldName] === undefined
+            fieldsHaveChanged: fields.some(
+               fieldName => data.changedFields[fieldName] !== undefined
             )
          })),
          share()

@@ -126,6 +126,34 @@ export interface VertexOperations<
            OperationsOnly
         >
 
+   computeFromFields$<K extends keyof Fields, ComputedFields>(
+      fields: K[],
+      computers: {
+         [CFK in keyof ComputedFields]: (
+            fields$: Observable<{
+               [PK in K]: Fields[PK]['value']
+            }>
+         ) => Observable<ComputedFields[CFK]>
+      }
+   ): IsPlainObject<typeof computers> extends false
+      ? never
+      : VertexConfigOrOperationsOnly<
+           {
+              [FK in
+                 | keyof ComputedFields
+                 | keyof Fields]: FK extends keyof ComputedFields
+                 ? {
+                      loadable: HasLoadable<Pick<Fields, K>>
+                      value: ComputedFields[FK]
+                   }
+                 : FK extends keyof Fields
+                   ? Fields[FK]
+                   : never
+           },
+           Dependencies,
+           OperationsOnly
+        >
+
    loadFromFields<K extends keyof Fields, LoadableFields>(
       fields: K[],
       loaders: {

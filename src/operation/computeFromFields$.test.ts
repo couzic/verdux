@@ -1,7 +1,7 @@
+import { expect } from 'chai'
 import { isObservable, map, Observable, of } from 'rxjs'
 import { VertexRunData } from '../run/RunData'
 import { computeFromFields$ } from './computeFromFields$'
-import { expect } from 'chai'
 
 const sut = computeFromFields$
 
@@ -49,7 +49,8 @@ describe(sut.name, () => {
          outputCount++
          latestOutput = output
       })
-      expect(outputCount).to.equal(1)
+      expect(outputCount).to.equal(2)
+      expect(latestOutput.changedFields.uppercaseName).to.be.true
       expect(latestOutput.fields.uppercaseName.value).to.equal('JOHN')
    })
 

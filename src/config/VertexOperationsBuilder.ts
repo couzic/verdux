@@ -28,6 +28,11 @@ export class VertexOperationsBuilder implements VertexOperationsOnly<any, any> {
       return this
    }
 
+   computeFromFields$(fields: any[], computers: any): any {
+      this._operations.push(computeFromFields(fields, computers))
+      return this
+   }
+
    loadFromFields(fields: any[], loaders: any): any {
       this._operations.push(loadFromFields(fields, loaders))
       return this
