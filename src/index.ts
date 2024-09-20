@@ -1,6 +1,7 @@
 export * from './config/VertexConfig'
 export * from './config/VertexFieldsDefinition'
 export * from './config/configureRootVertex'
+export * from './config/configureVertex'
 export * from './devtools/SerializedGraphRunData'
 export * from './devtools/SerializedGraphStructure'
 export * from './devtools/VerduxDevTools'
