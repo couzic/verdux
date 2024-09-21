@@ -1,5 +1,6 @@
 import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { computeFromFields } from '../operation/computeFromFields'
+import { computeFromFields$ } from '../operation/computeFromFields$'
 import { fieldsReaction } from '../operation/fieldsReaction'
 import { load } from '../operation/load'
 import { loadFromFields } from '../operation/loadFromFields'
@@ -29,7 +30,7 @@ export class VertexOperationsBuilder implements VertexOperationsOnly<any, any> {
    }
 
    computeFromFields$(fields: any[], computers: any): any {
-      this._operations.push(computeFromFields(fields, computers))
+      this._operations.push(computeFromFields$(fields, computers))
       return this
    }
 
