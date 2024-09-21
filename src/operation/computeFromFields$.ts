@@ -1,4 +1,13 @@
-import { filter, isObservable, map, merge, share, tap } from 'rxjs'
+import {
+   combineLatest,
+   filter,
+   isObservable,
+   map,
+   merge,
+   ReplaySubject,
+   share,
+   tap
+} from 'rxjs'
 import { VertexRunData } from '../run/RunData'
 import { VertexChangedFields, VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
@@ -6,10 +15,10 @@ import { pickFields } from '../state/pickFields'
 import { toVertexState } from '../state/toVertexState'
 
 export const computeFromFields$ =
-   (fields: string[], loaders: any): VertexRun =>
+   (fields: string[], computers: any): VertexRun =>
    data$ => {
       const loadingFields: VertexFields = {}
-      const computedFieldNames = Object.keys(loaders)
+      const computedFieldNames = Object.keys(computers)
       computedFieldNames.forEach(fieldName => {
          loadingFields[fieldName] = {
             status: 'loading',
@@ -18,11 +27,19 @@ export const computeFromFields$ =
          }
       })
 
+      let inputDataReceived = false
+      const inputDataReceived$ = new ReplaySubject<true>(1)
       let latestInputFields: VertexFields | undefined = undefined
       let latestOutputFields = loadingFields
 
       const inputFieldsMaybeChangedAndLoaded$ = data$.pipe(
-         tap(data => (latestInputFields = data.fields)),
+         tap(data => {
+            latestInputFields = data.fields
+            if (inputDataReceived === false) {
+               inputDataReceived = true
+               inputDataReceived$.next(true)
+            }
+         }),
          map(data => ({
             data,
             fieldsHaveChanged: fields.some(
@@ -61,19 +78,18 @@ export const computeFromFields$ =
          filter(_ => _.fieldsHaveChanged),
          filter(_ => _.fieldsAreLoaded),
          map(({ data }) => pickFields(fields, data.fields)),
-         map(fields => toVertexState(fields)),
-         share()
+         map(fields => toVertexState(fields))
       )
 
       const computed$ = merge(
          ...computedFieldNames.map(fieldName => {
-            const result$ = loaders[fieldName](changedLoadedInputFields$)
+            const result$ = computers[fieldName](changedLoadedInputFields$)
             if (!isObservable(result$))
                throw new Error(
                   `Loader for value "${fieldName}" must return an observable, received "${result$}" instead.`
                )
-            return result$.pipe(
-               // TODO Handle error
+            return combineLatest([result$, inputDataReceived$]).pipe(
+               map(_ => _[0]),
                tap(result => {
                   latestOutputFields = {
                      ...latestOutputFields,

@@ -74,4 +74,24 @@ describe(sut.name, () => {
       expect(outputCount).to.equal(1)
       expect(latestOutput.fields.uppercaseName.status).to.equal('loading')
    })
+
+   it('handles immediately emitting computer', () => {
+      let outputCount = 0
+      let latestOutput: any
+      const inputData = createInitialRunData({
+         name: {
+            status: 'loading',
+            value: undefined,
+            errors: []
+         }
+      })
+      sut(['name'], {
+         uppercaseName: () => of('DEFAULT')
+      })(of(inputData)).subscribe(output => {
+         outputCount++
+         latestOutput = output
+      })
+      expect(outputCount).to.equal(2)
+      expect(latestOutput.fields.uppercaseName.status).to.equal('loaded')
+   })
 })

@@ -354,4 +354,22 @@ describe(createGraph.name, () => {
          expect(vertex.dependencies.name).to.equal('Steve')
       })
    })
+   it('.computeFromFields$() supports immediately emitting computer', () => {
+      const periodSliderVertexConfig = configureRootVertex({
+         slice: createSlice({
+            name: 'periodSlider',
+            initialState: { startYearInputValue: '2013' },
+            reducers: {}
+         })
+      }).computeFromFields$(['startYearInputValue'], {
+         startYear: () => of('2014')
+      })
+
+      const graph = createGraph({
+         vertices: [periodSliderVertexConfig]
+      })
+      const vertex = graph.getVertexInstance(periodSliderVertexConfig)
+
+      expect(vertex.currentState.startYear).to.equal('2014')
+   })
 })
