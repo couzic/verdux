@@ -178,4 +178,36 @@ describe(sut.name, () => {
          }
       })
    })
+
+   it('computes from UNchanged UNloaded field', () => {
+      const run = computeFromFields(['name'], {
+         uppercaseName: (_: any) => _.name.toUpperCase()
+      })
+      const input: VertexRunData = {
+         action: undefined,
+         fields: {
+            name: { status: 'loading', value: undefined, errors: [] },
+            irrelevant: { status: 'loaded', value: 'whatever', errors: [] }
+         },
+         changedFields: {
+            irrelevant: true
+         },
+         fieldsReactions: [],
+         reactions: [],
+         sideEffects: [],
+         initialRun: true
+      }
+      let lastOutput: VertexRunData | undefined = undefined
+      run(of(input, { ...input, changedFields: {} })).subscribe(output => {
+         lastOutput = output
+      })
+      expect(lastOutput).to.deep.equal({
+         ...input,
+         fields: {
+            ...input.fields,
+            uppercaseName: { status: 'loading', value: undefined, errors: [] }
+         },
+         changedFields: {}
+      })
+   })
 })

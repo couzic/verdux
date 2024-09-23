@@ -3,8 +3,8 @@ import { VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
 import { compareVertexFields } from '../run/compareVertexFields'
 import { VertexState } from '../state/VertexState'
-import { toVertexLoadableState } from '../state/toVertexLoadableState'
 import { pickFields } from '../state/pickFields'
+import { toVertexLoadableState } from '../state/toVertexLoadableState'
 
 export const computeFromFields =
    (fields: string[], computers: any): VertexRun =>
@@ -39,6 +39,7 @@ export const computeFromFields =
             errors: []
          }
       })
+      latestComputedFields = loadingFields
       const computeErrorFields = (errors: Error[]) => {
          const errorFields: VertexFields = {}
          computedFieldNames.forEach(computedFieldName => {
