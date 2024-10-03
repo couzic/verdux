@@ -10,13 +10,13 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
-- [Motivation](#motivation)
-- [What is `verdux` ?](#what-is-verdux-)
-- [Features](#features)
-- [But `redux` sucks, right ?](#but-redux-sucks-right-)
-- [Install](#install)
-- [Examples](#examples)
-- [Testing](#testing)
+-  [Motivation](#motivation)
+-  [What is `verdux` ?](#what-is-verdux-)
+-  [Features](#features)
+-  [But `redux` sucks, right ?](#but-redux-sucks-right-)
+-  [Install](#install)
+-  [Examples](#examples)
+-  [Testing](#testing)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -31,7 +31,7 @@
 
 ## What is `verdux` ?
 
-##### `verdux` is a `redux` store wrapper that :
+##### `verdux` is a state management + asynchronous orchestration library that :
 
 -  Models UI application state as a flow of data streaming through a directed acyclic graph
 -  Allows better separation of concern, each vertex in the graph is self-contained and self-sufficient
