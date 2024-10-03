@@ -48,6 +48,14 @@
 -  Epics, just like [`redux-observable`](https://github.com/redux-observable/redux-observable), our favorite redux middleware
 -  Some other cool stuff
 
+## Examples
+
+https://github.com/couzic/verdux-examples
+
+## DevTools (WIP)
+
+![DevTools screenshot](doc/devtools.png)
+
 ## But `redux` sucks, right ?
 
 A lot of people have complained about `redux`, some with good reason. Many have been drawn to other state management solutions.
@@ -63,10 +71,6 @@ Although we agree there must be a better way than classical `redux`, we are not 
 ```bash
 npm install verdux @reduxjs/toolkit rxjs
 ```
-
-## Examples
-
-https://github.com/couzic/verdux-examples
 
 ## Testing
 
