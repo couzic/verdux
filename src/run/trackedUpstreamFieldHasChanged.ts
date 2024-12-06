@@ -6,7 +6,8 @@ export const trackedUpstreamFieldHasChanged = (
    data: GraphRunData
 ) =>
    vertexConfig.upstreamVertices.some(upstreamVertex => {
-      const changedFields = data.changedFieldsByVertexId[upstreamVertex.id]
+      const changedFields =
+         data.changedFieldsByVertexId[upstreamVertex.id] || {}
       return vertexConfig.builder.fieldsByUpstreamVertexId[
          upstreamVertex.id
       ].some(fieldName => changedFields[fieldName])

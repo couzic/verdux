@@ -110,4 +110,45 @@ describe(sut.name, () => {
       }
       expect(sut(downstreamVertexConfig, data)).to.be.true
    })
+
+   it('supports missing upstream vertex changed fields', () => {
+      const rootVertexConfig = configureRootVertex({
+         slice: createSlice({
+            name: 'root',
+            initialState: { trackedField: '' },
+            reducers: {}
+         })
+      }) as unknown as VertexConfigImpl
+      const downstreamVertexConfig = rootVertexConfig.configureDownstreamVertex(
+         {
+            slice: createSlice({
+               name: 'downstreamVertexName',
+               initialState: {},
+               reducers: {}
+            }),
+            upstreamFields: ['trackedField']
+         }
+      ) as VertexConfigImpl
+      const data: GraphRunData = {
+         action: undefined,
+         reduxStateByVertexId: {
+            [rootVertexConfig.id]: {
+               vertex: {},
+               downstream: {
+                  downstreamVertexName: { vertex: {}, downstream: {} }
+               }
+            },
+            [downstreamVertexConfig.id]: { vertex: {}, downstream: {} }
+         },
+         fieldsByVertexId: {
+            [rootVertexConfig.id]: {}
+         },
+         changedFieldsByVertexId: {},
+         fieldsReactions: [],
+         reactions: [],
+         sideEffects: [],
+         initialRun: true
+      }
+      expect(sut(downstreamVertexConfig, data)).to.be.false
+   })
 })

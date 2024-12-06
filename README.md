@@ -10,13 +10,14 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
--  [Motivation](#motivation)
--  [What is `verdux` ?](#what-is-verdux-)
--  [Features](#features)
--  [But `redux` sucks, right ?](#but-redux-sucks-right-)
--  [Install](#install)
--  [Examples](#examples)
--  [Testing](#testing)
+- [Motivation](#motivation)
+- [What is `verdux` ?](#what-is-verdux-)
+- [Features](#features)
+- [Examples](#examples)
+- [DevTools (WIP)](#devtools-wip)
+- [But `redux` sucks, right ?](#but-redux-sucks-right-)
+- [Install](#install)
+- [Testing](#testing)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
