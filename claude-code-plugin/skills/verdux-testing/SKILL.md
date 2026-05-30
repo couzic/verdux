@@ -158,10 +158,44 @@ it('tracks analytics on product view', () => {
 })
 ```
 
+## Test time-based fields by injecting the operator
+
+A `debounce` / `throttle` / `delay` makes a field resolve asynchronously, which
+would otherwise force fake timers or a `TestScheduler`. The verdux answer is to
+inject the timing **operator** as a dependency (see the
+`verdux-dependency-injection` skill) and override it with an **identity
+operator** in the test. The field then resolves synchronously under the same
+`Subject.next` / `dispatch` script as everything else:
+
+```ts
+import { map } from 'rxjs'
+
+beforeEach(() => {
+   graph = createGraph({
+      vertices: [
+         // production root uses the real debounceTime; the test swaps it for
+         // a pass-through so the debounced `results` field resolves at once.
+         rootVertexConfig.injectedWith({ time: { debounce: () => map(v => v) } }),
+         searchVertexConfig
+      ]
+   })
+   vertex = graph.getVertexInstance(searchVertexConfig)
+})
+
+it('loads results without waiting on the debounce', () => {
+   graph.dispatch(searchActions.queryChanged('pikachu'))
+   expect(vertex.currentState.results).to.deep.equal(['result for pikachu'])
+})
+```
+
+The runnable version is `verdux-dependency-injection/examples/injectableOperator.test.ts`.
+
 ## What you don't need
 
 - **No TestScheduler / marble tests.** `Subject.next(...)` calls inside the
-  test body drive time synchronously. This keeps tests linear and
+  test body drive time synchronously. For fields whose timing comes from a
+  debounce/throttle operator, inject the operator and override it with identity
+  (see above) instead of reaching for marble tests. This keeps tests linear and
   debuggable.
 - **No isolated reducer tests.** `slice.reducer(state, action)` assertions
   miss the integration with loaders and computed fields. Trust redux-toolkit

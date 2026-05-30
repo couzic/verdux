@@ -238,9 +238,6 @@ only when Suspense genuinely isn't an option.
 - **Don't create nested `GraphContext.Provider`s.** One per tree.
 - **Don't read `vertex.currentState` inside render.** It's a snapshot that
   won't trigger a rerender. Use the hook.
-- **Don't put the router in the graph** and feed it to components through
-  the hook. Inject it as a dependency and use its own React bindings for
-  navigation. See `verdux-graph-design`.
 
 ## See also
 

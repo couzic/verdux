@@ -89,12 +89,6 @@ export const productDetailVertexConfig = productPageVertexConfig
    })
 ```
 
-A vertex with no reducers and only `upstreamFields` acts as a "pure projection
-vertex" — it doesn't own state, but it establishes a subgraph boundary so its
-own children can change-detect on the tracked fields independently of
-siblings. This is useful when a section of the UI has a natural parent/child
-structure with shared data.
-
 ## Nesting vs staying flat
 
 Nesting is cheap and adds change-detection granularity, but adds a layer of
@@ -158,6 +152,22 @@ export const dashboardVertexConfig = configureVertex(
 multi-parent analogue of `upstreamFields`), and `dependencies` selects which of
 that upstream's dependencies to pull in.
 
+A multi-parent vertex can also register a **brand-new** dependency of its own —
+one not carried by any upstream — with `.addDependencies(...)`, the multi-parent
+analogue of a downstream `dependencies` map:
+
+```ts
+configureVertex({ slice: dashboardSlice }, builder =>
+   builder
+      .addUpstreamVertex(userVertexConfig, { fields: ['userId'] })
+      .addUpstreamVertex(filtersVertexConfig, { fields: ['dateRange'] })
+      .addDependencies({ geoService: createGeoService }) // new dep on this node
+)
+```
+
+Each provider receives the dependencies accumulated from the upstreams and
+returns the new one — exactly like a downstream derived dependency.
+
 ### How dependencies resolve across upstreams
 
 This is the one behavior that differs from the single-parent path, so be
@@ -182,6 +192,29 @@ The full, compiling example (root `kpiService`, two sibling vertices, and the
 combined `dashboard`) is in `examples/multiUpstreamVertexConfig.ts`, with the
 dependency-resolution behavior pinned by `examples/multiUpstream.test.ts`.
 
+### Why join: collapse upstream fields into one intent
+
+The *reason* to reach for a multi-parent join is usually to **aggregate several
+upstream fields into one semantic value** that downstream loaders consume,
+instead of threading three or four fields through every loader. Compute the
+combined intent once on the join node:
+
+```ts
+.computeFromFields(['selectedKpi', 'dateRange', 'filteredBy'], {
+   kpiQuery: ({ selectedKpi, dateRange, filteredBy }) => ({
+      kpi: selectedKpi,
+      from: dateRange.from,
+      to: dateRange.to,
+      filteredBy
+   })
+})
+```
+
+Now every downstream loader takes a single `kpiQuery` field. When any
+contributing upstream field changes, `kpiQuery` recomputes and the loaders
+re-run — and nothing downstream needs to know which of the inputs moved. The
+join exists to manufacture that one field.
+
 ## Registration
 
 Every non-root config is passed to `createGraph({ vertices: [...] })` as a
@@ -202,9 +235,6 @@ export const graph = createGraph({
 
 ## Anti-patterns
 
-- **Don't model the router as a vertex.** It's a dependency. Inject the
-  router at the root, consume its observables inside `.load(...)` and
-  `.withDependencies(...)`.
 - **Don't share selectors across components.** Each component calls
   `vertex.pick([...])` with the exact fields it needs — see the
   `verdux-react-integration` skill.

@@ -133,6 +133,50 @@ uses:
 swaps, you'd need a different architecture — e.g. the dependency itself
 behaves as a dispatcher and picks its backing implementation internally.
 
+## Inject an rxjs operator for testable timing
+
+A dependency doesn't have to be a service — it can be an **rxjs operator
+factory**. This is the idiomatic way to make time-based fields (debounce,
+throttle, delay) testable without fake timers or a `TestScheduler`.
+
+Register the operator at the root, alongside your services:
+
+```ts
+import { debounceTime } from 'rxjs'
+
+dependencies: {
+   time: () => ({ debounce: debounceTime }), // debounce(ms) returns an operator
+   apiClient: createApiClient
+}
+```
+
+Consume it inside a `$`-variant operation like any other dependency:
+
+```ts
+.withDependencies(({ time, apiClient }, vertex) =>
+   vertex.loadFromFields$(['query'], {
+      results: pipe(
+         map(({ query }) => query.trim()),
+         time.debounce(300),
+         distinctUntilChanged(),
+         switchMap(q => apiClient.search(q))
+      )
+   })
+)
+```
+
+In tests, inject an **identity operator** so the debounced field resolves
+synchronously under your `Subject.next` script — you don't fake time, you
+inject past it:
+
+```ts
+rootVertexConfig.injectedWith({ time: { debounce: () => map(v => v) } })
+```
+
+The full example is `examples/injectableOperator.ts`, pinned by
+`examples/injectableOperator.test.ts`. The `verdux-testing` skill covers why
+this replaces marble tests.
+
 ## Picking between the APIs
 
 | Need                                                | Use                                |
@@ -140,6 +184,7 @@ behaves as a dispatcher and picks its backing implementation internally.
 | Register a service everyone can use                 | Root `dependencies`                |
 | Give a child vertex a tailored view of a service    | Downstream `dependencies`          |
 | Use a service inside a vertex's operations          | `.withDependencies(deps, vertex)`  |
+| Make a debounced / timed field testable             | operator-as-dependency + identity override |
 | Swap a service for testing or environment switching | `.injectedWith(...)` in createGraph |
 
 ## Anti-patterns

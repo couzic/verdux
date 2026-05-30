@@ -148,6 +148,12 @@ A realistic debounced search loader (from `verdux-graph-design`'s
 })
 ```
 
+> **Testability note.** When the timing operator (`debounceTime` here) is
+> **injected as a dependency** rather than imported, you can swap it for an
+> identity operator in tests and the debounced field resolves synchronously —
+> no fake timers. See the injectable-operator pattern in
+> `verdux-dependency-injection`.
+
 ## Action-reacting operations
 
 All four are demonstrated in `examples/reactionOperations.ts`. `reaction`,
