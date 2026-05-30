@@ -13,7 +13,7 @@ export const makeTestGraph = () => {
 
    const fakeApiClient: Partial<ApiClient> = {
       getProduct: () => productLoad$.asObservable(),
-      listProducts: () => new Subject().asObservable()
+      listProducts: () => new Subject<unknown[]>().asObservable()
    }
 
    const graph = createGraph({

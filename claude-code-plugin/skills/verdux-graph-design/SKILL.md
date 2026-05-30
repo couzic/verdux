@@ -31,6 +31,9 @@ Why empty state on the root? State on the root is state on every subgraph's
 ancestor chain — changing it potentially re-triggers every subgraph. An empty
 root avoids this. Put real state on a dedicated downstream vertex instead.
 
+`dependencies` is optional. A root (or any vertex) that needs no services omits
+it entirely — `configureRootVertex({ slice })`.
+
 ## One vertex per route is a good default
 
 - **Route-per-vertex.** Each routed page gets its own vertex, colocated in the
@@ -109,6 +112,76 @@ Two patterns that work well:
   the parent route as a vertex holding the shared fields; model each child
   route as a nested vertex with `upstreamFields: [<shared>]`.
 
+## Multiple upstreams (the exception to tree-first)
+
+Everything above is **tree-first**: a vertex is created from its single parent
+via `parent.configureDownstreamVertex(...)`, and the whole graph is a tree of
+those calls. That is the default and covers the large majority of vertices.
+
+Reach for `configureVertex(...)` **only when one parent isn't enough** — when a
+vertex must read fields or dependencies from **more than one upstream vertex**,
+i.e. a genuine multi-parent DAG node (two sibling sections feeding a combined
+view, a summary that joins two unrelated subtrees, etc.). It is the exception,
+not a co-equal default.
+
+`configureDownstreamVertex` is in fact just sugar over this builder: it calls
+`configureVertex` with a single `addUpstreamVertex(parent)`. The builder form
+exposes that wiring so you can add **several** upstreams:
+
+```ts
+import { configureVertex } from 'verdux'
+
+// root
+//  ├── user     (owns `userId`)
+//  ├── filters  (owns `dateRange`)
+//  └── dashboard  ← reads from BOTH siblings
+export const dashboardVertexConfig = configureVertex(
+   { slice: dashboardSlice },
+   builder =>
+      builder
+         .addUpstreamVertex(userVertexConfig, {
+            fields: ['userId'],
+            dependencies: ['kpiService']
+         })
+         .addUpstreamVertex(filtersVertexConfig, {
+            fields: ['dateRange']
+         })
+).withDependencies(({ kpiService }, vertex) =>
+   vertex.loadFromFields(['userId', 'dateRange'], {
+      kpi: ({ userId, dateRange }) => kpiService.fetch(userId, dateRange)
+   })
+)
+```
+
+`addUpstreamVertex(config, { fields, dependencies })` declares one upstream:
+`fields` are the upstream fields this vertex reads and change-detects on (the
+multi-parent analogue of `upstreamFields`), and `dependencies` selects which of
+that upstream's dependencies to pull in.
+
+### How dependencies resolve across upstreams
+
+This is the one behavior that differs from the single-parent path, so be
+deliberate:
+
+- **Single parent (`configureDownstreamVertex`)** — the child inherits the
+  parent's **entire** dependency object automatically. A service registered at
+  the root therefore reaches every tree-first descendant for free; you never
+  list dependencies.
+- **Multiple parents (`addUpstreamVertex`)** — pull what you use, per upstream:
+  - Pass `dependencies: ['kpiService', ...]` to inherit **only** those keys
+    from that upstream.
+  - **Omit** the `dependencies` option entirely to inherit **all** of that
+    upstream's dependencies.
+
+So a root dependency reaches a multi-parent vertex only through an upstream
+that carries it — pulled by name, or inherited wholesale by omitting
+`dependencies`. Decide per upstream; there is no graph-wide auto-flow into a
+multi-parent node.
+
+The full, compiling example (root `kpiService`, two sibling vertices, and the
+combined `dashboard`) is in `examples/multiUpstreamVertexConfig.ts`, with the
+dependency-resolution behavior pinned by `examples/multiUpstream.test.ts`.
+
 ## Registration
 
 Every non-root config is passed to `createGraph({ vertices: [...] })` as a
@@ -150,4 +223,7 @@ export const graph = createGraph({
 - `verdux-react-integration` skill — how components read the fields a vertex
   produces.
 - `verdux-testing` skill — how to test the graph structure you design.
-- `examples/` in this skill — canonical root, flat, and nested vertex configs.
+- `verdux-operations` skill — the nine operations each vertex can run, and
+  when to reach for each.
+- `examples/` in this skill — canonical root, flat, nested, and multi-upstream
+  vertex configs.

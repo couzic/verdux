@@ -17,7 +17,23 @@
 - [DevTools (WIP)](#devtools-wip)
 - [But `redux` sucks, right ?](#but-redux-sucks-right-)
 - [Install](#install)
+  - [Create](#create)
+    - [`configureRootVertex()`](#configurerootvertex)
+    - [`createGraph()`](#creategraph)
+  - [Computed values (synchronous)](#computed-values-synchronous)
+    - [`computeFromFields()`](#computefromfields)
+  - [Loading data](#loading-data)
+    - [`load()`](#load)
+    - [`loadFromFields()`](#loadfromfields)
+  - [Consuming the state](#consuming-the-state)
+    - [`vertex.currentState`](#vertexcurrentstate)
+    - [`vertex.state$`](#vertexstate)
+  - [Actions and Reactions](#actions-and-reactions)
+    - [`reaction()`](#reaction)
+    - [`reaction$()`](#reaction)
+    - [`sideEffect()`](#sideeffect)
 - [Testing](#testing)
+  - [Test Setup](#test-setup)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 

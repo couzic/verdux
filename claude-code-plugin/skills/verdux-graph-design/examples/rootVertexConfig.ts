@@ -7,10 +7,15 @@ import { configureRootVertex } from 'verdux'
 // live in their own modules (services/apiClient.ts, router.ts, etc.) and get
 // imported here.
 
+export interface Product {
+   id: string
+   name: string
+}
+
 const createApiClient = () => ({
    getProduct: (id: string) =>
       ajax
-         .getJSON(`/api/products/${id}`)
+         .getJSON<Product>(`/api/products/${id}`)
          .pipe(
             catchError(err =>
                err.status === 404 ? of(null) : throwError(() => err)

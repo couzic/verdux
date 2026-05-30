@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { filter, map, mergeMap, of } from 'rxjs'
+import { filter, map, mergeMap, Observable, of } from 'rxjs'
 import { rootVertexConfig } from './rootVertexConfig'
 
 // A three-level nested graph:
@@ -19,9 +19,13 @@ export const productPageVertexConfig = rootVertexConfig
    .configureDownstreamVertex({ slice: productPageSlice })
    .withDependencies(({ router, apiClient }, vertex) =>
       vertex.load({
-         product: router.productPage.match$.pipe(
+         product: (
+            router.productPage.match$ as Observable<{
+               params: { id: string }
+            }>
+         ).pipe(
             filter(Boolean),
-            map(({ params }) => params.id),
+            map(match => match.params.id),
             mergeMap(id => apiClient.getProduct(id))
          )
       })

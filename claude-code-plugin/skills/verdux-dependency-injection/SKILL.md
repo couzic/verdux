@@ -158,3 +158,5 @@ behaves as a dispatcher and picks its backing implementation internally.
 - `verdux-testing` skill — how `.injectedWith` plus RxJS `Subject` stubs form
   the canonical test setup.
 - `verdux-graph-design` skill — where dependencies fit in the overall graph.
+- `verdux-operations` skill — the operations (loaders, reactions) that consume
+  the injected services.

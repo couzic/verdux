@@ -44,5 +44,11 @@ export const rootVertexConfig = configureRootVertex({
    }
 })
 
-// Placeholder — your real router singleton lives elsewhere.
-declare const router: any
+// Placeholder router singleton — in a real project this is your actual router
+// instance, imported from its own module. `match$` emits the matched route
+// with its params; here it emits one canned match so examples run end-to-end.
+const router = {
+   productPage: {
+      match$: of({ params: { id: 'placeholder' } as { id: string } })
+   }
+} as any

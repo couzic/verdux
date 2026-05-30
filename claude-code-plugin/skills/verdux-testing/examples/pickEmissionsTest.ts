@@ -1,8 +1,8 @@
 // SNIPPET — the cross-skill import paths below are illustrative. Adjust
 // imports to match your project's layout.
 import { expect } from 'chai'
-import { Subject } from 'rxjs'
-import { createGraph, Graph, VertexInstance } from 'verdux'
+import { of, Subject } from 'rxjs'
+import { createGraph, Graph, Vertex } from 'verdux'
 import {
    rootVertexConfig,
    ApiClient
@@ -15,14 +15,14 @@ import { productPageVertexConfig } from '../../verdux-dependency-injection/examp
 
 describe('productPageVertex pick() emissions', () => {
    let graph: Graph
-   let vertex: VertexInstance<typeof productPageVertexConfig>
+   let vertex: Vertex<typeof productPageVertexConfig>
    let productLoad$: Subject<{ id: string; name: string } | null>
 
    beforeEach(() => {
       productLoad$ = new Subject()
       const fakeApiClient: Partial<ApiClient> = {
          getProduct: () => productLoad$.asObservable(),
-         listProducts: () => new Subject().asObservable()
+         listProducts: () => of<unknown[]>([])
       }
       graph = createGraph({
          vertices: [

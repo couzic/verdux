@@ -21,12 +21,12 @@ Build a fresh graph in `beforeEach` so tests never leak state into each
 other.
 
 ```ts
-import { createGraph, Graph, VertexInstance } from 'verdux'
+import { createGraph, Graph, Vertex } from 'verdux'
 import { productPageVertexConfig } from './productPageVertexConfig'
 
 describe('productPageVertex', () => {
    let graph: Graph
-   let vertex: VertexInstance<typeof productPageVertexConfig>
+   let vertex: Vertex<typeof productPageVertexConfig>
 
    beforeEach(() => {
       graph = createGraph({ vertices: [productPageVertexConfig] })
@@ -50,7 +50,7 @@ import { Subject } from 'rxjs'
 
 describe('productPageVertex', () => {
    let graph: Graph
-   let vertex: VertexInstance<typeof productPageVertexConfig>
+   let vertex: Vertex<typeof productPageVertexConfig>
    let productLoad$: Subject<Product>
 
    beforeEach(() => {
@@ -102,7 +102,10 @@ expect(vertex.currentLoadableState.errors).to.have.length(1)
 For continuous observation, subscribe and capture in a closure:
 
 ```ts
-let latest: VertexLoadableState<typeof vertex>
+// `VertexLoadableState` is parameterized by a vertex's *fields*, not by the
+// vertex itself; `typeof vertex.currentLoadableState` is the ergonomic way to
+// name the captured type.
+let latest: typeof vertex.currentLoadableState
 vertex.loadableState$.subscribe(_ => (latest = _))
 ```
 
@@ -188,3 +191,4 @@ flavor changes.
   rerender test.
 - `verdux-dependency-injection` skill — the mechanics of `.injectedWith`.
 - `verdux-graph-design` skill — designing the graph you're testing.
+- `verdux-operations` skill — the operations whose output you assert on.

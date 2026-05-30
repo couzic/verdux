@@ -1,12 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit'
-import {
-   distinctUntilChanged,
-   filter,
-   map,
-   mergeMap,
-   of,
-   switchMap
-} from 'rxjs'
+import { distinctUntilChanged, filter, map, Observable, of } from 'rxjs'
 import { rootVertexConfig } from './rootWithDeps'
 
 // The classic `.withDependencies((deps, vertex) => vertex.<ops>(...))` shape.
@@ -24,10 +17,16 @@ export const productPageVertexConfig = rootVertexConfig
    .withDependencies(({ apiClient, router }, vertex) =>
       vertex
          .load({
-            // URL param → observable stream of product id
-            productId: router.productPage.match$.pipe(
+            // URL param → observable stream of product id. The router is an
+            // untyped dependency here, so we annotate the shape its match$
+            // emits at the point of use.
+            productId: (
+               router.productPage.match$ as Observable<{
+                  params: { id: string }
+               }>
+            ).pipe(
                filter(Boolean),
-               map(({ params }) => params.id as string),
+               map(match => match.params.id),
                distinctUntilChanged()
             )
          })

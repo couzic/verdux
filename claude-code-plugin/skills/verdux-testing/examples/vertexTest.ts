@@ -2,8 +2,8 @@
 // project, `rootVertexConfig` / `productPageVertexConfig` / `ApiClient` live
 // wherever you defined them; adjust imports to your layout.
 import { expect } from 'chai'
-import { Subject } from 'rxjs'
-import { createGraph, Graph, VertexInstance } from 'verdux'
+import { of, Subject } from 'rxjs'
+import { createGraph, Graph, Vertex } from 'verdux'
 import {
    rootVertexConfig,
    ApiClient
@@ -16,14 +16,14 @@ import { productPageVertexConfig } from '../../verdux-dependency-injection/examp
 
 describe('productPageVertex', () => {
    let graph: Graph
-   let vertex: VertexInstance<typeof productPageVertexConfig>
+   let vertex: Vertex<typeof productPageVertexConfig>
    let productLoad$: Subject<{ id: string; name: string } | null>
 
    beforeEach(() => {
       productLoad$ = new Subject()
       const fakeApiClient: Partial<ApiClient> = {
          getProduct: () => productLoad$.asObservable(),
-         listProducts: () => new Subject().asObservable()
+         listProducts: () => of<unknown[]>([])
       }
       graph = createGraph({
          vertices: [
@@ -55,5 +55,14 @@ describe('productPageVertex', () => {
    it('maps a 404 to null', () => {
       productLoad$.next(null)
       expect(vertex.currentState.product).to.equal(null)
+   })
+
+   it('can capture the latest loadable state continuously', () => {
+      // `typeof vertex.currentLoadableState` is the ergonomic way to name the
+      // captured loadable-state type (VertexLoadableState is keyed by fields).
+      let latest: typeof vertex.currentLoadableState
+      vertex.loadableState$.subscribe(_ => (latest = _))
+      productLoad$.next({ id: 'abc', name: 'Widget' })
+      expect(latest!.status).to.equal('loaded')
    })
 })

@@ -1,0 +1,19 @@
+{
+   "compilerOptions": {
+      "strict": true,
+      "target": "es2019",
+      "lib": ["es2019", "dom", "dom.iterable"],
+      "module": "commonjs",
+      "moduleResolution": "node",
+      "esModuleInterop": true,
+      "jsx": "react-jsx",
+      "skipLibCheck": true,
+      "noEmit": true,
+      "baseUrl": ".",
+      "paths": {
+         "verdux": ["../../src/index.ts"]
+      }
+   },
+   "include": ["**/*.ts", "**/*.tsx"],
+   "exclude": ["node_modules"]
+}
