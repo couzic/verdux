@@ -1,7 +1,7 @@
 {
-   "name": "verdux-skills-examples",
+   "name": "verdux-example-check",
    "private": true,
-   "description": "Compile/run verification harness for the verdux plugin skill examples. Shared deps (rxjs, @reduxjs/toolkit, mocha, ts-node, typescript, chai) resolve from the repo-root node_modules; only React-side and path-resolution deps are installed here.",
+   "description": "Compile/run harness that type-checks and runs the example code in ../skills against the real verdux source. Shared deps (rxjs, @reduxjs/toolkit, mocha, ts-node, typescript, chai) resolve from the repo-root node_modules; only React-side and path-resolution deps are installed here.",
    "scripts": {
       "typecheck": "tsc --noEmit -p tsconfig.json",
       "test": "mocha"

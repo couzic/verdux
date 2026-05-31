@@ -1,5 +1,22 @@
 {
   "name": "verdux",
   "version": "0.1.0",
-  "description": "React-focused skills for using the verdux state-management library in web projects"
+  "description": "React-focused skills for using the verdux state-management library in web projects",
+  "author": {
+    "name": "Mikael Couzic",
+    "email": "mikaelcouzic@gmail.com",
+    "url": "https://github.com/couzic"
+  },
+  "homepage": "https://github.com/couzic/verdux#readme",
+  "repository": "https://github.com/couzic/verdux",
+  "license": "MIT",
+  "keywords": [
+    "verdux",
+    "state-management",
+    "redux",
+    "rxjs",
+    "react",
+    "reactive",
+    "dependency-injection"
+  ]
 }

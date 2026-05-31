@@ -11,10 +11,10 @@ module.exports = {
    spec: [
       // The two testing-skill examples are named *Test.ts (referenced by name
       // in that skill's prose); other runnable checks use the *.test.ts suffix.
-      'verdux-testing/examples/*Test.ts',
-      '**/examples/*.test.ts',
-      // Eval regression suite: code a skills-only agent produced (see _eval/).
-      '_eval/*.test.ts'
+      '../skills/verdux-testing/examples/*Test.ts',
+      '../skills/**/examples/*.test.ts',
+      // Extra sample code (task*.test.ts) that must also compile and pass.
+      '*.test.ts'
    ],
    reporter: 'spec'
 }

@@ -2,8 +2,8 @@ import { createSlice } from '@reduxjs/toolkit'
 import { Suspense } from 'react'
 import { of } from 'rxjs'
 import { configureRootVertex, createGraph } from 'verdux'
-import { GraphContext } from '../verdux-react-integration/examples/GraphContext'
-import { useVertexState } from '../verdux-react-integration/examples/useVertexState'
+import { GraphContext } from '../skills/verdux-react-integration/examples/GraphContext'
+import { useVertexState } from '../skills/verdux-react-integration/examples/useVertexState'
 
 // ---------------------------------------------------------------------------
 // Vertex config — tree-first: a root vertex (a bare dependency well with an

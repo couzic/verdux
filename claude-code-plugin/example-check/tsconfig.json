@@ -11,9 +11,17 @@
       "noEmit": true,
       "baseUrl": ".",
       "paths": {
-         "verdux": ["../../src/index.ts"]
+         "verdux": ["../../src/index.ts"],
+         "react": ["./node_modules/@types/react"],
+         "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+         "observable-hooks": ["./node_modules/observable-hooks"]
       }
    },
-   "include": ["**/*.ts", "**/*.tsx"],
+   "include": [
+      "**/*.ts",
+      "**/*.tsx",
+      "../skills/**/*.ts",
+      "../skills/**/*.tsx"
+   ],
    "exclude": ["node_modules"]
 }
