@@ -1,5 +1,5 @@
 ---
-name: verdux-graph-design
+name: graph-design
 description: How to structure a React app's vertex graph in verdux. Covers the root-vertex-as-DI-well convention, when to create a downstream vertex via configureDownstreamVertex, when to track upstreamFields for change detection, nesting versus flat layouts, and why the router is a dependency rather than a vertex. Use whenever the user is designing a verdux graph, adding a vertex, deciding how to decompose features, or asking "should this be a vertex?" — even when they don't explicitly mention verdux.
 ---
 
@@ -237,7 +237,7 @@ export const graph = createGraph({
 
 - **Don't share selectors across components.** Each component calls
   `vertex.pick([...])` with the exact fields it needs — see the
-  `verdux-react-integration` skill.
+  `verdux:react-integration` skill.
 - **Don't put meaningful state on the root vertex** unless every subgraph
   genuinely needs to re-run when it changes.
 - **Don't use `reaction` / `reaction$` for cascade loading.** Use
@@ -248,12 +248,12 @@ export const graph = createGraph({
 
 ## See also
 
-- `verdux-dependency-injection` skill — details of declaring, deriving, and
+- `verdux:dependency-injection` skill — details of declaring, deriving, and
   overriding dependencies.
-- `verdux-react-integration` skill — how components read the fields a vertex
+- `verdux:react-integration` skill — how components read the fields a vertex
   produces.
-- `verdux-testing` skill — how to test the graph structure you design.
-- `verdux-operations` skill — the nine operations each vertex can run, and
+- `verdux:testing` skill — how to test the graph structure you design.
+- `verdux:operations` skill — the nine operations each vertex can run, and
   when to reach for each.
 - `examples/` in this skill — canonical root, flat, nested, and multi-upstream
   vertex configs.

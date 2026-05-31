@@ -76,7 +76,7 @@ export const dashboardVertexConfig = configureVertex(
          // dependency that flowed down to `user` from the root. A root
          // dependency does NOT auto-flow to a multi-parent vertex — it must be
          // pulled here (or the whole upstream's deps inherited by omitting the
-         // `dependencies` option). See verdux-graph-design "multiple upstreams".
+         // `dependencies` option). See verdux:graph-design "multiple upstreams".
          .addUpstreamVertex(userVertexConfig, {
             fields: ['userId'],
             dependencies: ['kpiService']

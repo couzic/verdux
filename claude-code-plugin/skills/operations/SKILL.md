@@ -1,5 +1,5 @@
 ---
-name: verdux-operations
+name: operations
 description: Reference for the nine vertex operations in verdux and when to reach for each. Covers the field-producing operations (computeFromFields, computeFromFields$, load, loadFromFields, loadFromFields$) and the action-reacting operations (reaction, reaction$, fieldsReaction, sideEffect), with a decision table and the sync-vs-stream and loadable-vs-plain distinctions. Use whenever the user is working on a single vertex's behavior — deriving a field, loading data, cascading one load off another, reacting to an action, or asking "which operation should I use" / "how do I use load / loadFromFields / computeFromFields / reaction / sideEffect".
 ---
 
@@ -43,7 +43,7 @@ export const vertexConfig = rootVertexConfig
 ```
 
 If none of your operations call a service, skip `.withDependencies` entirely
-and chain directly. See the `verdux-dependency-injection` skill for the
+and chain directly. See the `verdux:dependency-injection` skill for the
 service-injection mechanics.
 
 ## Which operation? (decision table)
@@ -134,7 +134,7 @@ live.
 })
 ```
 
-A realistic debounced search loader (from `verdux-graph-design`'s
+A realistic debounced search loader (from `verdux:graph-design`'s
 `flatVertexConfig.ts`):
 
 ```ts
@@ -152,7 +152,7 @@ A realistic debounced search loader (from `verdux-graph-design`'s
 > **injected as a dependency** rather than imported, you can swap it for an
 > identity operator in tests and the debounced field resolves synchronously —
 > no fake timers. See the injectable-operator pattern in
-> `verdux-dependency-injection`.
+> `verdux:dependency-injection`.
 
 ## Action-reacting operations
 
@@ -223,7 +223,7 @@ imperative navigation.
 - `examples/computeAndLoadOperations.ts` — the five field-producing operations,
   with `examples/operations.test.ts` asserting their runtime behavior.
 - `examples/reactionOperations.ts` — the four action-reacting operations.
-- `verdux-graph-design` skill — where these operations sit in the larger graph,
+- `verdux:graph-design` skill — where these operations sit in the larger graph,
   and how `.withDependencies(...)` injects services into a loader.
-- `verdux-dependency-injection` skill — supplying the services that loaders call.
-- `verdux-testing` skill — asserting on the fields these operations produce.
+- `verdux:dependency-injection` skill — supplying the services that loaders call.
+- `verdux:testing` skill — asserting on the fields these operations produce.

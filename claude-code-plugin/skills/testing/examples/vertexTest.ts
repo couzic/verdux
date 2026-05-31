@@ -7,8 +7,8 @@ import { createGraph, Graph, Vertex } from 'verdux'
 import {
    rootVertexConfig,
    ApiClient
-} from '../../verdux-dependency-injection/examples/rootWithDeps'
-import { productPageVertexConfig } from '../../verdux-dependency-injection/examples/withDependenciesChain'
+} from '../../dependency-injection/examples/rootWithDeps'
+import { productPageVertexConfig } from '../../dependency-injection/examples/withDependenciesChain'
 
 // Canonical vertex test. Builds a fresh graph per test; injects Subject-based
 // service stubs; asserts on currentState / currentLoadableState; drives time

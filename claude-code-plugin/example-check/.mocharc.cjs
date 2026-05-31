@@ -11,7 +11,7 @@ module.exports = {
    spec: [
       // The two testing-skill examples are named *Test.ts (referenced by name
       // in that skill's prose); other runnable checks use the *.test.ts suffix.
-      '../skills/verdux-testing/examples/*Test.ts',
+      '../skills/testing/examples/*Test.ts',
       '../skills/**/examples/*.test.ts',
       // Extra sample code (task*.test.ts) that must also compile and pass.
       '*.test.ts'

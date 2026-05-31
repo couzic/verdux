@@ -1,5 +1,5 @@
 ---
-name: verdux-react-integration
+name: react-integration
 description: How to bind React components to a verdux graph. Covers the module-singleton graph, GraphContext, the Suspense-first useVertexState hook (via observable-hooks), useDispatch, fine-grained per-leaf field picking for rerender minimization, and in-band sentinels for empty or error states. Use whenever the user is wiring verdux into a React app, reading vertex state in a component, handling loading UI, dispatching actions, or trying to minimize rerenders.
 ---
 
@@ -243,8 +243,8 @@ only when Suspense genuinely isn't an option.
 
 - `examples/` in this skill — copy-paste `useVertexState.ts`,
   `useDispatch.ts`, `GraphContext.ts`, and a sample page component.
-- `verdux-graph-design` skill — where this layer fits in the bigger
+- `verdux:graph-design` skill — where this layer fits in the bigger
   picture.
-- `verdux-testing` skill — note that the component layer is not exercised
+- `verdux:testing` skill — note that the component layer is not exercised
   by verdux's own test suite; component tests require React Testing Library
   wrapped in the `GraphContext.Provider`.

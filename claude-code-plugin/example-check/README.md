@@ -9,7 +9,7 @@ fails here.
 ## What it covers
 
 - Every `../skills/*/examples/*.ts` / `*.tsx` file (type-checked).
-- The example tests (`../skills/verdux-testing/examples/*Test.ts` and
+- The example tests (`../skills/testing/examples/*Test.ts` and
   `../skills/**/examples/*.test.ts`) are executed.
 - Extra sample code in this folder, produced by a clean agent given only the
   skills (`../skills/*/SKILL.md` + their `examples/`) and forbidden from reading

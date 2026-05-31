@@ -1,5 +1,5 @@
 ---
-name: verdux-dependency-injection
+name: dependency-injection
 description: How to wire and override dependencies in a verdux graph. Covers root-level dependency factories, deriving child dependencies, scoping vertex operations to resolved deps via .withDependencies(), and overriding dependencies for tests or environments via .injectedWith(). Use whenever the user is adding a service (API client, router, clock, logger) to a verdux graph, configuring a graph for tests, swapping a real service for a fake, or asking how to pass anything into a vertex operation.
 ---
 
@@ -124,7 +124,7 @@ Only override what differs; other dependencies resolve normally. Typical
 uses:
 
 - **Tests** — inject `Subject`-based stubs so the test drives the service's
-  observable emissions directly. See the `verdux-testing` skill.
+  observable emissions directly. See the `verdux:testing` skill.
 - **Environment switching** — production vs staging vs a local mock server.
 - **Storybook / dev harness** — render a feature in isolation against a
   canned dataset.
@@ -174,7 +174,7 @@ rootVertexConfig.injectedWith({ time: { debounce: () => map(v => v) } })
 ```
 
 The full example is `examples/injectableOperator.ts`, pinned by
-`examples/injectableOperator.test.ts`. The `verdux-testing` skill covers why
+`examples/injectableOperator.test.ts`. The `verdux:testing` skill covers why
 this replaces marble tests.
 
 ## Picking between the APIs
@@ -200,8 +200,8 @@ this replaces marble tests.
 
 - `examples/` in this skill — root with deps, a `withDependencies` chain, an
   injected-for-test snippet.
-- `verdux-testing` skill — how `.injectedWith` plus RxJS `Subject` stubs form
+- `verdux:testing` skill — how `.injectedWith` plus RxJS `Subject` stubs form
   the canonical test setup.
-- `verdux-graph-design` skill — where dependencies fit in the overall graph.
-- `verdux-operations` skill — the operations (loaders, reactions) that consume
+- `verdux:graph-design` skill — where dependencies fit in the overall graph.
+- `verdux:operations` skill — the operations (loaders, reactions) that consume
   the injected services.

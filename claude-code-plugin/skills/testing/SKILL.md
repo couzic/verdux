@@ -1,5 +1,5 @@
 ---
-name: verdux-testing
+name: testing
 description: How to test verdux vertices as cohesive units of functionality rather than testing reducers, selectors, and thunks in isolation. Covers per-test graph construction, mocking services via .injectedWith() plus RxJS Subject stubs, asserting on currentState and currentLoadableState, and verifying rerender minimization via pick() emission counters. Use whenever the user is writing tests for a verdux vertex, setting up test fixtures, or asking "how do I test this reducer / loader / side effect".
 ---
 
@@ -163,7 +163,7 @@ it('tracks analytics on product view', () => {
 A `debounce` / `throttle` / `delay` makes a field resolve asynchronously, which
 would otherwise force fake timers or a `TestScheduler`. The verdux answer is to
 inject the timing **operator** as a dependency (see the
-`verdux-dependency-injection` skill) and override it with an **identity
+`verdux:dependency-injection` skill) and override it with an **identity
 operator** in the test. The field then resolves synchronously under the same
 `Subject.next` / `dispatch` script as everything else:
 
@@ -188,7 +188,7 @@ it('loads results without waiting on the debounce', () => {
 })
 ```
 
-The runnable version is `verdux-dependency-injection/examples/injectableOperator.test.ts`.
+The runnable version is `dependency-injection/examples/injectableOperator.test.ts`.
 
 ## What you don't need
 
@@ -223,6 +223,6 @@ flavor changes.
 
 - `examples/` in this skill — a complete vertex test file and a pick-emission
   rerender test.
-- `verdux-dependency-injection` skill — the mechanics of `.injectedWith`.
-- `verdux-graph-design` skill — designing the graph you're testing.
-- `verdux-operations` skill — the operations whose output you assert on.
+- `verdux:dependency-injection` skill — the mechanics of `.injectedWith`.
+- `verdux:graph-design` skill — designing the graph you're testing.
+- `verdux:operations` skill — the operations whose output you assert on.

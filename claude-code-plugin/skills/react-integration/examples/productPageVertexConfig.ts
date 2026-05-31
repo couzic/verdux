@@ -1,10 +1,10 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { of } from 'rxjs'
-import { rootVertexConfig } from '../../verdux-dependency-injection/examples/rootWithDeps'
+import { rootVertexConfig } from '../../dependency-injection/examples/rootWithDeps'
 
 // Support file for ProductPage.tsx. A real project would colocate this with
 // the page component and load `product` / `relatedProducts` from a service
-// (see verdux-graph-design). Here the loaders use static observables so the
+// (see verdux:graph-design). Here the loaders use static observables so the
 // example is self-contained and the field types line up with the component.
 
 interface Product {
