@@ -69,6 +69,19 @@
 
 https://github.com/couzic/verdux-examples
 
+## Claude Code plugin
+
+`verdux` ships a [Claude Code](https://code.claude.com) plugin with React-focused
+skills — graph design, dependency injection, operations, React integration, and
+testing. Install it from the `couzic` marketplace:
+
+```
+/plugin marketplace add couzic/claude-marketplace
+/plugin install verdux@couzic
+```
+
+The skills trigger automatically when you ask Claude about verdux.
+
 ## DevTools (WIP)
 
 ![DevTools screenshot](doc/devtools.png)

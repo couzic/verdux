@@ -21,11 +21,11 @@ directly invocable as `/verdux:verdux-graph-design`, etc.
 
 ## Installation
 
-Load the plugin from this directory:
+Install from the `couzic` marketplace:
 
-```bash
-cc --plugin-dir /path/to/verdux/claude-code-plugin
+```
+/plugin marketplace add couzic/claude-marketplace
+/plugin install verdux@couzic
 ```
 
-Or copy the plugin into your project's `.claude-plugin/` directory for
-project-scoped use.
+After new versions are published, refresh with `/plugin marketplace update couzic`.
