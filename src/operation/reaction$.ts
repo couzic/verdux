@@ -1,7 +1,6 @@
 import { UnknownAction } from '@reduxjs/toolkit'
 import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import {
-   NEVER,
    Observable,
    catchError,
    filter,
@@ -48,17 +47,18 @@ export const reaction$ =
                initialRun: false
             })
          ),
-         catchError(error => {
-            console.error(error)
-            return NEVER
-            // TODO Ouput error
-            // return of({
-            //    fields: latestInputFields,
-            //    action: undefined,
-            //    changedFields: {},
-            //    fieldsReactions: [],
-            //    reactions: []
-            // })
+         catchError((error, caught) => {
+            console.error(
+               `[verdux] reaction$ on "${trackedAction.type}" threw an error. ` +
+                  'The reaction stream stays alive; future matching actions will still be processed.',
+               error
+            )
+            // Resubscribe to the same pipeline so future tracked actions
+            // still produce reactions. `caught` is the Observable that was
+            // being subscribed to; returning it creates a fresh subscription
+            // to the shared `inputData$` source, which only emits future
+            // values (no replay), so this is safe from infinite loops.
+            return caught
          })
       )
       return merge(inputData$, outputReaction$)

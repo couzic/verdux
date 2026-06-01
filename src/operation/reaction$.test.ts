@@ -92,27 +92,4 @@ describe(sut.name, () => {
       })
    })
 
-   // TODO Output error
-   // it('handles error in mapper', () => {
-   //    const trackedAction = createAction('trackedAction')
-   //    const outputAction = createAction('outputAction')
-   //    const input: VertexRunData = {
-   //       action: trackedAction(),
-   //       fields: {},
-   //       changedFields: {},
-   //       fieldsReactions: [],
-   //       reactions: []
-   //    }
-   //    let outputEmissions = 0
-   //    reaction$(
-   //       trackedAction,
-   //       map(() => {
-   //          throw new Error('error')
-   //          return outputAction()
-   //       })
-   //    )(of(input)).subscribe(() => {
-   //       outputEmissions++
-   //    })
-   //    expect(outputEmissions).to.equal(2)
-   // })
 })
