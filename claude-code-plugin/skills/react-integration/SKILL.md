@@ -238,6 +238,11 @@ only when Suspense genuinely isn't an option.
 - **Don't create nested `GraphContext.Provider`s.** One per tree.
 - **Don't read `vertex.currentState` inside render.** It's a snapshot that
   won't trigger a rerender. Use the hook.
+- **Don't hold singleton feature state in `useState`.** Form drafts, an
+  `editing` / `open` flag, a wizard step belong in the vertex slice, dispatched
+  via actions — not local state synced back with `useEffect`. `useState` is for
+  purely presentational, reusable state (`isHovered`, animation offsets). See
+  the `verdux:graph-design` "State boundary" rule.
 
 ## See also
 

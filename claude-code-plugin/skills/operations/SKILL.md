@@ -100,15 +100,26 @@ values. Use it for derivations that need stream context.
 
 ### `load(loaders)`
 
-A loadable field fed by a standalone observable — no field inputs. Ideal for a
-value that comes straight from a dependency's stream (a router match, a
-websocket, a one-shot fetch).
+A loadable field fed by a standalone observable — no field inputs. Reach for it
+when a field's value comes straight from a dependency's stream and the **latest
+value is what the field always means**: a *value-stream* like a route match, a
+live price, a presence flag, or a one-shot fetch.
 
 ```ts
 .load({
    greeting: of('hello')
 })
 ```
+
+> **Value-stream, not event-stream.** `load` is for streams whose latest value
+> *is* the field. It is the wrong tool for a stream of **discrete events** — a
+> WebSocket message, a session revocation, a notification trigger — where each
+> occurrence drives a *consequence* rather than naming a current value. A
+> "last event" field is an anti-pattern: it can't fire on two identical
+> consecutive events and can't carry an imperative effect (navigation, a
+> toast). Bridge an event stream to a **dispatched action** instead, then
+> handle it with `reaction` / `sideEffect` — see "Bridging an external stream"
+> below.
 
 ### `loadFromFields(fields, loaders)`
 
@@ -148,11 +159,13 @@ A realistic debounced search loader (from `verdux:graph-design`'s
 })
 ```
 
-> **Testability note.** When the timing operator (`debounceTime` here) is
-> **injected as a dependency** rather than imported, you can swap it for an
-> identity operator in tests and the debounced field resolves synchronously —
-> no fake timers. See the injectable-operator pattern in
-> `verdux:dependency-injection`.
+> **Imported vs injected timing.** The operator is **imported** here — the
+> simple default, and the right choice until timing gets in your way. The one
+> reason to switch: **testing** the debounced field. Inject the timing operator
+> as a dependency instead and swap it for an identity operator in tests, so the
+> field resolves synchronously with no fake timers. That's the only trade — for
+> a field you won't test on timing, keep the import. See the injectable-operator
+> pattern in `verdux:dependency-injection`.
 
 ## Loader errors
 
@@ -183,6 +196,17 @@ its loader:
 All four are demonstrated in `examples/reactionOperations.ts`. `reaction`,
 `reaction$`, and `fieldsReaction` **re-dispatch** their result back through the
 store; `sideEffect` dispatches nothing.
+
+> **Common trap — these take an action creator, not an Observable.**
+> `reaction(actionCreator, …)`, `reaction$(actionCreator, …)`, and
+> `sideEffect(actionCreator, …)` all key off a **tracked action**. `reaction$`
+> is the easy mistake: it *manipulates* an `action$` stream, so it looks like
+> it could *consume* an external one — but the stream it hands your mapper is
+> the stream **of that action creator**, never an Observable you supply. You
+> cannot feed an SSE / WebSocket / router stream into `reaction$`. To bring an
+> external stream in, **bridge it to a dispatched action** (next section). Only
+> the `load*` family consumes an injected Observable — and it produces a field,
+> not a reaction.
 
 ### `reaction(actionCreator, mapper)`
 
@@ -226,6 +250,37 @@ imperative navigation.
    analytics.track('incremented')
 })
 ```
+
+## Bringing an external system in: value-stream vs event-stream
+
+Every external input enters the graph one of two ways, decided by its nature —
+not by what API the source happens to expose.
+
+- **Value-stream → `load*`.** The source's *latest value is the field*: a route
+  match, a live price, a presence flag, the result of a fetch. Adapt it to an
+  Observable (if it isn't one already) and `load` it. A router that only
+  exposes an imperative `subscribe()` is still a value-stream — wrap it once
+  (`new Observable(sub => router.subscribe(() => sub.next(current())))`) and
+  load off that.
+
+- **Event-stream → bridge to a dispatched action.** The source emits *discrete
+  events*, each driving a consequence: a WebSocket message, an SSE
+  `auth-revoked`, a push notification. There is **no operation that subscribes
+  to an external stream for you.** Subscribe once at app bootstrap and
+  `dispatch` an action per event; the vertex then reacts to that *action*:
+
+```ts
+// bootstrap (outside any vertex): one subscription → dispatch
+sse.on('auth-revoked', () => graph.dispatch(authRevoked()))
+
+// the vertex reacts to the ACTION, not to the stream
+.sideEffect(authRevoked, () => router.navigate('/login'))
+```
+
+This is the only correct shape for push-style server events — the most common
+external integration, and the one the "value comes from a stream" framing pulls
+people away from. If you catch yourself trying to pass a WebSocket/SSE/router
+Observable to `reaction$`, you want this bridge instead.
 
 ## Rules of thumb
 

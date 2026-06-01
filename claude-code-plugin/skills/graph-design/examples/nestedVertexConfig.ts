@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { filter, map, mergeMap, Observable, of } from 'rxjs'
+import { distinctUntilChanged, map, switchMap, Observable, of } from 'rxjs'
 import { rootVertexConfig } from './rootVertexConfig'
 
 // A three-level nested graph:
@@ -17,19 +17,28 @@ const productPageSlice = createSlice({
 
 export const productPageVertexConfig = rootVertexConfig
    .configureDownstreamVertex({ slice: productPageSlice })
-   .withDependencies(({ router, apiClient }, vertex) =>
-      vertex.load({
-         product: (
-            router.productPage.match$ as Observable<{
-               params: { id: string }
-            }>
-         ).pipe(
-            filter(Boolean),
-            map(match => match.params.id),
-            mergeMap(id => apiClient.getProduct(id))
+   .withDependencies(({ router, apiClient }, vertex) => {
+      // A standard router exposes an imperative subscribe(), not an Observable.
+      // Adapt it once into a value-stream of the current route params, then
+      // load off it (a route match is a value-stream — `load` is its home).
+      const routeParams$ = new Observable<{ id: string }>(subscriber => {
+         const current = () => {
+            const { matches } = router.state
+            return matches[matches.length - 1].params
+         }
+         subscriber.next(current())
+         return router.subscribe('onResolved', () => subscriber.next(current()))
+      })
+      return vertex.load({
+         product: routeParams$.pipe(
+            map(({ id }) => id),
+            distinctUntilChanged(),
+            // switchMap, not mergeMap: a new route id must cancel the in-flight
+            // fetch for the previous one, or fast navigation races stale results.
+            switchMap(id => apiClient.getProduct(id))
          )
       })
-   )
+   })
 
 // -------- child vertex with upstreamFields ----------------------------------
 

@@ -45,10 +45,14 @@ export const rootVertexConfig = configureRootVertex({
 })
 
 // Placeholder router singleton — in a real project this is your actual router
-// instance, imported from its own module. `match$` emits the matched route
-// with its params; here it emits one canned match so examples run end-to-end.
+// (e.g. TanStack Router), imported from its own module. A standard router
+// exposes an imperative subscribe() plus a current `state`, NOT an Observable.
+// A vertex adapts that into a value-stream where it consumes route params —
+// see `withDependenciesChain.ts`. Here `state` carries one canned match and
+// subscribe() is a no-op so the examples run end-to-end.
 const router = {
-   productPage: {
-      match$: of({ params: { id: 'placeholder' } as { id: string } })
-   }
+   state: {
+      matches: [{ params: { id: 'placeholder' } as { id: string } }]
+   },
+   subscribe: (_event: 'onResolved', _listener: () => void) => () => {}
 } as any

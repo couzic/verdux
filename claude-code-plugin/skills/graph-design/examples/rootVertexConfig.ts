@@ -29,10 +29,14 @@ const createApiClient = () => ({
       of([] as unknown[])
 })
 
+// A standard router (e.g. TanStack Router) exposes an imperative subscribe()
+// plus a current `state`, NOT an Observable. A vertex adapts that into a
+// value-stream where it consumes route params — see `nestedVertexConfig.ts`.
 const router = {
-   productPage: {
-      match$: of({ params: { id: 'placeholder' } as { id: string } })
-   }
+   state: {
+      matches: [{ params: { id: 'placeholder' } as { id: string } }]
+   },
+   subscribe: (_event: 'onResolved', _listener: () => void) => () => {}
 } as any
 
 // Empty slice — the root is just a dependency well.

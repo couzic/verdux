@@ -20,7 +20,8 @@ export const rootVertexConfig = configureRootVertex({
    dependencies: {
       router: () => router, // already-constructed singleton
       apiClient: createApiClient, // factory produces a fresh instance
-      clock: () => new Date()
+      clock: () => new Date(),
+      locale: () => navigator.language // e.g. 'en-US'
    }
 })
 ```
@@ -55,20 +56,41 @@ callback receives the resolved dependencies plus the `vertex` config itself
 ```ts
 export const productPageVertexConfig = rootVertexConfig
    .configureDownstreamVertex({ slice: productPageSlice })
-   .withDependencies(({ apiClient, router }, vertex) =>
-      vertex
+   .withDependencies(({ apiClient, router }, vertex) => {
+      // A standard router (TanStack, React Router, …) exposes an imperative
+      // subscribe(), not an Observable. Adapt it once into a value-stream of
+      // the route params, then load off it. Factor this into a `routeParams$`
+      // module if more than one vertex needs it.
+      const routeParams$ = new Observable<{ id: string }>(subscriber => {
+         const current = () => {
+            const m = router.state.matches // re-read on every resolve
+            return m[m.length - 1].params
+         }
+         subscriber.next(current())
+         return router.subscribe('onResolved', () => subscriber.next(current()))
+      })
+      return vertex
          .load({
-            product: router.productPage.match$.pipe(
-               filter(Boolean),
-               mergeMap(({ params }) => apiClient.getProduct(params.id))
+            product: routeParams$.pipe(
+               distinctUntilChanged(),
+               // switchMap cancels the in-flight fetch when the route id changes
+               switchMap(({ id }) => apiClient.getProduct(id))
             )
          })
          .loadFromFields(['product'], {
             relatedProducts: ({ product }) =>
                !product ? of([]) : apiClient.getRelated(product.id)
          })
-   )
+   })
 ```
+
+> **The router is not an Observable.** Common routers (TanStack Router, React
+> Router) expose an imperative `subscribe()` / `state`, not RxJS streams — there
+> is no `match$` / `location$` to inject. A route match *is* a value-stream (its
+> latest value is always meaningful), so the clean integration is to adapt
+> `subscribe()` into an Observable once, then `load` it — as above. Reserve a
+> dispatch bridge for *event* streams (WebSocket, SSE); see the operations
+> skill.
 
 Why wrap in `withDependencies` rather than importing services directly?
 Because the operations you declare need actual service instances, and you

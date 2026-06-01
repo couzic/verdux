@@ -47,6 +47,79 @@ it entirely — `configureRootVertex({ slice })`.
   not vertices.** The router is the canonical example: pass it via
   `dependencies`, do not model it as vertex state.
 
+## State boundary: React `useState` vs the vertex
+
+There is exactly one rule for deciding what lives in a vertex slice and what
+stays in React, and it is **non-negotiable**:
+
+> React `useState` is reserved for state that is **purely presentational and
+> locally reusable** — `isHovered`, `isFocused`, an animation offset, an
+> uncontrolled tooltip. **Every singleton piece of state tied to a route, a
+> modal, or a feature** — form drafts, a wizard's current step, pagination, an
+> `open` / `closed` flag, the `editing` flag — **belongs to the vertex and to
+> the vertex alone.**
+
+Two corollaries:
+
+- **User events translate to dispatched actions, never to local `setState`.**
+  `onChange`, `onSubmit`, `onCancel` each dispatch an action. The component
+  holds no copy of the data it is editing.
+- **Validation and transformation live in reducers or reactions, not the
+  component.** Trimming a name, capping a bio's length, toggling an interest in
+  a set — all of that is a reducer. The component is a presentational shell.
+
+**The alarm signal.** If you write a `useEffect` to sync a `useState` with a
+vertex field — the classic
+`useEffect(() => { if (wasSaving && !saving) setEditing(false) })` — the state
+is misplaced. That effect only exists because a local flag is shadowing an
+external state machine. The half-measure is *worse*: putting `editing` in the
+slice but keeping `displayName` / `bio` in `useState` fragments one form across
+two systems. The vertex then knows you are editing but not *what* you are
+editing, and the form logic can no longer be tested without mounting React.
+When a single flow (editing a form, opening a modal) mixes `dispatch` and
+`setState`, push **all** of it into the slice.
+
+A form on a route is a **singleton**: its field values, its validation, and its
+user events all belong to one vertex. The worked example
+`examples/profileFormVertexConfig.ts` puts `editing`, `displayName`, `bio`,
+`interests`, `saving`, and `error` in the slice; the component reads six fields
+and dispatches six actions, with **zero `useState` and zero `useEffect`** (the
+saved `profile` it edits comes from a loader or upstream vertex — only the edit
+buffer lives in this slice):
+
+```tsx
+const ProfileForm = ({ profile }: { profile: Profile }) => {
+   const dispatch = useDispatch()
+   const { editing, displayName, bio, interests, saving, error } =
+      useVertexState({ vertex: profileFormVertexConfig, fields: [
+         'editing', 'displayName', 'bio', 'interests', 'saving', 'error'
+      ] })
+
+   if (!editing)
+      return <button onClick={() => dispatch(editingStarted(profile))}>Edit</button>
+
+   return (
+      <form onSubmit={e => { e.preventDefault(); dispatch(submitRequested()) }}>
+         <input value={displayName}
+            onChange={e => dispatch(displayNameChanged(e.target.value))} />
+         <textarea value={bio}
+            onChange={e => dispatch(bioChanged(e.target.value))} />
+         {/* interests toggled via dispatch(interestToggled(tag)) */}
+         {error && <p role="alert">{error}</p>}
+         <button disabled={saving}>Save</button>
+         <button type="button" onClick={() => dispatch(editingCancelled())}>
+            Cancel
+         </button>
+      </form>
+   )
+}
+```
+
+This is the consistency the model buys: the whole form is testable without
+React (dispatch actions, assert on `vertex.currentState`), and the component
+cannot drift out of sync with the save lifecycle because it holds no state of
+its own.
+
 ## Creating a downstream vertex
 
 Chain `.configureDownstreamVertex(...)` off a parent config. This is how almost
@@ -54,14 +127,17 @@ every non-root vertex gets built:
 
 ```ts
 export const productPageVertexConfig = rootVertexConfig
-   .configureDownstreamVertex({
-      slice: productPageSlice
-   })
+   .configureDownstreamVertex({ slice: productPageSlice })
    .withDependencies(({ apiClient, router }, vertex) =>
+      // `router` is a dependency, not a vertex. A standard router (TanStack,
+      // React Router) exposes an imperative subscribe(), not an Observable, so
+      // adapt it once into a value-stream of the route params — `routeParams$` —
+      // then load off it. The adapter is the same few lines every time; factor
+      // it into a shared helper rather than re-inlining it. Its body lives in
+      // the dependency-injection skill and in `examples/nestedVertexConfig.ts`.
       vertex.load({
-         product: router.productPage.match$.pipe(
-            filter(Boolean),
-            map(({ params }) => params.id),
+         product: routeParams$(router).pipe(
+            map(({ id }) => id),
             distinctUntilChanged(),
             switchMap(id => apiClient.getProduct(id))
          )
@@ -70,7 +146,9 @@ export const productPageVertexConfig = rootVertexConfig
 ```
 
 The slice lives alongside the vertex config; action creators are exported so
-components can dispatch them.
+components can dispatch them. (See the dependency-injection skill for why the
+router is adapted into a value-stream rather than injected as an Observable, and
+for the full `routeParams$` adapter body.)
 
 ## When to track `upstreamFields`
 
@@ -194,18 +272,18 @@ dependency-resolution behavior pinned by `examples/multiUpstream.test.ts`.
 
 ### Why join: collapse upstream fields into one intent
 
-The *reason* to reach for a multi-parent join is usually to **aggregate several
+The *reason* to reach for a multi-parent join is usually to **aggregate the
 upstream fields into one semantic value** that downstream loaders consume,
-instead of threading three or four fields through every loader. Compute the
-combined intent once on the join node:
+instead of threading each one separately through every loader. Continuing the
+dashboard above (`userId` from one parent, `dateRange` from the other), compute
+the combined intent once on the join node:
 
 ```ts
-.computeFromFields(['selectedKpi', 'dateRange', 'filteredBy'], {
-   kpiQuery: ({ selectedKpi, dateRange, filteredBy }) => ({
-      kpi: selectedKpi,
+.computeFromFields(['userId', 'dateRange'], {
+   kpiQuery: ({ userId, dateRange }) => ({
+      userId,
       from: dateRange.from,
-      to: dateRange.to,
-      filteredBy
+      to: dateRange.to
    })
 })
 ```
@@ -245,6 +323,10 @@ export const graph = createGraph({
   not the primary data-flow primitive.
 - **Don't include the root in `createGraph({ vertices: [...] })`.** Only
   non-root configs belong in that array; the root is reached transitively.
+- **Don't keep singleton route/modal/form state in `useState`.** Drafts, the
+  `editing` flag, a wizard step, an `open` flag — all belong in the slice. A
+  `useEffect` that syncs `useState` with a vertex field is the tell that state
+  is misplaced. See "State boundary" above.
 
 ## See also
 
