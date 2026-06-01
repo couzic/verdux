@@ -7,12 +7,14 @@ export interface VertexConfigBuilder<
 > {
    addUpstreamVertex<
       UpstreamFields extends VertexFieldsDefinition,
-      UpstreamDependencies extends Record<string, any>
+      UpstreamDependencies extends Record<string, any>,
+      PulledDependencies extends
+         keyof UpstreamDependencies = keyof UpstreamDependencies
    >(
       config: VertexConfig<UpstreamFields, UpstreamDependencies>,
       options: {
          fields?: Array<keyof UpstreamFields>
-         dependencies?: Array<keyof UpstreamDependencies>
+         dependencies?: Array<PulledDependencies>
       }
    ): VertexConfigBuilder<
       {
@@ -26,8 +28,8 @@ export interface VertexConfigBuilder<
       },
       {
          [K in
-            | keyof UpstreamDependencies
-            | keyof Dependencies]: K extends keyof UpstreamDependencies
+            | PulledDependencies
+            | keyof Dependencies]: K extends PulledDependencies
             ? UpstreamDependencies[K]
             : K extends keyof Dependencies
               ? Dependencies[K]

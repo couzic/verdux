@@ -14,6 +14,7 @@
 - [What is `verdux` ?](#what-is-verdux-)
 - [Features](#features)
 - [Examples](#examples)
+- [Claude Code plugin](#claude-code-plugin)
 - [DevTools (WIP)](#devtools-wip)
 - [But `redux` sucks, right ?](#but-redux-sucks-right-)
 - [Install](#install)
@@ -25,6 +26,7 @@
   - [Loading data](#loading-data)
     - [`load()`](#load)
     - [`loadFromFields()`](#loadfromfields)
+    - [Loadable status & error handling](#loadable-status--error-handling)
   - [Consuming the state](#consuming-the-state)
     - [`vertex.currentState`](#vertexcurrentstate)
     - [`vertex.state$`](#vertexstate)
@@ -135,7 +137,7 @@ const appGraph = createGraph({
    vertices: [rootVertexConfig]
 })
 
-const rootVertex = appGraph.getVertexConfig(rootVertexConfig)
+const rootVertex = appGraph.getVertexInstance(rootVertexConfig)
 ```
 
 ### Computed values (synchronous)
@@ -202,6 +204,22 @@ const todoVertexConfig = configureRootVertex({
 })
 ```
 
+#### Loadable status & error handling
+
+`load()` and `loadFromFields()` produce **loadable** fields. Each carries a
+`status` of `'loading' | 'loaded' | 'error'` alongside its `value`, readable
+through `vertex.currentLoadableState`:
+
+```ts
+const todoVertex = appGraph.getVertexInstance(todoVertexConfig)
+const { status, value, errors } = todoVertex.currentLoadableState.fields.details
+```
+
+If a loader's observable errors, **only that field** goes to `status: 'error'`
+(with the error captured in `errors`) — the vertex and its other fields stay
+alive. `loadFromFields()` rebuilds its loader on every input change, so a later
+run that succeeds restores the field to `'loaded'`.
+
 ### Consuming the state
 
 #### `vertex.currentState`
@@ -209,7 +227,7 @@ const todoVertexConfig = configureRootVertex({
 Synchronous read of vertex current state.
 
 ```ts
-const todoVertex = appGraph.getVertex(todoVertexConfig)
+const todoVertex = appGraph.getVertexInstance(todoVertexConfig)
 console.log(todoVertex.currentState.id) // '123'
 ```
 
@@ -218,7 +236,7 @@ console.log(todoVertex.currentState.id) // '123'
 Observable state
 
 ```ts
-const todoVertex = appGraph.getVertex(todoVertexConfig)
+const todoVertex = appGraph.getVertexInstance(todoVertexConfig)
 todoVertex.state$.subscribe(state => {
    console.log(state.details) // Logs the return from AJAX call
 })

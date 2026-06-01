@@ -1,4 +1,14 @@
-import { isObservable, map, merge, tap, share, first, mergeMap } from 'rxjs'
+import {
+   catchError,
+   isObservable,
+   map,
+   merge,
+   of,
+   tap,
+   share,
+   first,
+   mergeMap
+} from 'rxjs'
 import { VertexRunData } from '../run/RunData'
 import { VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
@@ -43,15 +53,26 @@ export const load =
             throw new Error(
                `Loader for value "${fieldName}" must return an observable, received "${result$}" instead.`
             )
+         // A loader error is captured as an error field for THAT field only,
+         // leaving the merged stream (and every other field) alive. The errored
+         // source is terminal — `load` builds its loaders once, so the field
+         // stays in error (we deliberately do NOT re-subscribe, which would loop
+         // on a synchronously-erroring source).
          return result$.pipe(
             map(value => ({
                fieldName,
-               field: {
-                  status: 'loaded' as const,
-                  value,
-                  errors: []
-               }
-            }))
+               field: { status: 'loaded' as const, value, errors: [] }
+            })),
+            catchError(error =>
+               of({
+                  fieldName,
+                  field: {
+                     status: 'error' as const,
+                     value: undefined,
+                     errors: [error]
+                  }
+               })
+            )
          )
       })
 

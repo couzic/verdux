@@ -154,6 +154,30 @@ A realistic debounced search loader (from `verdux:graph-design`'s
 > no fake timers. See the injectable-operator pattern in
 > `verdux:dependency-injection`.
 
+## Loader errors
+
+A loadable field is `status: 'loading' | 'loaded' | 'error'`. When a loader's
+observable **errors**, that one field is parked at `status: 'error'` (with the
+error in its `errors` array); every sibling field and the vertex itself stay
+alive. There is no verdux-specific error channel — a loader signals failure the
+standard rxjs way, by erroring its stream.
+
+Recovery differs by operation, and it follows directly from when each rebuilds
+its loader:
+
+- **`load`** — the loader is a standalone observable, subscribed once. An error
+  is terminal: the field stays in `error` for the life of the graph (nothing
+  re-triggers it).
+- **`loadFromFields`** — the loader is rebuilt on every change of a listed
+  field. An error parks the field, and the **next input change re-runs the
+  loader**, so a later success restores `loaded`. This is automatic
+  refetch-on-input.
+- **`loadFromFields$`** — you own the stream. An rxjs stream that errors is
+  terminated, so the field stays in `error` even as inputs keep changing —
+  verdux will not resurrect a stream you defined. To let a transient failure
+  recover, handle it **inside** your operator (`retry`, `catchError`, or a
+  `switchMap` whose inner observable catches), exactly as in any rxjs pipeline.
+
 ## Action-reacting operations
 
 All four are demonstrated in `examples/reactionOperations.ts`. `reaction`,

@@ -11,6 +11,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TS config extends `config/base/tsconfig.json` and only compiles from the `src/index.ts` entrypoint (target es5, lib es2015, strict on). Don't rely on newer lib types without updating the base config.
 
+## ISSUES.md
+
+`ISSUES.md` documents only **currently existing** issues. Once an issue is resolved, remove it from `ISSUES.md` entirely — do not keep it marked as resolved.
+
 ## Architecture
 
 `verdux` is a state-management library layering a reactive DAG of "vertices" on top of a single `@reduxjs/toolkit` store and `rxjs`. Mental model: one Redux store holds a nested tree of reducer states; an RxJS pipeline transforms each Redux action into a *graph run* that flows through vertices in topological order, producing per-vertex `fields` (state + computed + loaded data).

@@ -1,4 +1,13 @@
-import { filter, isObservable, map, merge, share, tap } from 'rxjs'
+import {
+   catchError,
+   filter,
+   isObservable,
+   map,
+   merge,
+   of,
+   share,
+   tap
+} from 'rxjs'
 import { VertexRunData } from '../run/RunData'
 import { VertexChangedFields, VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
@@ -21,6 +30,12 @@ export const loadFromFields$ =
       let latestInputFields: VertexFields | undefined = undefined
       let latestOutputFields = loadingFields
 
+      // Fields whose loader stream errored terminally. Such a branch is dead
+      // and will never emit again, so on subsequent input changes we must keep
+      // the field in `error` rather than resetting it to `loading` — otherwise
+      // it would be stranded in a perpetual loading state.
+      const deadFields: VertexFields = {}
+
       const inputFieldsMaybeChanged$ = data$.pipe(
          tap(data => (latestInputFields = data.fields)),
          map(data => ({
@@ -39,22 +54,30 @@ export const loadFromFields$ =
 
       const loading$ = inputFieldsHaveChanged$.pipe(
          map(({ data }): VertexRunData => {
+            const reloadingFields: VertexFields = {}
             const changedLoadingFields: VertexChangedFields = {}
             loadableFieldNames.forEach(fieldName => {
-               if (
-                  data.initialRun ||
-                  latestOutputFields[fieldName].status !== 'loading'
-               ) {
-                  changedLoadingFields[fieldName] = true
+               const deadField = deadFields[fieldName]
+               if (deadField !== undefined) {
+                  // Terminally errored: keep it in error, don't reload.
+                  reloadingFields[fieldName] = deadField
+               } else {
+                  reloadingFields[fieldName] = loadingFields[fieldName]
+                  if (
+                     data.initialRun ||
+                     latestOutputFields[fieldName].status !== 'loading'
+                  ) {
+                     changedLoadingFields[fieldName] = true
+                  }
                }
             })
+            latestOutputFields = reloadingFields
             return {
                ...data,
-               fields: { ...data.fields, ...loadingFields },
+               fields: { ...data.fields, ...reloadingFields },
                changedFields: { ...data.changedFields, ...changedLoadingFields }
             }
-         }),
-         tap(() => (latestOutputFields = loadingFields))
+         })
       )
 
       const changedLoadedInputFields$ = inputFieldsHaveChanged$.pipe(
@@ -75,34 +98,55 @@ export const loadFromFields$ =
                throw new Error(
                   `Loader for value "${fieldName}" must return an observable, received "${result$}" instead.`
                )
+            const emitOutput = (): VertexRunData => ({
+               action: undefined,
+               initialRun: false,
+               reactions: [],
+               fieldsReactions: [],
+               sideEffects: [],
+               fields: {
+                  ...latestInputFields,
+                  ...latestOutputFields
+               },
+               changedFields: {
+                  [fieldName]: true
+               }
+            })
+            // A loader error becomes an error field for THAT field only,
+            // leaving the merged stream (and every other field) alive.
+            // `catchError` emits one fallback value and then completes, so this
+            // branch of the merge will never emit again — the field is dead.
+            // We record it in `deadFields` so `loading$` keeps it in error on
+            // later input changes instead of resetting it to `loading`. We
+            // deliberately do NOT re-subscribe (that would loop on a
+            // synchronously-erroring source).
             return result$.pipe(
-               // TODO Handle error
-               tap(result => {
+               map(value => {
                   latestOutputFields = {
                      ...latestOutputFields,
                      [fieldName]: {
-                        status: 'loaded',
-                        value: result,
+                        status: 'loaded' as const,
+                        value,
                         errors: []
                      }
                   }
+                  return emitOutput()
                }),
-               map(
-                  (): VertexRunData => ({
-                     action: undefined,
-                     initialRun: false,
-                     reactions: [],
-                     fieldsReactions: [],
-                     sideEffects: [],
-                     fields: {
-                        ...latestInputFields,
-                        ...latestOutputFields
-                     },
-                     changedFields: {
-                        [fieldName]: true
-                     }
-                  })
-               )
+               catchError(error => {
+                  const errorField = {
+                     status: 'error' as const,
+                     value: undefined,
+                     errors: [error]
+                  }
+                  // Branch is now dead; keep this field in error across later
+                  // input changes instead of letting loading$ reset it.
+                  deadFields[fieldName] = errorField
+                  latestOutputFields = {
+                     ...latestOutputFields,
+                     [fieldName]: errorField
+                  }
+                  return of(emitOutput())
+               })
             )
          })
       )
@@ -115,5 +159,11 @@ export const loadFromFields$ =
          }))
       )
 
+      // Order matters: `loading$` MUST precede `loaded$` in this merge. Both
+      // react to the same shared input tick, and `merge` notifies its operands
+      // in argument order, so `loading$` resets the shared `latestOutputFields`
+      // to the per-field "loading" snapshot BEFORE `loaded$`'s `emitOutput()`
+      // reads it. Reversing them would let `loaded$` read a stale snapshot, and
+      // `loading$` would then clobber the just-loaded field back to "loading".
       return merge(loading$, loaded$, passingThrough$)
    }

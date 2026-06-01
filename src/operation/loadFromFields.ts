@@ -1,4 +1,5 @@
 import {
+   catchError,
    filter,
    isObservable,
    map,
@@ -71,15 +72,26 @@ export const loadFromFields =
                   throw new Error(
                      `Loader for value "${fieldName}" must return an observable, received "${result$}" instead.`
                   )
+               // A loader error is captured as an error field for this field
+               // only, leaving every other field and the vertex stream alive.
+               // The errored source is terminal (we do NOT re-subscribe), but
+               // this operation rebuilds its loaders on the next input change,
+               // so a later successful run restores `loaded`.
                return result$.pipe(
                   map(value => ({
                      fieldName,
-                     field: {
-                        status: 'loaded' as const,
-                        value,
-                        errors: []
-                     }
-                  }))
+                     field: { status: 'loaded' as const, value, errors: [] }
+                  })),
+                  catchError(error =>
+                     of({
+                        fieldName,
+                        field: {
+                           status: 'error' as const,
+                           value: undefined,
+                           errors: [error]
+                        }
+                     })
+                  )
                )
             })
             const loaded$ = merge(...loaders$).pipe(
