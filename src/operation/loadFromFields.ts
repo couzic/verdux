@@ -59,10 +59,32 @@ export const loadFromFields =
                changedFields: { ...data.changedFields, ...changedLoadingFields }
             })
             const picked = pickFields(fields, data.fields)
-            const { state, status } = toVertexLoadableState(picked)
-            // TODO Pass down errors
-            if (status !== 'loaded') {
-               latestOutputFields = loadingFields
+            const { state, status, errors } = toVertexLoadableState(picked)
+            if (status === 'error') {
+               const errorFields: VertexFields = {}
+               const changedErrorFields: VertexChangedFields = {}
+               loadableFieldNames.forEach(fieldName => {
+                  errorFields[fieldName] = {
+                     status: 'error',
+                     value: undefined,
+                     errors
+                  }
+                  if (
+                     data.initialRun ||
+                     latestOutputFields[fieldName].status !== 'error'
+                  ) {
+                     changedErrorFields[fieldName] = true
+                  }
+               })
+               latestOutputFields = errorFields
+               return of({
+                  ...data,
+                  fields: { ...data.fields, ...errorFields },
+                  changedFields: { ...data.changedFields, ...changedErrorFields }
+               })
+            }
+            latestOutputFields = loadingFields
+            if (status === 'loading') {
                return loading$
             }
 

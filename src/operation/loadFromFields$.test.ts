@@ -294,6 +294,81 @@ describe(loadFromFields$.name, () => {
             })
          })
       })
+      describe('when input field is in ERROR', () => {
+         const firstInputData = createInitialRunData({
+            name: {
+               status: 'error',
+               value: undefined,
+               errors: [new Error('upstream failure')]
+            },
+            irrelevant: {
+               status: 'loaded',
+               value: 'whatever',
+               errors: []
+            }
+         })
+         beforeEach(() => {
+            inputData$.next(firstInputData)
+         })
+         it('has error output fields with upstream errors', () => {
+            expect(latestOutputData?.fields).to.deep.equal({
+               ...latestInputData.fields,
+               lowercaseName: {
+                  status: 'error',
+                  value: undefined,
+                  errors: [new Error('upstream failure')]
+               },
+               uppercaseName: {
+                  status: 'error',
+                  value: undefined,
+                  errors: [new Error('upstream failure')]
+               }
+            })
+            expect(latestOutputData?.changedFields).to.deep.equal({
+               ...latestInputData.changedFields,
+               lowercaseName: true,
+               uppercaseName: true
+            })
+         })
+         describe('when input field recovers to LOADED', () => {
+            const secondInputData: VertexRunData = {
+               ...firstInputData,
+               fields: {
+                  ...firstInputData.fields,
+                  name: {
+                     status: 'loaded',
+                     value: 'John',
+                     errors: []
+                  }
+               },
+               changedFields: {
+                  name: true
+               },
+               initialRun: false
+            }
+            beforeEach(() => inputData$.next(secondInputData))
+            it('has loading output fields', () => {
+               expect(latestOutputData?.fields).to.deep.equal({
+                  ...latestInputData.fields,
+                  lowercaseName: {
+                     status: 'loading',
+                     value: undefined,
+                     errors: []
+                  },
+                  uppercaseName: {
+                     status: 'loading',
+                     value: undefined,
+                     errors: []
+                  }
+               })
+               expect(latestOutputData?.changedFields).to.deep.equal({
+                  name: true,
+                  lowercaseName: true,
+                  uppercaseName: true
+               })
+            })
+         })
+      })
    })
    it('emits reactions once and only once', () => {
       const inputData: VertexRunData = {

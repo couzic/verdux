@@ -12,6 +12,7 @@ import { VertexRunData } from '../run/RunData'
 import { VertexChangedFields, VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
 import { pickFields } from '../state/pickFields'
+import { toVertexLoadableState } from '../state/toVertexLoadableState'
 import { toVertexState } from '../state/toVertexState'
 
 export const loadFromFields$ =
@@ -54,6 +55,9 @@ export const loadFromFields$ =
 
       const loading$ = inputFieldsHaveChanged$.pipe(
          map(({ data }): VertexRunData => {
+            const picked = pickFields(fields, data.fields)
+            const { status, errors } = toVertexLoadableState(picked)
+
             const reloadingFields: VertexFields = {}
             const changedLoadingFields: VertexChangedFields = {}
             loadableFieldNames.forEach(fieldName => {
@@ -61,6 +65,18 @@ export const loadFromFields$ =
                if (deadField !== undefined) {
                   // Terminally errored: keep it in error, don't reload.
                   reloadingFields[fieldName] = deadField
+               } else if (status === 'error') {
+                  reloadingFields[fieldName] = {
+                     status: 'error',
+                     value: undefined,
+                     errors
+                  }
+                  if (
+                     data.initialRun ||
+                     latestOutputFields[fieldName].status !== 'error'
+                  ) {
+                     changedLoadingFields[fieldName] = true
+                  }
                } else {
                   reloadingFields[fieldName] = loadingFields[fieldName]
                   if (
