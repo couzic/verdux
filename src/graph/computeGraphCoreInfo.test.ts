@@ -57,6 +57,7 @@ describe(sut.name, () => {
          vertexConfigs: [vertexConfig],
          vertexIdsInSubgraph: { [vertexConfig.id]: [vertexConfig.id] },
          vertexConfigsByClosestCommonAncestorId: {},
+         reduxPathByVertexId: { [vertexConfig.id]: [vertexConfig] },
          trackedActionsInSubgraph: { [vertexConfig.id]: [] },
          dependenciesByVertexId: { [vertexConfig.id]: {} }
       })
@@ -81,6 +82,13 @@ describe(sut.name, () => {
          },
          vertexConfigsByClosestCommonAncestorId: {
             [rootVertexConfig.id]: [downstreamVertexConfig]
+         },
+         reduxPathByVertexId: {
+            [rootVertexConfig.id]: [rootVertexConfig],
+            [downstreamVertexConfig.id]: [
+               rootVertexConfig,
+               downstreamVertexConfig
+            ]
          },
          trackedActionsInSubgraph: {
             [rootVertexConfig.id]: [],

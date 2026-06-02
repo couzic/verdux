@@ -12,6 +12,9 @@ export interface GraphCoreInfo {
    vertexConfigsByClosestCommonAncestorId: Partial<
       Record<VertexId, VertexConfigImpl[]>
    >
+   /** redux-tree path (root → … → vertex) per vertex, used to re-derive a
+    * vertex's redux substate from the live root state */
+   reduxPathByVertexId: Record<VertexId, VertexConfigImpl[]>
    vertexIdsInSubgraph: Record<VertexId, VertexId[]>
    trackedActionsInSubgraph: Record<VertexId, BaseActionCreator<any, any>[]>
    dependenciesByVertexId: Record<VertexId, Record<string, any>> // TODO Remove ?

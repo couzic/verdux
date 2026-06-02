@@ -35,12 +35,8 @@ export const createGraph = (options: {
 
    const verduxMiddleware: Middleware = store => next => action => {
       const result = next(action)
-      const reduxState = store.getState()
       graphRunInput$.next({
          action: action as UnknownAction,
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: reduxState
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          fieldsReactions: [],
@@ -62,7 +58,8 @@ export const createGraph = (options: {
 
    const graphRunOutput$ = runSubgraph(
       rootVertexConfig as VertexConfigImpl,
-      coreInfo
+      coreInfo,
+      () => reduxStore.getState()
    )(graphRunInput$)
 
    const fieldsReactionsFIFO = createFIFO<UnknownAction>()
@@ -136,9 +133,6 @@ export const createGraph = (options: {
 
    graphRunInput$.next({
       action: undefined,
-      reduxStateByVertexId: {
-         [rootVertexConfig.id]: reduxStore.getState()
-      },
       fieldsByVertexId: {},
       changedFieldsByVertexId: {},
       fieldsReactions: [],

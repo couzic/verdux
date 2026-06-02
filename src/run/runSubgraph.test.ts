@@ -17,19 +17,17 @@ describe(runSubgraph.name, () => {
          })
       }) as VertexConfigImpl
       const coreInfo = computeGraphCoreInfo([rootVertexConfig])
-      const graphRun = runSubgraph(rootVertexConfig, coreInfo)
+      const reduxState = {
+         vertex: {},
+         downstream: {}
+      }
+      const graphRun = runSubgraph(rootVertexConfig, coreInfo, () => reduxState)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: {},
-               downstream: {}
-            }
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          initialRun: true
@@ -65,21 +63,18 @@ describe(runSubgraph.name, () => {
          rootVertexConfig,
          downstreamVertexConfig
       ])
+      const reduxState = {
+         vertex: {},
+         downstream: {
+            downstreamVertexName: { vertex: {}, downstream: {} }
+         }
+      }
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: {},
-               downstream: {
-                  downstreamVertexName: { vertex: {}, downstream: {} }
-               }
-            },
-            [downstreamVertexConfig.id]: { vertex: {}, downstream: {} }
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          initialRun: true
@@ -88,7 +83,8 @@ describe(runSubgraph.name, () => {
       const input$ = new Subject<GraphRunData>()
       runSubgraph(
          rootVertexConfig,
-         coreInfo
+         coreInfo,
+         () => reduxState
       )(input$).subscribe(output => {
          lastOutput = output
          outputEmissions++
@@ -152,25 +148,19 @@ describe(runSubgraph.name, () => {
          rootVertexConfig,
          downstreamVertexConfig
       ])
-      const graphRun = runSubgraph(rootVertexConfig, coreInfo)
+      const reduxState = {
+         vertex: {},
+         downstream: {
+            downstreamVertexName: { vertex: { name: '' }, downstream: {} }
+         }
+      }
+      const graphRun = runSubgraph(rootVertexConfig, coreInfo, () => reduxState)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: trackedAction(),
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: {},
-               downstream: {
-                  downstreamVertexName: { vertex: { name: '' }, downstream: {} }
-               }
-            },
-            [downstreamVertexConfig.id]: {
-               vertex: { name: '' },
-               downstream: {}
-            }
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          initialRun: true

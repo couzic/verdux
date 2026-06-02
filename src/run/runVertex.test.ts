@@ -17,19 +17,17 @@ describe(runVertex.name, () => {
          })
       }) as VertexConfigImpl
       const coreInfo = computeGraphCoreInfo([rootVertexConfig])
-      const graphRun = runVertex(rootVertexConfig, coreInfo)
+      const reduxState = {
+         vertex: {},
+         downstream: {}
+      }
+      const graphRun = runVertex(rootVertexConfig, coreInfo, () => reduxState)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: {},
-               downstream: {}
-            }
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          initialRun: true
@@ -58,19 +56,17 @@ describe(runVertex.name, () => {
          })
       }) as unknown as VertexConfigImpl
       const coreInfo = computeGraphCoreInfo([rootVertexConfig])
-      const graphRun = runVertex(rootVertexConfig, coreInfo)
+      const reduxState = {
+         vertex: { name: '' },
+         downstream: {}
+      }
+      const graphRun = runVertex(rootVertexConfig, coreInfo, () => reduxState)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: { name: '' },
-               downstream: {}
-            }
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          initialRun: true
@@ -107,19 +103,17 @@ describe(runVertex.name, () => {
          uppercaseName: ({ name }) => name.toUpperCase()
       }) as unknown as VertexConfigImpl
       const coreInfo = computeGraphCoreInfo([rootVertexConfig])
-      const graphRun = runVertex(rootVertexConfig, coreInfo)
+      const reduxState = {
+         vertex: { name: 'Bob' },
+         downstream: {}
+      }
+      const graphRun = runVertex(rootVertexConfig, coreInfo, () => reduxState)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: { name: 'Bob' },
-               downstream: {}
-            }
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          initialRun: true
@@ -154,19 +148,17 @@ describe(runVertex.name, () => {
          })
       }).reaction(trackedAction, () => outputAction()) as VertexConfigImpl
       const coreInfo = computeGraphCoreInfo([rootVertexConfig])
-      const graphRun = runVertex(rootVertexConfig, coreInfo)
+      const reduxState = {
+         vertex: {},
+         downstream: {}
+      }
+      const graphRun = runVertex(rootVertexConfig, coreInfo, () => reduxState)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: trackedAction(),
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: {},
-               downstream: {}
-            }
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          initialRun: false
@@ -199,19 +191,17 @@ describe(runVertex.name, () => {
          map(() => outputAction())
       ) as VertexConfigImpl
       const coreInfo = computeGraphCoreInfo([rootVertexConfig])
-      const graphRun = runVertex(rootVertexConfig, coreInfo)
+      const reduxState = {
+         vertex: {},
+         downstream: {}
+      }
+      const graphRun = runVertex(rootVertexConfig, coreInfo, () => reduxState)
       let lastOutput: GraphRunData | undefined = undefined
       const input: GraphRunData = {
          action: trackedAction(),
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: {},
-               downstream: {}
-            }
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          initialRun: false

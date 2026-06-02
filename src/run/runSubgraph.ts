@@ -3,6 +3,7 @@ import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { VertexReduxState } from '../state/VertexReduxState'
 import { VertexId } from '../vertex/VertexId'
 import { GraphCoreInfo } from '../graph/GraphCoreInfo'
+import { extractReduxState } from './extractReduxState'
 import { GraphRun } from './GraphRun'
 import { GraphRunData } from './RunData'
 import { VertexFields } from './VertexFields'
@@ -11,15 +12,20 @@ import { trackedUpstreamFieldHasChanged } from './trackedUpstreamFieldHasChanged
 
 export const runSubgraph = (
    config: VertexConfigImpl,
-   coreInfo: GraphCoreInfo
+   coreInfo: GraphCoreInfo,
+   getRootReduxState: () => VertexReduxState
 ): GraphRun =>
    pipe(
-      runVertex(config, coreInfo),
+      runVertex(config, coreInfo, getRootReduxState),
       ...((
          coreInfo.vertexConfigsByClosestCommonAncestorId[config.id] || []
       ).map(
          (downstreamConfig): GraphRun =>
             data$ => {
+               // root → … → downstream vertex; used to extract its own substate
+               // out of the live root tree (no parent hand-down needed).
+               const reduxPath =
+                  coreInfo.reduxPathByVertexId[downstreamConfig.id]
                let latestInputFieldsByVertexId: Record<VertexId, VertexFields> =
                   {}
                let latestReduxState: VertexReduxState
@@ -27,50 +33,41 @@ export const runSubgraph = (
                   VertexId,
                   VertexFields
                > = {}
-               const input$ = data$.pipe(
-                  tap(data => {
-                     latestInputFieldsByVertexId = data.fieldsByVertexId
-                  }),
-                  map(data => ({
-                     ...data,
-                     reduxStateByVertexId: {
-                        ...data.reduxStateByVertexId,
-                        [downstreamConfig.id]:
-                           data.reduxStateByVertexId[config.id].downstream[
-                              downstreamConfig.name
-                           ]
-                     }
-                  }))
-               )
 
-               const reduxStateHasChanged = (data: GraphRunData) =>
-                  data.reduxStateByVertexId[downstreamConfig.id] !==
-                  latestReduxState
                const hasTrackedAction = (data: GraphRunData) =>
                   data.action &&
                   coreInfo.trackedActionsInSubgraph[downstreamConfig.id].some(
                      action => action.type === data.action?.type
                   )
-               const subgraphShouldRun = (data: GraphRunData) =>
-                  reduxStateHasChanged(data) ||
-                  hasTrackedAction(data) ||
-                  trackedUpstreamFieldHasChanged(downstreamConfig, data)
-               const maybeShouldRun$ = input$.pipe(
-                  map(data => ({
-                     data,
-                     shouldRun: subgraphShouldRun(data)
-                  })),
+
+               const maybeShouldRun$ = data$.pipe(
+                  tap(data => {
+                     latestInputFieldsByVertexId = data.fieldsByVertexId
+                  }),
+                  map(data => {
+                     // Extract this subgraph's redux substate from the live root
+                     // once, then reuse it for the change check here and the
+                     // latestReduxState bookkeeping in runOutput$.
+                     const reduxState = extractReduxState(
+                        getRootReduxState(),
+                        reduxPath
+                     )
+                     const shouldRun =
+                        reduxState !== latestReduxState || // redux slice changed
+                        hasTrackedAction(data) ||
+                        trackedUpstreamFieldHasChanged(downstreamConfig, data)
+                     return { data, reduxState, shouldRun }
+                  }),
                   share()
                )
 
                const runOutput$ = maybeShouldRun$.pipe(
                   filter(({ shouldRun }) => shouldRun),
-                  map(({ data }) => data),
-                  tap(data => {
-                     latestReduxState =
-                        data.reduxStateByVertexId[downstreamConfig.id]
+                  tap(({ reduxState }) => {
+                     latestReduxState = reduxState
                   }),
-                  runSubgraph(downstreamConfig, coreInfo),
+                  map(({ data }) => data),
+                  runSubgraph(downstreamConfig, coreInfo, getRootReduxState),
                   tap(output => {
                      const outputFieldsByVertexId: Record<
                         VertexId,

@@ -2,6 +2,7 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { configureRootVertex } from '../config/configureRootVertex'
+import { computeGraphCoreInfo } from '../graph/computeGraphCoreInfo'
 import { GraphRunData } from './RunData'
 import { extractVertexFields } from './extractVertexFields'
 
@@ -20,22 +21,25 @@ describe(sut.name, () => {
             }
          })
       }) as unknown as VertexConfigImpl
+      const coreInfo = computeGraphCoreInfo([rootVertexConfig])
+      const reduxState = {
+         vertex: { name: '' },
+         downstream: {}
+      }
       const runData: GraphRunData = {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: { name: '' },
-               downstream: {}
-            }
-         },
          fieldsByVertexId: {},
          changedFieldsByVertexId: {},
          initialRun: true
       }
-      const fields = extractVertexFields(rootVertexConfig)(runData)
+      const fields = extractVertexFields(
+         rootVertexConfig,
+         coreInfo,
+         () => reduxState
+      )(runData)
       expect(fields).to.deep.equal({
          name: {
             status: 'loaded',
@@ -66,26 +70,24 @@ describe(sut.name, () => {
             upstreamFields: ['name']
          }
       ) as unknown as VertexConfigImpl
+      const coreInfo = computeGraphCoreInfo([
+         rootVertexConfig,
+         downstreamVertexConfig
+      ])
+      const reduxState = {
+         vertex: { name: '' },
+         downstream: {
+            downstreamVertexName: {
+               vertex: {},
+               downstream: {}
+            }
+         }
+      }
       const runData: GraphRunData = {
          action: undefined,
          fieldsReactions: [],
          reactions: [],
          sideEffects: [],
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: { name: '' },
-               downstream: {
-                  downstreamVertexName: {
-                     vertex: {},
-                     downstream: {}
-                  }
-               }
-            },
-            [downstreamVertexConfig.id]: {
-               vertex: {},
-               downstream: {}
-            }
-         },
          fieldsByVertexId: {
             [rootVertexConfig.id]: {
                name: { status: 'loaded', value: '', errors: [] }
@@ -96,7 +98,11 @@ describe(sut.name, () => {
          },
          initialRun: true
       }
-      const fields = extractVertexFields(downstreamVertexConfig)(runData)
+      const fields = extractVertexFields(
+         downstreamVertexConfig,
+         coreInfo,
+         () => reduxState
+      )(runData)
       expect(fields).to.deep.equal({
          name: {
             status: 'loaded',

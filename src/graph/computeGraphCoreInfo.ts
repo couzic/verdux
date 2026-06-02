@@ -97,6 +97,27 @@ export const computeGraphCoreInfo = (
       )
    })
 
+   // Redux-tree path (root → … → vertex) for every vertex. The redux state tree
+   // nests by closest-common-ancestor and by `config.name`; this path lets a run
+   // re-derive a vertex's (and its ancestors') redux substate from the live root
+   // state. See `runVertex` and ARCHITECTURE.md §6.
+   const reduxParentByVertexId: Record<VertexId, VertexConfigImpl> = {}
+   Object.keys(vertexConfigsByClosestCommonAncestorId).forEach(ancestorId => {
+      vertexConfigsByClosestCommonAncestorId[ancestorId]!.forEach(child => {
+         reduxParentByVertexId[child.id] = sortedVertexConfigById[ancestorId]
+      })
+   })
+   const reduxPathByVertexId: Record<VertexId, VertexConfigImpl[]> = {}
+   sortedVertexConfigs.forEach(config => {
+      const path: VertexConfigImpl[] = [config]
+      let parent = reduxParentByVertexId[config.id]
+      while (parent) {
+         path.unshift(parent)
+         parent = reduxParentByVertexId[parent.id]
+      }
+      reduxPathByVertexId[config.id] = path
+   })
+
    ///////////////////
    // DEPENDENCIES //
    /////////////////
@@ -166,6 +187,7 @@ export const computeGraphCoreInfo = (
    return {
       vertexConfigs: sortedVertexConfigs,
       vertexConfigsByClosestCommonAncestorId,
+      reduxPathByVertexId,
       vertexIdsInSubgraph,
       trackedActionsInSubgraph,
       dependenciesByVertexId,

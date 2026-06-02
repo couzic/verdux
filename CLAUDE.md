@@ -29,6 +29,7 @@ See `claude-code-plugin/example-check/README.md` for what it covers.
 ## Architecture
 
 `verdux` is a state-management library layering a reactive DAG of "vertices" on top of a single `@reduxjs/toolkit` store and `rxjs`. Mental model: one Redux store holds a nested tree of reducer states; an RxJS pipeline transforms each Redux action into a *graph run* that flows through vertices in topological order, producing per-vertex `fields` (state + computed + loaded data).
+For a deep dive into the runtime mechanism — the single flat, topologically-ordered RxJS pipeline, the `reduxPathByVertexId` substate derivation, async loadable emissions, and the invariants that keep them from corrupting sibling state — see `ARCHITECTURE.md`. Read it before changing anything under `src/run/` or `src/operation/`.
 
 ### Runtime flow (read in this order)
 

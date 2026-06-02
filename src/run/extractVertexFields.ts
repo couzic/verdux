@@ -1,11 +1,18 @@
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
+import { GraphCoreInfo } from '../graph/GraphCoreInfo'
+import { VertexReduxState } from '../state/VertexReduxState'
+import { extractReduxState } from './extractReduxState'
 import { GraphRunData } from './RunData'
 import { VertexFields } from './VertexFields'
 
-export const extractVertexFields =
-   (config: VertexConfigImpl) =>
-   (data: GraphRunData): VertexFields => {
-      const state = data.reduxStateByVertexId[config.id].vertex
+export const extractVertexFields = (
+   config: VertexConfigImpl,
+   coreInfo: GraphCoreInfo,
+   getRootReduxState: () => VertexReduxState
+) => {
+   const reduxPath = coreInfo.reduxPathByVertexId[config.id]
+   return (data: GraphRunData): VertexFields => {
+      const state = extractReduxState(getRootReduxState(), reduxPath).vertex
       let fields: VertexFields = {}
       Object.keys(state).forEach(fieldName => {
          fields[fieldName] = {
@@ -23,3 +30,4 @@ export const extractVertexFields =
       })
       return fields
    }
+}

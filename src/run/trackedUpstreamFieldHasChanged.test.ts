@@ -28,15 +28,6 @@ describe(sut.name, () => {
       ) as VertexConfigImpl
       const data: GraphRunData = {
          action: undefined,
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: { trackedField: '', untrackedField: '' },
-               downstream: {
-                  downstreamVertexName: { vertex: {}, downstream: {} }
-               }
-            },
-            [downstreamVertexConfig.id]: { vertex: {}, downstream: {} }
-         },
          fieldsByVertexId: {
             [rootVertexConfig.id]: {
                trackedField: {
@@ -82,15 +73,6 @@ describe(sut.name, () => {
       ) as unknown as VertexConfigImpl
       const data: GraphRunData = {
          action: undefined,
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: { trackedField: '' },
-               downstream: {
-                  downstreamVertexName: { vertex: {}, downstream: {} }
-               }
-            },
-            [downstreamVertexConfig.id]: { vertex: {}, downstream: {} }
-         },
          fieldsByVertexId: {
             [rootVertexConfig.id]: {
                trackedField: {
@@ -131,15 +113,6 @@ describe(sut.name, () => {
       ) as VertexConfigImpl
       const data: GraphRunData = {
          action: undefined,
-         reduxStateByVertexId: {
-            [rootVertexConfig.id]: {
-               vertex: {},
-               downstream: {
-                  downstreamVertexName: { vertex: {}, downstream: {} }
-               }
-            },
-            [downstreamVertexConfig.id]: { vertex: {}, downstream: {} }
-         },
          fieldsByVertexId: {
             [rootVertexConfig.id]: {}
          },
