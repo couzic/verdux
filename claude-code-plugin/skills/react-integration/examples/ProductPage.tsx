@@ -2,7 +2,6 @@ import { Suspense } from 'react'
 import { productPageVertexConfig, productPageActions } from './productPageVertexConfig'
 import { GraphContext } from './GraphContext'
 import { graph } from './graph'
-import { useDispatch } from './useDispatch'
 import { useVertexState } from './useVertexState'
 
 // A page with three independently-suspending leaves. Each leaf calls
@@ -55,15 +54,13 @@ const RelatedProducts = () => {
    )
 }
 
-// Dispatch from anywhere in the tree.
-export const AddToCartButton = ({ productId }: { productId: string }) => {
-   const dispatch = useDispatch()
-   return (
-      <button onClick={() => dispatch(productPageActions.addToCart(productId))}>
-         Add to cart
-      </button>
-   )
-}
+// Dispatch from anywhere in the tree — inline on the module-singleton graph,
+// no hook.
+export const AddToCartButton = ({ productId }: { productId: string }) => (
+   <button onClick={() => graph.dispatch(productPageActions.addToCart(productId))}>
+      Add to cart
+   </button>
+)
 
 const Spinner = () => <div>Loading…</div>
 const NotFound = () => <div>Not found</div>

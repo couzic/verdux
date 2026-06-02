@@ -15,6 +15,23 @@ Why this matters: a vertex's behavior emerges from the interplay of its
 reducer, computed fields, loaders, and dependencies. Testing any one of
 those in isolation misses the bugs that actually ship.
 
+## Your vertex test is the debugging probe — never the UI or E2E
+
+A state-behavior bug is a **deterministic sequence of actions**, so it
+reproduces as a `dispatch → assert` on a test graph — instant, deterministic,
+reliable. That is verdux's core proposition: write a plain unit test, get instant
+feedback, then wire the UI to observe state and dispatch actions, and it just
+works.
+
+The inverse — reaching for the browser or an E2E run as the **debugging probe** —
+is slow, flaky, and expensive, and it makes an agent (or a person) loop without
+converging. Reproduce the bug as a vertex test; run E2E **once at the end** as a
+smoke test of the full wiring, never as the probe. This is not hypothetical: a
+turn-rotation-after-reconnect bug burned run after flaky E2E run until it was
+moved to a vertex test, where it became a millisecond `dispatch → assert`. When
+you catch yourself debugging state behavior through the UI, stop and write the
+dispatch sequence instead.
+
 ## Canonical setup
 
 Build a fresh graph in `beforeEach` so tests never leak state into each
@@ -270,6 +287,26 @@ can't land after a newer one. If a review flags a "dispatch race," the answer is
 usually a test proving it can't happen, not a runtime guard. See the
 `verdux:operations` reactions section for the guarantee in full.
 
+## No router in vertex tests
+
+The router → graph seam — the `routeParams$` adapter, or the `navigated(params)`
+dispatch — is the *one* impure boundary. You don't test the router; you dispatch
+the action it would produce. If the path → id/params extraction is non-trivial,
+test that as a pure function; then test everything downstream — channel
+open/close, entity load, reset — by dispatching the resulting action against a
+graph with `Subject`-backed fakes:
+
+```ts
+graph.dispatch(liveEntityActions.routeEntityChanged('a')) // entered the route
+// …assert the entity loaded and the socket opened…
+graph.dispatch(liveEntityActions.routeEntityChanged(null)) // navigated away
+// …assert the entity cleared and the socket closed…
+```
+
+You do **not** need a `MemoryRouter` to test vertex logic; reach for one only to
+test route guards/loaders themselves. The runnable proof is `verdux:operations`'
+`examples/routeDrivenEntityChannel.test.ts`.
+
 ## What you don't need
 
 - **No TestScheduler / marble tests.** `Subject.next(...)` calls inside the
@@ -298,6 +335,11 @@ flavor changes.
 - **Don't sprinkle `setTimeout` in tests to wait for async work.** Use
   `Subject.next(...)` to control emissions explicitly. If you find yourself
   wanting a timeout, your service stub should be a Subject instead.
+- **Don't use E2E or the browser as your debugging feedback loop.** A
+  state-behavior bug is a deterministic dispatch sequence — reproduce it as a
+  vertex test for instant, reliable feedback. Looping on slow/flaky E2E runs to
+  diagnose a vertex bug wastes time and tokens and rarely converges. See "Your
+  vertex test is the debugging probe" at the top.
 
 ## See also
 

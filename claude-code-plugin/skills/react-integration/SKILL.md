@@ -1,6 +1,6 @@
 ---
 name: react-integration
-description: How to bind React components to a verdux graph. Covers the module-singleton graph, GraphContext, the Suspense-first useVertexState hook (via observable-hooks) as the one unified read for every vertex — including a vertex with no loadable field, where it simply never suspends rather than being bypassed with state$, useDispatch, fine-grained per-leaf field picking for rerender minimization, and in-band sentinels for empty or error states. Use whenever the user is wiring verdux into a React app, reading vertex state in a component, handling loading UI, dispatching actions, or trying to minimize rerenders.
+description: How to bind React components to a verdux graph. Covers the module-singleton graph, GraphContext, the Suspense-first useVertexState hook (via observable-hooks) as the one unified read for every vertex — including a vertex with no loadable field, where it simply never suspends rather than being bypassed with state$ — dispatching intents inline via graph.dispatch (with an optional useGraph hook that returns the stable graph, never a useDispatch wrapper), fine-grained per-leaf field picking for rerender minimization, and in-band sentinels for empty or error states. Use whenever the user is wiring verdux into a React app, reading vertex state in a component, handling loading UI, dispatching actions, or trying to minimize rerenders.
 ---
 
 # verdux React integration
@@ -98,26 +98,18 @@ export const ProductPage = () => (
 Both children can read the same vertex, but different fields. The page's
 header renders without waiting; the slower fields fill in as they load.
 
-## `useDispatch`
+## Dispatching: `graph.dispatch(...)`, inline
 
-```ts
-// src/common/useDispatch.ts
-import { useContext } from 'react'
-import { UnknownAction } from '@reduxjs/toolkit'
-import { GraphContext } from './GraphContext'
-
-export const useDispatch = () => {
-   const graph = useContext(GraphContext)
-   if (!graph) throw new Error('No verdux graph found in Context')
-   return (action: UnknownAction) => graph.dispatch(action)
-}
-```
-
-Consumers:
+The graph is a module singleton (`graph.ts`). To dispatch an intent, import it
+and call `graph.dispatch(...)` inline in the handler — that one call *is* the
+React→graph boundary for intents, the mirror of the inline dispatch
+`verdux:graph-design` already recommends:
 
 ```tsx
+import { graph } from '../graph'
+import { productPageActions } from './productPageVertexConfig'
+
 const ProductSelect = () => {
-   const dispatch = useDispatch()
    const { options, selected } = useVertexState({
       vertex: productPageVertexConfig,
       fields: ['options', 'selected']
@@ -126,11 +118,37 @@ const ProductSelect = () => {
       <Select
          value={selected}
          options={options}
-         onChange={o => dispatch(productPageActions.select(o))}
+         onChange={o => graph.dispatch(productPageActions.select(o))}
       />
    )
 }
 ```
+
+No hook, no Context indirection: there is one store, reachable by import.
+
+**`useGraph` — when you want the graph through Context instead.** Some component
+tests wrap the tree in a provider carrying a *different* (test) graph; for those,
+read the graph from Context so reads (`useVertexState`) and dispatches hit the
+**same** instance. The hook returns the stable graph object — never a per-render
+dispatch wrapper:
+
+```ts
+// src/common/useGraph.ts
+import { useContext } from 'react'
+import { Graph } from 'verdux'
+import { GraphContext } from './GraphContext'
+
+export const useGraph = (): Graph => {
+   const graph = useContext(GraphContext)
+   if (!graph) throw new Error('No verdux graph found in Context')
+   return graph
+}
+```
+
+Then `const graph = useGraph()` and call `graph.dispatch(...)` /
+`graph.getVertexInstance(...)`. Because it returns the graph (a stable
+reference), it's safe in effect/memo deps. **Never** wrap `dispatch` itself in a
+`useDispatch` hook — see the anti-patterns for why.
 
 ## Fine-grained picks for rerender minimization
 
@@ -259,11 +277,26 @@ only when Suspense genuinely isn't an option.
   via actions — not local state synced back with `useEffect`. `useState` is for
   purely presentational, reusable state (`isHovered`, animation offsets). See
   the `verdux:graph-design` "State boundary" rule.
+- **Don't wrap dispatch in a `useDispatch` hook.** It collides by name with
+  react-redux's `useDispatch` (easy to auto-import the wrong one and dispatch
+  into the wrong store), and the usual body returns a fresh
+  `action => graph.dispatch(action)` every render — unstable in effect/memo
+  deps. Dispatch inline on the module singleton, or read the stable graph with
+  `useGraph`. There is one store; reach it by import, not behind a per-render
+  function.
+- **Don't bundle a cluster of dispatches in a thin `useXxxActions()` hook.** A
+  hook with a single callsite and no logic beyond `dispatch(...)` plus a
+  `useVertexState` read is indirection, not abstraction — dispatch inline. You
+  can't make such a hook "more testable": the logic worth testing (routing,
+  guards, dedup) belongs in the vertex, tested by dispatch (see `verdux:testing`).
+  The discriminator is **callsites × own logic** — extract a hook only for a
+  *reused* subscription/effect across several components, never as a per-surface
+  dispatch bundle.
 
 ## See also
 
 - `examples/` in this skill — copy-paste `useVertexState.ts`,
-  `useDispatch.ts`, `GraphContext.ts`, and a sample page component.
+  `useGraph.ts`, `GraphContext.ts`, and a sample page component.
 - `verdux:graph-design` skill — where this layer fits in the bigger
   picture.
 - `verdux:testing` skill — note that the component layer is not exercised

@@ -59,8 +59,8 @@ service-injection mechanics.
 | Turn a stream of a tracked action into a stream of actions        | `reaction$`          |
 | Dispatch an action when picked fields change                      | `fieldsReaction`     |
 | Run an effect on a tracked action, dispatching nothing            | `sideEffect`         |
-| Own a long external subscription keyed on a field (SSE/WS)        | `reaction$` + `switchMap` over an injected source |
-| Show something, then auto-clear it after a delay (toast/popup)    | `reaction$` + `switchMap` over an injected `time.timer` |
+| Own a long external subscription keyed on a field (SSE/WS)        | `reaction$`, with `switchMap` to an injected source inside the mapper |
+| Show something, then auto-clear it after a delay (toast/popup)    | `reaction$`, with `switchMap` to an injected `time.timer` inside the mapper |
 
 Two recurring choices:
 
@@ -305,6 +305,18 @@ not by what API the source happens to expose.
     the graph with `reaction$` + `switchMap` over an injected source. The next
     section is this pattern in full.
 
+- **Navigation broadcast → one root `navigated(params)` action.** When *several*
+  vertices must react to a route change (close a modal, re-target a channel), a
+  single root subscription —
+  `router.subscribe('onResolved', () => graph.dispatch(navigated(matchedParams)))`
+  — suffices; each vertex does `reaction(navigated, …)`. This is distinct from
+  the single-vertex `routeParams$` value-stream above: it's navigation *as a
+  broadcast signal*, not one vertex's data source. **Carry the matched params in
+  the payload.** An empty `navigated()` forces each reaction to re-read
+  `router.state` imperatively — the cross-source backdoor `verdux:graph-design`
+  warns against — whereas `navigated({ id })` keeps every reaction pure and
+  testable (`dispatch(navigated({ id: '123' }))`, no router).
+
 ## Own a long-lived external subscription
 
 A persistent push stream whose lifecycle follows a slice field — a per-`productId`
@@ -345,6 +357,20 @@ Why this exact shape:
   open, re-key, and close into the single `id | null` action.
 - **`map(toAction)`** turns each server event into the slice action that handles
   it; those actions re-dispatch through the store like any other.
+
+> **Where does the `id | null` come from? The route, not a `useEffect`.**
+> Driving it from a component's mount/unmount would let a transient remount (a
+> `<Suspense>` flap, an intermediate route) close the socket spuriously — see
+> `verdux:graph-design`, "Lifecycle belongs to the graph", for why critical
+> lifecycle never hinges on the React tree. Derive it from the `routeParams$`
+> adapter (see `verdux:dependency-injection`) instead: it yields `params.id`
+> on the entity route and `undefined` on a route without the param, so the
+> closing `null` is **free** and structural. The *same* route-derived
+> `id | null` drives both the entity `load`
+> and this `reaction$`, so there is one source of "which entity am I on" (see
+> `verdux:graph-design`, "Don't source the same value through two paths"). The
+> full composition — route → single `id | null` → `load` + channel, zero
+> `useEffect` — is the worked example `examples/routeDrivenEntityChannel.ts`.
 
 The `reaction$` mapper is subscribed once for the graph's life, so the `switchMap`
 stays live across every `channelChanged` — there's no re-subscription gap. The
@@ -437,6 +463,10 @@ verdux mechanic — so it stays a pointer, not a worked example.
 - `examples/reactionOperations.ts` — the four action-reacting operations.
 - `examples/selfClearingTransient.ts` — self-clearing transients via `reaction$`
   + `switchMap` over an injected `time.timer`, with a `ManualClock` test.
+- `examples/routeDrivenEntityChannel.ts` — the route → single `id | null` →
+  entity `load` + realtime channel composition with zero `useEffect`, pinned by
+  `examples/routeDrivenEntityChannel.test.ts` (the whole lifecycle as a
+  deterministic `dispatch → assert`).
 - `verdux:graph-design` skill — where these operations sit in the larger graph,
   and how `.withDependencies(...)` injects services into a loader.
 - `verdux:dependency-injection` skill — supplying the services that loaders call.

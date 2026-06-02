@@ -11,6 +11,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TS config extends `config/base/tsconfig.json` and only compiles from the `src/index.ts` entrypoint (target es5, lib es2015, strict on). Don't rely on newer lib types without updating the base config.
 
+### Plugin example code is checked separately
+
+The repo also ships a Claude Code plugin under `claude-code-plugin/`. The `examples/` files in its skills are **real compiled code**, not snippets — guarded by a dedicated harness in `claude-code-plugin/example-check/` that type-checks every `../skills/**/examples/*.ts{,x}` against live source (`verdux` → `src/index.ts`) and runs the example tests. Root `npm test` does **not** cover them. After editing any skill or its examples, run the harness from `claude-code-plugin/example-check/`:
+
+```bash
+npm run typecheck   # tsc --noEmit over all example + sample files
+npm test            # runs the example tests
+```
+
+See `claude-code-plugin/example-check/README.md` for what it covers.
+
 ## ISSUES.md
 
 `ISSUES.md` documents only **currently existing** issues. Once an issue is resolved, remove it from `ISSUES.md` entirely — do not keep it marked as resolved.

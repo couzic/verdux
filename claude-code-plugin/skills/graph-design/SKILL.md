@@ -30,6 +30,24 @@ going up. So when you're tempted to pile unrelated responsibilities into one
 vertex "so they can talk to each other" — don't. Break them apart by
 responsibility; the graph reconnects them.
 
+## Lifecycle belongs to the graph, not to React mount/unmount
+
+A component mounting or unmounting is a UI implementation detail, **not** the
+mechanism of a behavior that has to be correct. Opening or closing a socket,
+resetting a piece of state, triggering a load — anything that *must* happen —
+must never hinge on whether some component stays mounted. Drive it from an
+explicit source (the router, an action) and **dispatch**: pure, unit-testable,
+explicit. A `useEffect` mount/unmount used as the engine of business logic is
+precisely the unmanageable disorder verdux exists to remove.
+
+This is the through-line of the whole skill: every "where does this live?"
+question below resolves toward the graph and away from the React lifecycle. The
+tell is a critical effect — a fetch, a reset, a subscription open/close — written
+in a `useEffect` cleanup. If losing it on a transient remount (a `<Suspense>`
+flap, an intermediate navigation) would be a bug, it doesn't belong there. The
+route-driven channel below, and `verdux:operations`' "Own a long-lived external
+subscription", are applications of this one rule.
+
 ## The root vertex is a dependency well
 
 Every verdux graph has exactly one root vertex. The idiomatic convention is:
@@ -72,6 +90,14 @@ person who opens it.
   the routes (and modals) it touches; don't aggregate a vertex around the
   feature concept. Reasoning "by feature" re-aggregates what the router already
   separated.
+
+> **A route loader fires only on *entry*.** A router (TanStack and friends) has
+> no symmetric "onLeave" hook. Don't simulate one with a `useEffect` unmount:
+> derive the *current entity id* from the router (`routeParams$`) as a single
+> `id | null`, and the transition to `null` on a paramless route is automatic —
+> it clears the entity load and closes any realtime channel for free, following
+> navigation rather than the React tree. See `verdux:operations`'
+> `routeDrivenEntityChannel.ts` for the full route → load + channel composition.
 
 **Split vertically, never horizontally.** Decompose by the slice of the app that
 owns its data end-to-end — a route, a feature surface — not by data *nature*.
@@ -139,26 +165,29 @@ saved `profile` it edits comes from a loader or upstream vertex — only the edi
 buffer lives in this slice):
 
 ```tsx
+// `graph` is the module singleton; dispatch intents inline on it — no hook.
+// See verdux:react-integration, "Dispatching".
+import { graph } from '../../graph'
+
 const ProfileForm = ({ profile }: { profile: Profile }) => {
-   const dispatch = useDispatch()
    const { editing, displayName, bio, interests, saving, error } =
       useVertexState({ vertex: profileFormVertexConfig, fields: [
          'editing', 'displayName', 'bio', 'interests', 'saving', 'error'
       ] })
 
    if (!editing)
-      return <button onClick={() => dispatch(editingStarted(profile))}>Edit</button>
+      return <button onClick={() => graph.dispatch(editingStarted(profile))}>Edit</button>
 
    return (
-      <form onSubmit={e => { e.preventDefault(); dispatch(submitRequested()) }}>
+      <form onSubmit={e => { e.preventDefault(); graph.dispatch(submitRequested()) }}>
          <input value={displayName}
-            onChange={e => dispatch(displayNameChanged(e.target.value))} />
+            onChange={e => graph.dispatch(displayNameChanged(e.target.value))} />
          <textarea value={bio}
-            onChange={e => dispatch(bioChanged(e.target.value))} />
+            onChange={e => graph.dispatch(bioChanged(e.target.value))} />
          {/* interests toggled via dispatch(interestToggled(tag)) */}
          {error && <p role="alert">{error}</p>}
          <button disabled={saving}>Save</button>
-         <button type="button" onClick={() => dispatch(editingCancelled())}>
+         <button type="button" onClick={() => graph.dispatch(editingCancelled())}>
             Cancel
          </button>
       </form>
@@ -444,6 +473,13 @@ export const graph = createGraph({
   up unrelated responsibilities. Split by responsibility — see "Decomposition".
 - **Don't read another vertex's state imperatively** from a compute or reaction.
   The urge to is the signal to add an upstream edge — see "Multiple upstreams".
+- **Don't source the same value through two paths.** If "the current route
+  entity id" is already a route-derived field, don't let a second mechanism — a
+  React hook, a second loader, a mirrored slice field — re-introduce the same id
+  by another route. Derive it once and let every consumer (entity loader,
+  realtime channel) read that single field. Two sources of one id drift apart
+  exactly when navigation and a component lifecycle disagree — see "Lifecycle
+  belongs to the graph".
 - **Don't use `reaction` / `reaction$` for cascade loading.** Use
   `loadFromFields` instead. Reactions are an action-to-action escape hatch,
   not the primary data-flow primitive.
