@@ -1,6 +1,6 @@
 ---
 name: operations
-description: Reference for the nine vertex operations in verdux and when to reach for each. Covers the field-producing operations (computeFromFields, computeFromFields$, load, loadFromFields, loadFromFields$) and the action-reacting operations (reaction, reaction$, fieldsReaction, sideEffect), with a decision table and the sync-vs-stream and loadable-vs-plain distinctions. Use whenever the user is working on a single vertex's behavior — deriving a field, loading data, cascading one load off another, reacting to an action, or asking "which operation should I use" / "how do I use load / loadFromFields / computeFromFields / reaction / sideEffect".
+description: Reference for the nine vertex operations in verdux and when to reach for each. Covers the field-producing operations (computeFromFields, computeFromFields$, load, loadFromFields, loadFromFields$) and the action-reacting operations (reaction, reaction$, fieldsReaction, sideEffect), with a decision table, the sync-vs-stream and loadable-vs-plain distinctions, loader error policy, bringing an external system in (value-stream vs event-stream), owning a long-lived external subscription (SSE/WebSocket) keyed on a field via reaction$ + switchMap, and self-clearing transients (toast/popup/flash that auto-clear) via reaction$ + switchMap over an injected timer. Use whenever the user is working on a single vertex's behavior — deriving a field, loading data, cascading one load off another, reacting to an action, consuming an SSE/WebSocket stream, building an auto-clearing toast/popup/flash, or asking "which operation should I use" / "how do I use load / loadFromFields / computeFromFields / reaction / sideEffect".
 ---
 
 # verdux operations
@@ -59,6 +59,8 @@ service-injection mechanics.
 | Turn a stream of a tracked action into a stream of actions        | `reaction$`          |
 | Dispatch an action when picked fields change                      | `fieldsReaction`     |
 | Run an effect on a tracked action, dispatching nothing            | `sideEffect`         |
+| Own a long external subscription keyed on a field (SSE/WS)        | `reaction$` + `switchMap` over an injected source |
+| Show something, then auto-clear it after a delay (toast/popup)    | `reaction$` + `switchMap` over an injected `time.timer` |
 
 Two recurring choices:
 
@@ -197,16 +199,29 @@ All four are demonstrated in `examples/reactionOperations.ts`. `reaction`,
 `reaction$`, and `fieldsReaction` **re-dispatch** their result back through the
 store; `sideEffect` dispatches nothing.
 
+> **Re-dispatch is synchronous.** When a reaction returns an action, verdux
+> dispatches it back through the store **within the same synchronous call stack**
+> as the originating `dispatch` — no scheduler, microtask, or timer sits between
+> an action and the reactions it triggers, and `switchMap` (and friends) cancel
+> synchronously. This is a load-bearing correctness guarantee: in single-threaded
+> JS there is **no interleaving** between a dispatch and its reactions, so a stale
+> reaction cannot land after a newer one and there are **no dispatch races** to
+> guard against: don't add `popupId`-style guards; prove the safety with a test
+> instead. Ordering is deterministic: `fieldsReaction`s drain before
+> `reaction` / `reaction$`, one action at a time, FIFO.
+
 > **Common trap — these take an action creator, not an Observable.**
 > `reaction(actionCreator, …)`, `reaction$(actionCreator, …)`, and
 > `sideEffect(actionCreator, …)` all key off a **tracked action**. `reaction$`
 > is the easy mistake: it *manipulates* an `action$` stream, so it looks like
 > it could *consume* an external one — but the stream it hands your mapper is
 > the stream **of that action creator**, never an Observable you supply. You
-> cannot feed an SSE / WebSocket / router stream into `reaction$`. To bring an
-> external stream in, **bridge it to a dispatched action** (next section). Only
-> the `load*` family consumes an injected Observable — and it produces a field,
-> not a reaction.
+> can't make an SSE / WebSocket / router stream the *tracked action*. You bring
+> the external stream in through **an action** that triggers it: bridge each
+> event (or each "open this channel" intent) to a dispatched action, then — for
+> a field-indexed subscription — `switchMap` *to* the external source inside the
+> mapper. See "Bringing an external system in" and "Own a long-lived external
+> subscription" below.
 
 ### `reaction(actionCreator, mapper)`
 
@@ -265,22 +280,140 @@ not by what API the source happens to expose.
 
 - **Event-stream → bridge to a dispatched action.** The source emits *discrete
   events*, each driving a consequence: a WebSocket message, an SSE
-  `auth-revoked`, a push notification. There is **no operation that subscribes
-  to an external stream for you.** Subscribe once at app bootstrap and
-  `dispatch` an action per event; the vertex then reacts to that *action*:
+  `auth-revoked`, a push notification. No operation auto-subscribes you to an
+  external stream — you map each event to an action and `dispatch` it; the
+  vertex reacts to that *action*, not to the stream. **Who owns the subscription
+  depends on what governs its lifecycle:**
+
+  - **App-lifetime / global stream → subscribe once at bootstrap.** A stream
+    that's simply "on" for the whole session and isn't keyed by any state — a
+    global `auth-revoked` channel — is owned by a single module-level
+    subscription at app start. This is *not* a React `useEffect` (which opens
+    one socket per component mount); it's one subscription for the app:
+
+    ```ts
+    // bootstrap (outside any vertex): one subscription → dispatch
+    sse.on('auth-revoked', () => graph.dispatch(authRevoked()))
+
+    // the vertex reacts to the ACTION, not to the stream
+    .sideEffect(authRevoked, () => router.navigate('/login'))
+    ```
+
+  - **Field-indexed / data-scoped stream → `reaction$` owns it.** When the
+    stream's lifecycle follows a slice field — open the channel for *this*
+    `productId`, re-key when it changes, close on navigate-away — own it inside
+    the graph with `reaction$` + `switchMap` over an injected source. The next
+    section is this pattern in full.
+
+## Own a long-lived external subscription
+
+A persistent push stream whose lifecycle follows a slice field — a per-`productId`
+SSE channel, a per-`orderId` WebSocket — is owned **inside the graph**, not by a React
+`useEffect`. A hook owns a socket *per component mount*, so mounting two readers
+of the same channel opens two sockets; the bug is structural. Bind the socket to
+the **data** instead and there is exactly one per `id`, regardless of how many
+components read the resulting state.
+
+This is a `reaction$`, not a `load*`: a heterogeneous channel fans one stream out
+into *many* actions (≈30 named server events → ≈30 reducers), whereas `load*`
+produces a single field. The source is an **injected Observable factory** (see
+`verdux:dependency-injection`, "Inject a long-lived external stream").
+
+Model the whole lifecycle with **one action carrying `id | null`**, and let
+`switchMap` do the open / re-key / close:
 
 ```ts
-// bootstrap (outside any vertex): one subscription → dispatch
-sse.on('auth-revoked', () => graph.dispatch(authRevoked()))
-
-// the vertex reacts to the ACTION, not to the stream
-.sideEffect(authRevoked, () => router.navigate('/login'))
+// channelChanged(productId) opens or re-keys; channelChanged(null) closes.
+.reaction$(channelChanged, in$ =>
+   in$.pipe(
+      switchMap(({ payload: id }) =>
+         id == null ? EMPTY : sse.open(id).pipe(map(toAction))
+      )
+   )
+)
 ```
 
-This is the only correct shape for push-style server events — the most common
-external integration, and the one the "value comes from a stream" framing pulls
-people away from. If you catch yourself trying to pass a WebSocket/SSE/router
-Observable to `reaction$`, you want this bridge instead.
+Why this exact shape:
+
+- **`switchMap` makes the socket follow the `id`.** On a new `id` it unsubscribes
+  the previous `sse.open(prevId)`, whose teardown (`() => es.close()`) closes the
+  old socket before opening the new one. One socket per `id`, always.
+- **Close is a value, not a second action.** Dispatching `channelChanged(null)`
+  on navigate-away maps to `EMPTY`, so `switchMap` tears the live socket down and
+  opens nothing. A *separate* `closed` action would never reach this
+  reaction (it keys on `channelChanged` only), so the socket would leak — fold
+  open, re-key, and close into the single `id | null` action.
+- **`map(toAction)`** turns each server event into the slice action that handles
+  it; those actions re-dispatch through the store like any other.
+
+The `reaction$` mapper is subscribed once for the graph's life, so the `switchMap`
+stays live across every `channelChanged` — there's no re-subscription gap. The
+subscription is owned by the vertex, injected, and therefore testable: inject a
+`Subject` for `sse.open` and the test pushes events synchronously.
+
+## Self-clearing transients (show, wait, clear)
+
+A toast, popup, or flash that shows and then clears itself after a delay is the
+canonical win over `useEffect` + `setTimeout`: model it as a `reaction$` whose
+`switchMap` runs an **injected timer** (`time.timer(ms)`, a sibling of
+`time.debounce` — see `verdux:dependency-injection`). Showing the transient again
+**resets** the timer for free, because `switchMap` cancels the in-flight one; and
+the timing is testable because the timer is a dependency, not a real `setTimeout`.
+
+Single-phase — a flash that clears after 3 s; a new flash restarts the timer:
+
+```ts
+.reaction$(resultFlashed, in$ =>
+   in$.pipe(switchMap(() => time.timer(3000).pipe(map(() => flashCleared()))))
+)
+```
+
+Multi-phase — a popup that animates out before it clears (show → 2 s → exiting →
+0.5 s → gone). The whole timeline is one `concat` inside one `switchMap`, so a
+re-show cancels a *mid-sequence* phase and starts over:
+
+```ts
+.reaction$(bonusShown, in$ =>
+   in$.pipe(
+      switchMap(({ payload }) =>
+         concat(
+            time.timer(2000).pipe(map(() => bonusExiting(payload.id))),
+            time.timer(500).pipe(map(() => bonusCleared(payload.id)))
+         )
+      )
+   )
+)
+```
+
+Because re-dispatch and `switchMap` cancellation are synchronous (see the
+reactions note above), there are no stray timers to leak, and the tests read
+`dispatch → fire → assert` with no fake timers. The runnable version is
+`examples/selfClearingTransient.ts`, with its `ManualClock` test (covered in
+`verdux:testing`) asserting both the lifecycle and the reset-cancels-the-old-timer
+guarantee.
+
+**Scaling to independent instances.** For N transients in flight at once (a
+per-row toast, a per-id flash), key the stream by id so each instance resets only
+its own timer. Lift the per-instance pipeline into `groupBy` + `mergeMap`:
+
+```ts
+.reaction$(flashed, in$ =>
+   in$.pipe(
+      groupBy(({ payload }) => payload.id),
+      mergeMap(group$ =>
+         group$.pipe(
+            switchMap(() =>
+               time.timer(3000).pipe(map(() => flashCleared(group$.key)))
+            )
+         )
+      )
+   )
+)
+```
+
+`mergeMap` keeps every id's pipeline alive in parallel; the inner `switchMap`
+gives each id its own latest-wins reset. This is generic rxjs fan-out — no new
+verdux mechanic — so it stays a pointer, not a worked example.
 
 ## Rules of thumb
 
@@ -302,6 +435,8 @@ Observable to `reaction$`, you want this bridge instead.
 - `examples/computeAndLoadOperations.ts` — the five field-producing operations,
   with `examples/operations.test.ts` asserting their runtime behavior.
 - `examples/reactionOperations.ts` — the four action-reacting operations.
+- `examples/selfClearingTransient.ts` — self-clearing transients via `reaction$`
+  + `switchMap` over an injected `time.timer`, with a `ManualClock` test.
 - `verdux:graph-design` skill — where these operations sit in the larger graph,
   and how `.withDependencies(...)` injects services into a loader.
 - `verdux:dependency-injection` skill — supplying the services that loaders call.

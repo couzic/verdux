@@ -1,6 +1,6 @@
 ---
 name: testing
-description: How to test verdux vertices as cohesive units of functionality rather than testing reducers, selectors, and thunks in isolation. Covers per-test graph construction, mocking services via .injectedWith() plus RxJS Subject stubs, asserting on currentState and currentLoadableState, and verifying rerender minimization via pick() emission counters. Use whenever the user is writing tests for a verdux vertex, setting up test fixtures, or asking "how do I test this reducer / loader / side effect".
+description: How to test verdux vertices as cohesive units of functionality rather than testing reducers, selectors, and thunks in isolation. Covers per-test graph construction, mocking services via .injectedWith() plus RxJS Subject stubs, asserting on currentState and currentLoadableState, why reactions re-dispatch synchronously so tests stay linear (dispatch → assert, no await) and dispatch races can't occur, injecting timing operators instead of fake timers, testing self-clearing transients (toast/popup/flash) with a ManualClock that fires injected timers on command, and verifying rerender minimization via pick() emission counters. Use whenever the user is writing tests for a verdux vertex, setting up test fixtures, reasoning about dispatch ordering or races, testing timer-driven or auto-clearing UI state, or asking "how do I test this reducer / loader / side effect".
 ---
 
 # verdux testing
@@ -189,6 +189,86 @@ it('loads results without waiting on the debounce', () => {
 ```
 
 The runnable version is `dependency-injection/examples/injectableOperator.test.ts`.
+
+## Test self-clearing transients with a ManualClock
+
+A `timer`-driven transient (toast, popup, flash — see `verdux:operations`,
+"Self-clearing transients") can't use the identity-operator trick: a timer must
+still *emit*, just on your command. Inject a **ManualClock** instead — `timer(ms)`
+hands back a controllable cold stream, and `fire(ms)` makes every timer at that
+delay emit. The whole helper is ~12 lines, no fake timers, no `TestScheduler`:
+
+```ts
+class ManualClock {
+   private pending: { ms: number; subject: Subject<number> }[] = []
+   timer = (ms: number): Observable<number> =>
+      new Observable<number>(subscriber => {
+         const entry = { ms, subject: new Subject<number>() }
+         this.pending.push(entry)
+         const inner = entry.subject.subscribe(subscriber)
+         return () => {
+            inner.unsubscribe()
+            const i = this.pending.indexOf(entry)
+            if (i >= 0) this.pending.splice(i, 1)
+         }
+      })
+   fire(ms: number) {
+      const due = this.pending.filter(p => p.ms === ms)
+      this.pending = this.pending.filter(p => p.ms !== ms)
+      due.forEach(({ subject }) => {
+         subject.next(0)
+         subject.complete()
+      })
+   }
+}
+```
+
+Inject it and tests read `dispatch → fire → assert`, linearly:
+
+```ts
+const clock = new ManualClock()
+graph = createGraph({
+   vertices: [transientVertexConfig.injectedWith({ time: { timer: clock.timer } })]
+})
+
+it('clears the flash after the timer fires', () => {
+   graph.dispatch(actions.resultFlashed('Added to cart'))
+   expect(vertex.currentState.flash).to.equal('Added to cart')
+   clock.fire(3000)
+   expect(vertex.currentState.flash).to.be.null
+})
+```
+
+The assertion that earns this helper its place is **cancellation**: re-trigger the
+transient, then fire the stale timer and prove nothing happens. It works *because*
+re-dispatch and `switchMap` cancellation are synchronous (next section) — the old
+timer is torn down before the `fire`, so there's no stale clear and no leak. That
+one assertion is the "beats `useEffect` + `setTimeout`" claim made executable. Full
+example: `operations/examples/selfClearingTransient.test.ts`.
+
+## Reactions re-dispatch synchronously
+
+When a `reaction` / `reaction$` / `fieldsReaction` returns an action, verdux
+dispatches it back through the store **within the same synchronous call stack**
+as the originating `dispatch` — no scheduler, microtask, or timer in between. So
+vertex tests read linearly even when one action triggers a cascade of reactions:
+`dispatch → assert`, no `await`, no `flushPromises`.
+
+```ts
+it('applies the reaction cascade synchronously', () => {
+   graph.dispatch(counterActions.incremented())
+   // a fieldsReaction on `count` re-dispatched `sizeBucketChanged('big')`;
+   // it has already been applied by the time dispatch() returns.
+   expect(vertex.currentState.sizeBucket).to.equal('big')
+})
+```
+
+This is also why you can **assert the absence of a race** rather than guard
+against one: in single-threaded JS nothing interleaves between a dispatch and the
+reactions it triggers, and `switchMap` cancels synchronously, so a stale reaction
+can't land after a newer one. If a review flags a "dispatch race," the answer is
+usually a test proving it can't happen, not a runtime guard. See the
+`verdux:operations` reactions section for the guarantee in full.
 
 ## What you don't need
 

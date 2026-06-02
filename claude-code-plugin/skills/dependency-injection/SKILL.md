@@ -1,6 +1,6 @@
 ---
 name: dependency-injection
-description: How to wire and override dependencies in a verdux graph. Covers root-level dependency factories, deriving child dependencies, scoping vertex operations to resolved deps via .withDependencies(), and overriding dependencies for tests or environments via .injectedWith(). Use whenever the user is adding a service (API client, router, clock, logger) to a verdux graph, configuring a graph for tests, swapping a real service for a fake, or asking how to pass anything into a vertex operation.
+description: How to wire and override dependencies in a verdux graph. Covers root-level dependency factories, deriving child dependencies, scoping vertex operations to resolved deps via .withDependencies(), injecting an rxjs operator for testable timing, injecting a timer (time.timer) for self-clearing transients tested with a ManualClock, injecting a long-lived external stream (SSE/WebSocket) as an Observable factory scoped to its owning vertex, and overriding dependencies for tests or environments via .injectedWith(). Use whenever the user is adding a service (API client, router, clock, timer, logger, event stream) to a verdux graph, configuring a graph for tests, swapping a real service for a fake, or asking how to pass anything into a vertex operation.
 ---
 
 # verdux dependency injection
@@ -199,6 +199,87 @@ The full example is `examples/injectableOperator.ts`, pinned by
 `examples/injectableOperator.test.ts`. The `verdux:testing` skill covers why
 this replaces marble tests.
 
+### …and a timer for self-clearing transients
+
+The same `time` dependency is where an injectable **timer** lives — the source a
+self-clearing toast / popup / flash `switchMap`s to (see `verdux:operations`,
+"Self-clearing transients"). One caveat to flag at the call site: `timer(ms)`
+returns an Observable **source** (the thing you `switchMap` *to*), whereas
+`debounce(ms)` returns an **operator** (the thing you `.pipe` *through*) — both
+sit under `time` because both answer the one question "how does this vertex touch
+the clock, and how do I control it in a test?"
+
+```ts
+import { debounceTime, timer } from 'rxjs'
+
+dependencies: {
+   time: () => ({ debounce: debounceTime, timer }), // operator + source
+   apiClient: createApiClient
+}
+```
+
+**Scope `time` like any other dependency** (see the SSE section below): if only
+one vertex touches the clock, put it on that vertex's downstream `dependencies`
+— as the runnable example does — and reserve the root for a clock several
+vertices share. The block above is the shared case; `apiClient` is the kind of
+many-consumer service that justifies the root.
+
+In tests you don't inject identity (a timer must still *emit*, just on command):
+inject a **ManualClock** whose `timer(ms)` hands back a controllable stream and
+`fire(ms)` triggers it. The `verdux:testing` skill has the ~12-line `ManualClock`;
+the runnable example is `verdux:operations`' `examples/selfClearingTransient.ts`.
+
+## Inject a long-lived external stream (SSE / WebSocket)
+
+A persistent push stream — an `EventSource`, a WebSocket — is also a dependency:
+an **Observable factory** keyed on whatever identifies the channel. Inject it
+rather than `new EventSource(...)` inside the operation, so a `Subject`-backed
+fake can stand in for the socket in tests.
+
+```ts
+export interface Sse {
+   open: (productId: string) => Observable<ServerEvent>
+}
+
+export const createSse = (): Sse => ({
+   open: productId =>
+      new Observable<ServerEvent>(subscriber => {
+         const es = new EventSource(`/api/products/${productId}/stock`)
+         es.addEventListener('stock-changed', e =>
+            subscriber.next({ type: 'stock-changed', data: JSON.parse(e.data) })
+         )
+         // ...one addEventListener per server event type
+         return () => es.close() // teardown = unsubscribe closes the socket
+      })
+})
+```
+
+**Scope it to the vertex that owns it, not the root.** A stream consumed by a
+single vertex is a single-consumer dependency, so it belongs on that vertex via
+the downstream `dependencies` map — exactly like a feature-local clock or
+operator. Single-consumer services on the root pollute the dependency well;
+reserve the root for what most vertices use.
+
+```ts
+export const productStockVertexConfig = productPageVertexConfig
+   .configureDownstreamVertex({
+      slice: productStockSlice,
+      upstreamFields: ['product'],
+      dependencies: { sse: createSse }
+   })
+```
+
+The **ownership** mechanic — turning `sse.open(id)` into dispatched actions via
+`reaction$` + `switchMap`, with the socket's lifecycle bound to a slice field —
+lives in the `verdux:operations` skill ("Own a long-lived external
+subscription"). In tests, inject a `Subject` factory so the test pushes events
+synchronously, no real socket:
+
+```ts
+const events$ = new Subject<ServerEvent>()
+productStockVertexConfig.injectedWith({ sse: { open: () => events$ } })
+```
+
 ## Picking between the APIs
 
 | Need                                                | Use                                |
@@ -207,6 +288,7 @@ this replaces marble tests.
 | Give a child vertex a tailored view of a service    | Downstream `dependencies`          |
 | Use a service inside a vertex's operations          | `.withDependencies(deps, vertex)`  |
 | Make a debounced / timed field testable             | operator-as-dependency + identity override |
+| Feed a vertex an external push stream (SSE/WS)       | Observable-factory dependency, scoped to the owning vertex |
 | Swap a service for testing or environment switching | `.injectedWith(...)` in createGraph |
 
 ## Anti-patterns

@@ -1,6 +1,6 @@
 ---
 name: react-integration
-description: How to bind React components to a verdux graph. Covers the module-singleton graph, GraphContext, the Suspense-first useVertexState hook (via observable-hooks), useDispatch, fine-grained per-leaf field picking for rerender minimization, and in-band sentinels for empty or error states. Use whenever the user is wiring verdux into a React app, reading vertex state in a component, handling loading UI, dispatching actions, or trying to minimize rerenders.
+description: How to bind React components to a verdux graph. Covers the module-singleton graph, GraphContext, the Suspense-first useVertexState hook (via observable-hooks) as the one unified read for every vertex — including a vertex with no loadable field, where it simply never suspends rather than being bypassed with state$, useDispatch, fine-grained per-leaf field picking for rerender minimization, and in-band sentinels for empty or error states. Use whenever the user is wiring verdux into a React app, reading vertex state in a component, handling loading UI, dispatching actions, or trying to minimize rerenders.
 ---
 
 # verdux React integration
@@ -210,13 +210,29 @@ In practice this rarely bites because components pass a literal array
 the selection to a parent that remounts the child with a `key`, or rewrite
 the hook to track the fields list as a memo dep.
 
-## Alternative: manual branching (escape hatch)
+## A vertex with no loadable field still uses `useVertexState`
 
-Occasionally you can't use Suspense — incremental migration, a library
-boundary that can't tolerate thrown promises, server-rendered contexts
-without Suspense support. In that case, subscribe to `loadableState$`
-yourself via `useObservableState` from `observable-hooks` and branch on
-status manually:
+You may have a vertex fed **only by actions** — a straight reducer replacement,
+an SSE-driven slice, anything with no `load` / `loadFromFields` /
+`loadFromFields$` and so no loading phase. Read it with `useVertexState` anyway.
+Every field is already `loaded`, so the hook **never suspends** — it returns
+values immediately and the `<Suspense>` boundary is simply inert, not wrong.
+
+Resist the urge to "optimize" by reading `state$` + `useObservableState` directly
+instead. **The component must not know or care whether a field is loadable** —
+that uniformity is the whole point of the hook. Read every field the same way and
+the component keeps working unchanged if a field later *becomes* loadable: you add
+a `loadFromFields`, and the `<Suspense>` boundary that was inert just starts doing
+its job. Special-casing the read to `state$` couples the component to today's
+loadable-ness and breaks the instant that changes. So: one hook, everywhere.
+
+## Manual status branching (escape hatch)
+
+When you genuinely can't use Suspense — incremental migration, a library boundary
+that can't tolerate thrown promises, server-rendered contexts without Suspense
+support — subscribe to `loadableState$` yourself via `useObservableState` from
+`observable-hooks` and branch on status manually. This is the real escape hatch
+(not the no-loadable-field case above, which still uses `useVertexState`):
 
 ```ts
 const loadable = useObservableState(vertex.loadableState$, vertex.currentLoadableState)

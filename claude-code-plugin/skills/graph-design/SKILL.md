@@ -1,6 +1,6 @@
 ---
 name: graph-design
-description: How to structure a React app's vertex graph in verdux. Covers the root-vertex-as-DI-well convention, when to create a downstream vertex via configureDownstreamVertex, when to track upstreamFields for change detection, nesting versus flat layouts, and why the router is a dependency rather than a vertex. Use whenever the user is designing a verdux graph, adding a vertex, deciding how to decompose features, or asking "should this be a vertex?" — even when they don't explicitly mention verdux.
+description: How to structure a React app's vertex graph in verdux. Covers the DAG mental model (data flows down, events can flow up), mirroring the router as the graph skeleton, one-responsibility-per-vertex and vertical-not-horizontal decomposition, when modals get their own vertex, where state lives (closest common ancestor of its vertex consumers), the root-vertex-as-DI-well convention, when to nest versus stay flat, tracking upstreamFields, multiple upstreams, and why the router is a dependency rather than a vertex. Use whenever the user is designing a verdux graph, adding a vertex, deciding how to decompose features, where to put a piece of state, or asking "should this be a vertex?" — even when they don't explicitly mention verdux.
 ---
 
 # verdux graph design
@@ -9,6 +9,26 @@ verdux models an app's state as a directed acyclic graph of vertices. Each
 vertex owns a redux slice plus computed / loadable fields. This skill covers
 how to decompose a React app into vertices: where to put things, when to nest,
 when to stay flat.
+
+## Vertices are nodes in a DAG, not islands
+
+Before deciding *where* things go, internalize how vertices relate. A vertex is
+not a self-contained store — it is a node in a directed acyclic graph with two
+channels:
+
+- **Data flows down.** A vertex reads its upstream vertices' fields (via
+  `upstreamFields` or a multi-parent edge) and derives its own from them.
+- **Events can flow up.** Actions are normally dispatched on the vertex that
+  defines them, but a downstream vertex *can* dispatch an action an upstream
+  slice owns, pushing a change upward. The downward data channel is the common
+  one; the upward channel is there when a child must trigger a parent's change.
+
+The practical consequence governs every decomposition decision below:
+**splitting a vertex costs almost nothing in coordination.** A focused child
+still reads its parent's data going down and can dispatch the parent's actions
+going up. So when you're tempted to pile unrelated responsibilities into one
+vertex "so they can talk to each other" — don't. Break them apart by
+responsibility; the graph reconnects them.
 
 ## The root vertex is a dependency well
 
@@ -34,28 +54,59 @@ root avoids this. Put real state on a dedicated downstream vertex instead.
 `dependencies` is optional. A root (or any vertex) that needs no services omits
 it entirely — `configureRootVertex({ slice })`.
 
-## One vertex per route is a good default
+## Decomposition: mirror the router, one responsibility per vertex
 
-- **Route-per-vertex.** Each routed page gets its own vertex, colocated in the
-  same folder as the page component (e.g. `ProductPage.tsx` +
-  `productPageVertexConfig.ts`).
-- **Nested routes → nested vertices** when the child route genuinely consumes
-  parent state. Otherwise keep them flat under the root.
-- **Pure presentation components have no vertex.** Tabs, buttons, layout
-  scaffolding — if they don't own data, they don't need a vertex.
-- **Shared concerns (auth, session, navigation, i18n) live as dependencies,
-  not vertices.** The router is the canonical example: pass it via
-  `dependencies`, do not model it as vertex state.
+**The router tree is the skeleton of the graph.** The single best heuristic for
+shaping a graph is to mirror the app's navigation structure. A shared mental
+model between routes and vertices is what makes the graph legible to the next
+person who opens it.
+
+- **One vertex per route.** Each routed page gets its own vertex, colocated with
+  the page component (`ProductPage.tsx` + `productPageVertexConfig.ts`).
+- **Nested routes → nested vertices.** `/products/:id/reviews` and
+  `/products/:id/questions` are sub-routes of `/products/:id`, so their vertices
+  nest under `productPage` — they are the reviews and Q&A *of a specific,
+  already-loaded product*. Mirroring the router makes this nesting obvious; see
+  "Nesting" below for the data-dependency that confirms it.
+- **The route is the default unit, not the "feature."** A feature spreads across
+  the routes (and modals) it touches; don't aggregate a vertex around the
+  feature concept. Reasoning "by feature" re-aggregates what the router already
+  separated.
+
+**Split vertically, never horizontally.** Decompose by the slice of the app that
+owns its data end-to-end — a route, a feature surface — not by data *nature*.
+Coming from Redux, the reflex is a vertex per entity (`productsVertex`,
+`reviewsVertex`, `usersVertex`); that is a horizontal silo shared across pages,
+the wrong axis. The right axis is vertical: `productPageVertex` owns the product
+page's data and behavior end to end, the product and its reviews included.
+
+**Modals and overlays.** A modal earns its own vertex when it carries real state
+and behavior — a form, validation, a submission lifecycle, a realtime queue
+(e.g. `writeReview`, `editAddress`). A modal whose only state is an `open` flag does
+not; that flag rides in the slice of the route vertex that owns the screen. The
+test is the same single-responsibility judgment, applied to something the router
+doesn't list.
+
+- **Pure presentation has no vertex.** Tabs, buttons, layout scaffolding — if
+  they own no data, they own no vertex.
+- **Shared services (auth, session, navigation, i18n) are dependencies, not
+  vertices.** The router is the canonical example: pass it via `dependencies`,
+  do not model it as vertex state.
 
 ## State boundary: React `useState` vs the vertex
 
-There is exactly one rule for deciding what lives in a vertex slice and what
-stays in React, and it is **non-negotiable**:
+The default is simple: **state belongs in the vertex, and that is never a bad
+choice.** A vertex field is testable, change-detected, and leaves the full
+toolbox open — you can later compute, load, or react off it. You deviate into
+React `useState` for exactly one reason: **a reusable, multi-instance component**
+whose per-instance state can't bind to a single vertex field. The discriminator
+is *per-instance vs singleton*, not *trivial vs substantial* — a lone modal
+`open` flag is trivial but singleton, so it still belongs in a slice.
 
-> React `useState` is reserved for state that is **purely presentational and
-> locally reusable** — `isHovered`, `isFocused`, an animation offset, an
-> uncontrolled tooltip. **Every singleton piece of state tied to a route, a
-> modal, or a feature** — form drafts, a wizard's current step, pagination, an
+> React `useState` is reserved for state that is genuinely **per-instance and
+> reusable** — `isHovered`, `isFocused`, an animation offset, an uncontrolled
+> tooltip. **Every singleton piece of state tied to a route, a modal, or a
+> feature** — form drafts, a wizard's current step, pagination, an
 > `open` / `closed` flag, the `editing` flag — **belongs to the vertex and to
 > the vertex alone.**
 
@@ -167,34 +218,103 @@ export const productDetailVertexConfig = productPageVertexConfig
    })
 ```
 
-## Nesting vs staying flat
+## Nesting: structure is a decision, not a default
 
-Nesting is cheap and adds change-detection granularity, but adds a layer of
-indirection. Rule of thumb: nest only when a subgraph boundary **buys you
-something** — cleaner re-run semantics, shared parent data, per-subroute
-encapsulation. Otherwise keep graphs flat. Deeper is not better.
+Nesting is a deliberate design act, driven by the same router-mirroring and
+data-flow forces above — not a cost to minimize. The two forces usually coincide:
+a child route typically *specializes data its parent route already loaded*, so
+mirroring the router's nesting is the reliable first cut. Data dependency is the
+tiebreaker when they diverge (see the failure modes below). The positive rule:
 
-Two patterns that work well:
+> **Nest a child under a parent as soon as the child consumes the parent's
+> fields.** Shared data flowing down *is* the reason to nest, and it buys you
+> change-detection granularity for free.
 
-- **Flat app** — most small or mid-sized apps. All feature vertices hang off
-  the root, each with its own slice and its own `.load` / `.loadFromFields`
-  chain pulling from the root's shared dependencies.
-- **Nested subtree for a routed section** — when you have a parent route with
-  shared data and several child routes that each specialize that data. Model
-  the parent route as a vertex holding the shared fields; model each child
-  route as a nested vertex with `upstreamFields: [<shared>]`.
+The two failure modes are **symmetric**, and "keep it flat" only warns about one:
 
-## Multiple upstreams (the exception to tree-first)
+- **Gratuitous nesting** — a child nested under a parent whose fields it never
+  reads. Pointless indirection.
+- **Lazy flatness** — hanging everything off the root when a real parent/child
+  data dependency exists. This is the failure "deeper is not better" hides, and
+  it's the more common one. `productReviews` and `productQuestions` consume the
+  `product` loaded by `productPage`, and their routes are sub-routes of
+  `/products/:id` — they belong *under* `productPage` (`upstreamFields:
+  ['product']`), not flattened beneath the root.
+
+The mirror image keeps you honest in the other direction: `productPage` does
+**not** nest under `productList`. A deep link to `/products/:id` must work without
+the catalog, so `productPage` doesn't depend on `productList`'s fields — they're
+sibling routes, not parent/child. **Nest on data dependency, not on URL prefix
+alone.**
+
+Two shapes recur:
+
+- **Flat app** — most small or mid-sized apps. Feature vertices hang off the
+  root, each with its own slice and `.load` / `.loadFromFields` chain pulling
+  from the root's shared dependencies. Correct *when no vertex consumes
+  another's fields* — flatness here reflects a real absence of data
+  dependencies, not a default reached for.
+- **Nested subtree for a routed section** — a parent route with shared data and
+  child routes that each specialize it. The parent vertex holds the shared
+  fields; each child nests with `upstreamFields: [<shared>]`.
+
+## Where state lives: closest common ancestor
+
+A piece of state belongs on the **closest common ancestor of the vertices whose
+computations use it** — the lowest vertex sitting above every consumer. "Uses
+it" means a `load` / `compute` / `reaction` that takes the value as input; **a
+component that merely displays it doesn't count**, because a component can `pick`
+from any vertex regardless of where the state lives. Measure the *vertex*
+consumers, not the screens.
+
+- Consumed across the whole app → the closest common ancestor is the **root** →
+  root state is correct. (This is the one case where meaningful root state earns
+  its place — see the root anti-pattern below for the converse.)
+- Consumed under one branch → it lives on that branch's parent, root stays clean.
+- Consumed by one vertex → it lives there.
+
+Two pragmatic escape valves, both avoiding **pollution**:
+
+- Don't hoist to the **root** for a value only a couple of vertices compute on —
+  root state re-triggers every subtree.
+- Don't push it into an **intermediary** vertex whose branch is mostly
+  descendants that never read it — that pollutes the branch with irrelevant
+  state and re-runs.
+
+When the closest common ancestor sits too high for the few consumers it would
+serve, draw a **second upstream edge** straight to the owner instead (see
+"Multiple upstreams"). The `isMine` case: a product-reviews vertex (under
+`productPage`) needs the auth `user`, which lives in a sibling subtree. Their
+common ancestor is the root, but only the reviews vertex reads it — so
+`addUpstreamVertex(authVertexConfig, { fields: ['user'] })` beats hoisting `user`
+all the way to the root.
+
+**Placement and structure co-design each other.** Don't freeze the graph shape
+and then slot state into it. Discovering where a piece of state must live can
+tell you a vertex should exist, should nest differently, or should carry a second
+upstream edge. Structure follows ownership as much as it follows the router.
+
+## Multiple upstreams
 
 Everything above is **tree-first**: a vertex is created from its single parent
 via `parent.configureDownstreamVertex(...)`, and the whole graph is a tree of
-those calls. That is the default and covers the large majority of vertices.
+those calls. That covers the large majority of vertices.
 
-Reach for `configureVertex(...)` **only when one parent isn't enough** — when a
-vertex must read fields or dependencies from **more than one upstream vertex**,
-i.e. a genuine multi-parent DAG node (two sibling sections feeding a combined
-view, a summary that joins two unrelated subtrees, etc.). It is the exception,
-not a co-equal default.
+Reach for `configureVertex(...)` when **one parent isn't enough** — when a vertex
+must read fields or dependencies from **more than one upstream vertex**: a
+genuine multi-parent DAG node (two sibling sections feeding a combined view, the
+`isMine` reviews vertex that needs both its product and the auth user). It's less
+common than tree-first, but when a vertex genuinely needs another branch's data,
+a second upstream edge is the *correct* tool — not a workaround to avoid.
+
+> **The trigger.** If you catch yourself wanting to read another vertex's state
+> imperatively from a compute or reaction —
+> `graph.getVertexInstance(other).currentState`, a module-singleton getter —
+> **stop: that urge is the signal to add an upstream edge.** An imperative
+> cross-vertex read is a backdoor dependency: invisible to change detection,
+> untestable without the singleton, silently stale. Declaring the edge
+> (`addUpstreamVertex`) makes the dependency explicit, change-detected, and
+> testable. Data reaches a vertex *through the graph*, never around it.
 
 `configureDownstreamVertex` is in fact just sugar over this builder: it calls
 `configureVertex` with a single `addUpstreamVertex(parent)`. The builder form
@@ -316,8 +436,14 @@ export const graph = createGraph({
 - **Don't share selectors across components.** Each component calls
   `vertex.pick([...])` with the exact fields it needs — see the
   `verdux:react-integration` skill.
-- **Don't put meaningful state on the root vertex** unless every subgraph
-  genuinely needs to re-run when it changes.
+- **Don't put meaningful state on the root vertex** unless the root genuinely is
+  the closest common ancestor of its vertex consumers — i.e. nearly every
+  subtree computes on it. See "Where state lives".
+- **Don't create a catch-all vertex.** No generic `ui` / `modals` vertex
+  bundling unrelated state by nature, and no over-broad "feature" vertex piling
+  up unrelated responsibilities. Split by responsibility — see "Decomposition".
+- **Don't read another vertex's state imperatively** from a compute or reaction.
+  The urge to is the signal to add an upstream edge — see "Multiple upstreams".
 - **Don't use `reaction` / `reaction$` for cascade loading.** Use
   `loadFromFields` instead. Reactions are an action-to-action escape hatch,
   not the primary data-flow primitive.

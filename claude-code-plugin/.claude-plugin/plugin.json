@@ -1,6 +1,6 @@
 {
   "name": "verdux",
-  "version": "0.2.0",
+  "version": "0.6.6",
   "description": "React-focused skills for using the verdux state-management library in web projects",
   "author": {
     "name": "Mikael Couzic",
