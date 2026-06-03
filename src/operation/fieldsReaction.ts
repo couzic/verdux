@@ -12,13 +12,22 @@ export const fieldsReaction = (fields: string[], mapper: any): VertexRun =>
       const pickedFields = pickFields(fields, data.fields)
       const pickedState = toVertexState(pickedFields)
       const loadableState = new LazyVertexLoadableState(data.fields)
-      const reaction = mapper(pickedState, loadableState)
-      if (reaction === null) {
+      try {
+         const reaction = mapper(pickedState, loadableState)
+         if (reaction === null) {
+            return data
+         }
+         // TODO check if mapper output is a valid reaction
+         return {
+            ...data,
+            fieldsReactions: [...data.fieldsReactions, reaction]
+         }
+      } catch (e: any) {
+         console.error(
+            `[verdux] fieldsReaction on fields [${fields.join(', ')}] threw an error. ` +
+               'The graph stays alive; future field changes will still be processed.',
+            e
+         )
          return data
-      }
-      // TODO check if mapper output is a valid reaction
-      return {
-         ...data,
-         fieldsReactions: [...data.fieldsReactions, reaction]
       }
    })

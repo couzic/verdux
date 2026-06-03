@@ -12,18 +12,25 @@ export const sideEffect = (
       if (!data.action || data.action.type !== trackedAction.type) {
          return data
       }
-      try {
-         const input = new ReactionInput(data.action.payload, data.fields)
-         return {
-            ...data,
-            sideEffects: [...data.sideEffects, () => callback(input as any)]
-         }
-      } catch (e: any) {
-         // TODO Log error
-         // console.error(
-         //    `An error occured while processing side effect for "${trackedAction.type}":`
-         // )
-         // console.error(e)
-         return data
+      const input = new ReactionInput(data.action.payload, data.fields)
+      return {
+         ...data,
+         // The callback runs later, in createGraph's subscribe loop, so a throw
+         // here would escape as an uncaught error — guard it so it is logged and
+         // contained, like the rest of the reaction family.
+         sideEffects: [
+            ...data.sideEffects,
+            () => {
+               try {
+                  callback(input as any)
+               } catch (e: any) {
+                  console.error(
+                     `[verdux] sideEffect on "${trackedAction.type}" threw an error. ` +
+                        'The side effect is skipped; future matching actions will still be processed.',
+                     e
+                  )
+               }
+            }
+         ]
       }
    })

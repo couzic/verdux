@@ -23,11 +23,11 @@ export const reaction = (
             reactions: [...data.reactions, mapper(input)]
          }
       } catch (e: any) {
-         // TODO Log error
-         // console.error(
-         //    `An error occured while reacting to action "${trackedAction.type}":`
-         // )
-         // console.error(e)
+         console.error(
+            `[verdux] reaction on "${trackedAction.type}" threw an error. ` +
+               'The reaction is skipped; future matching actions will still be processed.',
+            e
+         )
          return data
       }
    })

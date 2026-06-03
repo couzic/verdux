@@ -76,6 +76,18 @@ describe(sut.name, () => {
          )
          expect(changedFields).to.deep.equal({ name: true })
       })
-      // TODO Detect changed errors ?
+      it('detects a field newly added to the field set', () => {
+         const previous: VertexFields = {
+            count: { status: 'loaded', value: 1, errors: [] }
+         }
+         const next: VertexFields = {
+            count: { status: 'loaded', value: 1, errors: [] },
+            added: { status: 'loaded', value: 42, errors: [] } // absent from `previous`
+         }
+
+         expect(compareVertexFields(previous, next)).to.deep.equal({
+            added: true
+         })
+      })
    })
 })

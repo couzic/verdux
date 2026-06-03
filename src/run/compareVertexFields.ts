@@ -6,10 +6,11 @@ export const compareVertexFields = (
 ) => {
    const changedFields: VertexChangedFields = {}
    Object.keys(next).forEach(fieldName => {
+      const prev = previous && previous[fieldName]
       if (
-         !previous ||
-         previous[fieldName].status !== next[fieldName].status ||
-         previous[fieldName].value !== next[fieldName].value
+         !prev ||
+         prev.status !== next[fieldName].status ||
+         prev.value !== next[fieldName].value
       ) {
          changedFields[fieldName] = true
       }
