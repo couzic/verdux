@@ -62,65 +62,6 @@ plugin example-check harness) — after the fix the directive activates:
 const b: string = inst.currentState.b
 ```
 
-### H3 — `pick()` and `currentLoadableState` disagree on an error→error transition
-
-`src/run/compareVertexFields.ts` compares only `status` and `value`, never the
-`errors` array (the recent fix added the `prev` existence guard but not an errors
-comparison). For a field that stays `status:'error'` while the error object changes,
-that field is omitted from `changedFields`, so `pick()`'s change-gated re-emission
-never fires — while `currentLoadableState` (published because a _sibling_ field
-changed) shows the new error. Two public reads of the same vertex disagree. The
-realistic producer is a `computeFromFields` computer that throws a _different_ error
-each run; the loader-retry path is **not** affected (it passes through an intermediate
-`loading` status, which changes `status` and is caught).
-
-**Fix.** Add an `errors`-reference comparison to `compareVertexFields` (the dead
-`src/state/compareFields.ts` already does this and has a passing test for it — fold it
-in or port the logic).
-
-**Repro (verified — fails on current tree).** Full graph:
-
-```ts
-const slice = createSlice({
-   name: 'root',
-   initialState: { n: 0 },
-   reducers: {
-      setN: (s, a: PayloadAction<number>) => {
-         s.n = a.payload
-      }
-   }
-})
-const config = configureRootVertex({ slice }).computeFromFields(['n'], {
-   c: ({ n }) => {
-      throw new Error('err-' + n)
-   }
-})
-const vertex = createGraph({ vertices: [config] }).getVertexInstance(config)
-const seen: string[][] = []
-vertex
-   .pick(['c'])
-   .subscribe((p: any) => seen.push(p.errors.map((e: Error) => e.message)))
-graph.dispatch(slice.actions.setN(1))
-graph.dispatch(slice.actions.setN(2))
-expect(
-   (vertex.currentLoadableState.fields as any).c.errors[0].message
-).to.equal('err-2') // fresh
-expect(seen[seen.length - 1]).to.deep.equal(['err-2']) // ACTUAL: stale (pick never re-emitted)
-```
-
-Pin the root cause with a pure unit test (also fails today) in
-`compareVertexFields.test.ts`:
-
-```ts
-const a: any = {
-   c: { status: 'error', value: undefined, errors: [new Error('a')] }
-}
-const b: any = {
-   c: { status: 'error', value: undefined, errors: [new Error('b')] }
-}
-expect(compareVertexFields(a, b)).to.deep.equal({ c: true }) // ACTUAL: {}
-```
-
 ### M3 — DevTools graph structure has `fields: undefined` for a multi-upstream edge
 
 `src/devtools/serializeGraphStructure.ts:24-33` walks the redux/execution tree
@@ -282,12 +223,8 @@ Most are cleanups/docs rather than behavioural bugs.
 
 - **Dead code:** `src/vertex/VertexData.ts` (obsolete post-refactor type);
   `src/config/toVertexName.ts` (parses an obsolete Symbol-based id format);
-  `src/util/shallowEquals.ts` (unused, untested); `src/state/compareFields.ts` (only its
-  own test references it — and it is buggy: see below); the unused `store` param +
+  `src/util/shallowEquals.ts` (unused, untested); the unused `store` param +
   `rootVertexConfig` hint in the middleware (`src/graph/createGraph.ts:34`).
-- **`compareFields` (dead) bugs:** iterates only `previous` keys (`compareFields.ts:5`,
-  ignores keys added in `next`) and its error-array comparison is length-asymmetric
-  (misses added errors). Moot unless it is wired in (e.g. as part of the H3 fix).
 - **Robustness edges (off the normal data path, unverified):** no cycle detection — a
   dependency cycle stack-overflows instead of erroring; devtools time-travel
   `provideForceGraphRunOutput` (`createGraph.ts:77-87`) does `Object.keys(fields)` and
