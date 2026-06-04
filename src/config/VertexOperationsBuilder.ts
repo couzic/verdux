@@ -89,7 +89,13 @@ export class VertexOperationsBuilder implements VertexOperationsOnly<any, any> {
       actionCreator: ActionCreator,
       callback: (input: any) => void
    ) {
-      // TODO Track action ???
+      // Track the action so the subgraph gate runs this vertex even when the
+      // triggering action doesn't mutate its slice — mirrors reaction/reaction$.
+      // Without this a sideEffect on a downstream vertex is gated out and never
+      // fires (its whole purpose: effects that must not feed a reducer).
+      if (!this.trackedActions.includes(actionCreator)) {
+         this.trackedActions.push(actionCreator)
+      }
       this._operations.push(sideEffect(actionCreator, callback))
       return this
    }

@@ -15,46 +15,6 @@ it is removed from this file.
 
 ---
 
-## High
-
-### H1 — `sideEffect` silently never fires on a downstream vertex
-
-`src/config/VertexOperationsBuilder.ts:92` (`sideEffect`) never adds its action to
-`this.trackedActions` (literal `// TODO Track action ???`), unlike `reaction` /
-`reaction$`. The subgraph gate runs a downstream vertex only when its own slice
-changed, a tracked upstream field changed, or the action is tracked — so a
-`sideEffect` whose triggering action does not mutate that vertex's slice is gated out
-and never runs. That is exactly its documented purpose ("effects that must not feed a
-reducer"). It works on the root vertex (no gate), which masks it in the README example.
-
-**Fix.** Mirror `reaction`: `if (!this.trackedActions.includes(actionCreator)) this.trackedActions.push(actionCreator)`.
-
-**Repro (verified — fails on current tree).** New `src/operation/sideEffect.test.ts`:
-
-```ts
-const trigger = createAction('trigger') // a plain action the downstream slice ignores
-const root = configureRootVertex({
-   slice: createSlice({ name: 'root', initialState: {}, reducers: {} })
-})
-let fired = 0
-const down = root
-   .configureDownstreamVertex({
-      slice: createSlice({ name: 'down', initialState: { x: 0 }, reducers: {} })
-   })
-   .sideEffect(trigger, () => {
-      fired += 1
-   })
-const graph = createGraph({ vertices: [root, down] })
-graph.dispatch(trigger())
-expect(fired).to.equal(1) // ACTUAL: 0 (gated out)
-```
-
-Controls that isolate the cause (both pass): the same `sideEffect` on the **root**
-fires once; adding a co-located `.reaction(trigger, …)` on `down` (which tracks the
-action) makes the sideEffect fire.
-
----
-
 ## Medium
 
 ### H2 — `addUpstreamVertex` mistypes unpulled upstream fields as present (type-safety)
