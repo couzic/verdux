@@ -101,33 +101,54 @@ export const createGraph = (options: {
          }
       })
    }
-   graphRunOutput$.subscribe(data => {
-      if (devtools) {
-         devtools.sendGraphRunOutput(data)
-      }
-      data.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
-      data.reactions.forEach(_ => reactionsFIFO.push(_))
-      data.sideEffects.forEach(_ => sideEffectsFIFO.push(_))
-      if (fieldsReactionsFIFO.hasNext()) {
-         saveChangedFields(data)
-         reduxStore.dispatch(fieldsReactionsFIFO.pop()!)
-      } else if (reactionsFIFO.hasNext()) {
-         saveChangedFields(data)
-         reduxStore.dispatch(reactionsFIFO.pop()!)
-      } else {
-         vertexConfigs.forEach(config => {
-            const fields = data.fieldsByVertexId[config.id]
-            const changedFields = {
-               ...savedChangedFieldsByVertexId[config.id],
-               ...data.changedFieldsByVertexId[config.id]
-            }
-            vertexInstanceById[config.id].__pushFields(fields, changedFields)
-         })
-         savedChangedFieldsByVertexId = {}
-         while (sideEffectsFIFO.hasNext()) {
-            const sideEffect = sideEffectsFIFO.pop()!
-            sideEffect()
+   graphRunOutput$.subscribe({
+      next: data => {
+         if (devtools) {
+            devtools.sendGraphRunOutput(data)
          }
+         data.fieldsReactions.forEach(_ => fieldsReactionsFIFO.push(_))
+         data.reactions.forEach(_ => reactionsFIFO.push(_))
+         data.sideEffects.forEach(_ => sideEffectsFIFO.push(_))
+         if (fieldsReactionsFIFO.hasNext()) {
+            saveChangedFields(data)
+            reduxStore.dispatch(fieldsReactionsFIFO.pop()!)
+         } else if (reactionsFIFO.hasNext()) {
+            saveChangedFields(data)
+            reduxStore.dispatch(reactionsFIFO.pop()!)
+         } else {
+            vertexConfigs.forEach(config => {
+               const fields = data.fieldsByVertexId[config.id]
+               const changedFields = {
+                  ...savedChangedFieldsByVertexId[config.id],
+                  ...data.changedFieldsByVertexId[config.id]
+               }
+               vertexInstanceById[config.id].__pushFields(fields, changedFields)
+            })
+            savedChangedFieldsByVertexId = {}
+            while (sideEffectsFIFO.hasNext()) {
+               const sideEffect = sideEffectsFIFO.pop()!
+               sideEffect()
+            }
+         }
+      },
+      // Observability only — deliberately NOT a recovery path. An error reaching
+      // here means a throw escaped every per-operation guard, so we no longer
+      // understand the graph's state; resubscribing would keep the app running on
+      // possibly-inconsistent state. We fail fast instead: the subscription that
+      // drives the whole graph terminates and stops publishing. This handler's
+      // sole job is to make that death traceable rather than silent: without an
+      // `error` callback an escaped throw freezes published state with no
+      // diagnostic while Redux keeps mutating. If this ever fires,
+      // it is a bug: find the unguarded throw site and add a per-operation guard.
+      error: error => {
+         console.error(
+            '[verdux] a graph run threw an error that escaped all ' +
+               'operation-level handling. The graph has STOPPED and will no ' +
+               'longer publish state updates (dispatches will still mutate ' +
+               'Redux but vertices will not react). This is a bug — please ' +
+               'report it. Originating error:',
+            error
+         )
       }
    })
 

@@ -112,50 +112,28 @@ const rootToC = captured.edges.find(
 expect(rootToC.fields).to.deep.equal([]) // ACTUAL: undefined
 ```
 
----
+### O5 — Diagnostics are hardcoded to `console.error`; need a pluggable mechanism
 
-## Hardening (latent — no current public-API trigger, but a real structural gap)
+Error/diagnostic reporting is currently scattered as raw `console.error(...)` calls:
+the four effect ops (`src/operation/reaction.ts:26`, `reaction$.ts:51`,
+`fieldsReaction.ts:26`, `sideEffect.ts:27`) and the fail-fast graph subscription
+(`src/graph/createGraph.ts:144`). This is not good enough:
 
-### The run pipeline has no error boundary
+- **Not configurable.** A consumer can't silence, redirect, or structure the output —
+  no way to route to a real logger, a monitoring sink, or the devtools hook.
+- **Not testable cleanly.** Full-graph error tests have to spy on the global
+  `console.error` to assert a diagnostic fired (the contract even bakes this in —
+  `OPERATION_CONTRACT.md:102`), coupling tests to a global.
+- **Inconsistent.** There's no single place that defines severity, prefix, or payload
+  shape.
 
-`graphRunOutput$.subscribe(...)` (`src/graph/createGraph.ts:104`) has only a `next`
-handler. There is no `catchError`/resubscribe over the single pipeline, so any
-synchronous throw in any operation permanently tears down the one subscription that
-drives the whole graph: `graphRunInput$` keeps accepting dispatches but nothing consumes
-them, the dispatcher sees no error, and published state silently freezes while Redux
-keeps mutating. Throws are currently contained only by per-operation `try/catch`
-(`reaction`/`reaction$`/`sideEffect`/`computeFromFields`/now `fieldsReaction`) and the
-`compareVertexFields` guard — i.e. whack-a-mole. The two known triggers were just
-patched, so there is no _currently reachable_ public-API path that kills the graph; but
-the boundary is still absent, so any new/unguarded throw site reintroduces silent
-permanent death.
-
-**Demonstrated** by `src/graph/graphErrorResilience.test.ts`, whose blocks are
-fail-on-revert guards: temporarily removing any single per-operation guard (e.g. the
-`try/catch` now in `fieldsReaction.ts`, or the existence guard in
-`compareVertexFields.ts`) makes the corresponding full-graph block go red — the graph
-dies and a later, unrelated dispatch is dropped —
-
-```ts
-const config = configureRootVertex({
-   slice /* {name, other} */
-}).fieldsReaction(['name'], ({ name }) => {
-   if (name === 'boom') throw new Error('x')
-   return slice.actions.setOther('reacted')
-})
-const vertex = createGraph({ vertices: [config] }).getVertexInstance(config)
-graph.dispatch(slice.actions.setName('boom')) // throw inside the mapper
-graph.dispatch(slice.actions.setOther('hello'))
-expect(vertex.currentState.other).to.equal('hello') // would die with the guard removed
-```
-
-Those guards are precisely the whack-a-mole this entry argues against: each closes one
-reachable throw site, but the boundary that would contain _any_ throw is still absent.
-
-**Fix.** Add an `error` callback to the subscription that logs and re-subscribes — the
-input is a never-completing `Subject`, so re-subscribe only receives future actions and
-is loop-safe (same idea `reaction$`'s `catchError` uses). That converts any future
-unguarded throw from silent-permanent-death into a logged, recoverable per-run error.
+**Fix (design needed).** Introduce a single diagnostics channel — e.g. an injectable
+reporter on `createGraph({ onError /* or logger */ })` that defaults to `console.error`,
+threaded to every operation and the graph subscription — so all `[verdux] … threw`
+diagnostics flow through one configurable seam. Decide the interface (severity levels?
+structured payload vs. string? relation to the existing `devtools` hook?) when
+implementing. Once it exists, error tests assert against the injected reporter instead of
+spying on `console`.
 
 ---
 

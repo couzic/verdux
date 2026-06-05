@@ -1,6 +1,7 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { of, throwError } from 'rxjs'
+import * as sinon from 'sinon'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from './createGraph'
 
@@ -116,6 +117,100 @@ describe('createGraph loader error contract', () => {
          expect(field.status).to.equal('loaded')
          expect(field.value).to.equal('data-2')
          expect(field.errors).to.deep.equal([])
+      })
+   })
+
+   // A loader's contract is to return an Observable. A factory that instead
+   // throws synchronously, or returns a non-Observable, never produced an
+   // Observable at all — a programming error, not a runtime data failure. Unlike
+   // an error delivered THROUGH the returned stream (the block above, which
+   // degrades one field and recovers), this is NOT contained: it fails fast and
+   // loud — escaping to the graph-level handler, which logs and stops the graph.
+   describe('loadFromFields(): a loader that does not return an Observable fails fast', () => {
+      let errorStub: sinon.SinonStub
+      beforeEach(() => {
+         errorStub = sinon.stub(console, 'error')
+      })
+      afterEach(() => {
+         errorStub.restore()
+      })
+
+      const makeGraph = (up: (input: { trigger: number }) => any) => {
+         const slice = createSlice({
+            name: 'root',
+            initialState: { trigger: 0, other: '' },
+            reducers: {
+               setTrigger: (s, a: PayloadAction<number>) => {
+                  s.trigger = a.payload
+               },
+               setOther: (s, a: PayloadAction<string>) => {
+                  s.other = a.payload
+               }
+            }
+         })
+         const config = configureRootVertex({ slice }).loadFromFields(
+            ['trigger'],
+            { up }
+         )
+         const graph = createGraph({ vertices: [config] })
+         return { graph, slice, vertex: graph.getVertexInstance(config) }
+      }
+
+      // Each loader is healthy on the initial run, then breaks its return
+      // contract on the offending input — a developer bug, not bad data.
+      const cases: [string, (input: { trigger: number }) => any][] = [
+         [
+            'throws synchronously',
+            ({ trigger }) => {
+               if (trigger === 1) throw new Error('factory boom')
+               return of('ok')
+            }
+         ],
+         [
+            'returns a non-observable',
+            ({ trigger }) =>
+               trigger === 1 ? ('not an observable' as any) : of('ok')
+         ]
+      ]
+
+      cases.forEach(([label, up]) => {
+         describe(`a loader that ${label}`, () => {
+            it('logs the escaped-error diagnostic (does not silently contain it)', () => {
+               const { graph, slice } = makeGraph(up)
+               graph.dispatch(slice.actions.setTrigger(1))
+               expect(
+                  errorStub.calledWithMatch(
+                     'escaped all operation-level handling'
+                  )
+               ).to.equal(true)
+            })
+
+            it('fails fast: the graph stops rather than degrading the field', () => {
+               const { graph, slice, vertex } = makeGraph(up)
+               graph.dispatch(slice.actions.setTrigger(1)) // escapes the operation
+               graph.dispatch(slice.actions.setOther('alive'))
+               expect((vertex.currentState as any).other).to.equal('')
+            })
+         })
+      })
+   })
+
+   // load()'s loaders are Observables given directly. A non-Observable value is a
+   // return-contract breach (a programming error) and fails fast — it throws
+   // eagerly at createGraph, not degraded to an error field.
+   describe('load(): a non-observable loader value fails fast', () => {
+      it('throws at construction', () => {
+         const slice = createSlice({
+            name: 'root',
+            initialState: {},
+            reducers: {}
+         })
+         const config = configureRootVertex({ slice }).load({
+            up: 'not an observable' as any
+         })
+         expect(() => createGraph({ vertices: [config] })).to.throw(
+            /must return an observable/
+         )
       })
    })
 })

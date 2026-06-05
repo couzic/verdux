@@ -1,6 +1,9 @@
-import { createAction } from '@reduxjs/toolkit'
+import { PayloadAction, createAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { Subject, map, mergeMap, of, throwError } from 'rxjs'
+import * as sinon from 'sinon'
+import { configureRootVertex } from '../config/configureRootVertex'
+import { createGraph } from '../graph/createGraph'
 import { VertexRunData } from '../run/RunData'
 import { reaction$ } from './reaction$'
 
@@ -111,5 +114,103 @@ describe('reaction$() mapper error', () => {
             outputAction('recovered')
          ])
       })
+   })
+})
+
+// Full-graph proof, via the PUBLIC API only, that a throwing reaction$ mapper
+// stream is logged (not silently swallowed, not left uncaught) while the graph
+// stays alive and the stream recovers for later tracked actions. Mirrors the
+// reaction/sideEffect blocks in graph/graphErrorResilience.test.ts. This is a
+// fail-on-revert guard: removing reaction$.ts's catchError makes it red.
+describe('reaction$() full-graph error resilience', () => {
+   // the mapper stream errors on purpose; stub console.error so the
+   // (intentional) diagnostic doesn't pollute the suite output, and so the
+   // logging test can assert on it.
+   let errorStub: sinon.SinonStub
+   beforeEach(() => {
+      errorStub = sinon.stub(console, 'error')
+   })
+   afterEach(() => {
+      errorStub.restore()
+   })
+
+   const makeGraph = () => {
+      const slice = createSlice({
+         name: 'root',
+         initialState: { n: 0 },
+         reducers: {
+            trig: () => {},
+            set: (s, a: PayloadAction<number>) => {
+               s.n = a.payload
+            }
+         }
+      })
+      let callCount = 0
+      const config = configureRootVertex({ slice }).reaction$(
+         slice.actions.trig,
+         input$ =>
+            input$.pipe(
+               mergeMap(() => {
+                  callCount++
+                  if (callCount === 1) {
+                     return throwError(() => new Error('reaction$ boom'))
+                  }
+                  return of(slice.actions.set(42))
+               })
+            )
+      )
+      const graph = createGraph({ vertices: [config] })
+      return { graph, slice, vertex: graph.getVertexInstance(config) }
+   }
+
+   it('logs the error', () => {
+      const { graph, slice } = makeGraph()
+      graph.dispatch(slice.actions.trig())
+      expect(
+         errorStub.calledWithMatch('reaction$ on "root/trig" threw')
+      ).to.equal(true)
+   })
+
+   it('keeps the graph alive: a later unrelated dispatch is still processed', () => {
+      const { graph, slice, vertex } = makeGraph()
+      graph.dispatch(slice.actions.trig()) // mapper stream errors, logged
+      graph.dispatch(slice.actions.set(5)) // later, unrelated dispatch
+      expect(vertex.currentState.n).to.equal(5)
+   })
+
+   it('recovers the reaction for a later tracked action after the error', () => {
+      const { graph, slice, vertex } = makeGraph()
+      graph.dispatch(slice.actions.trig()) // first → mapper errors, swallowed
+      graph.dispatch(slice.actions.trig()) // second → mapper re-dispatches set(42)
+      expect(vertex.currentState.n).to.equal(42)
+   })
+})
+
+// A reaction$ mapper is contracted to RETURN an Observable. Breaching that — the
+// mapper function itself throwing when called, or returning a non-Observable — is
+// a programming error, not a runtime stream error, so it fails fast (like every
+// other Observable-returning callback) rather than being logged and skipped. Only
+// an error delivered THROUGH the returned stream is logged + skipped (above).
+describe('reaction$() return-contract breach fails fast', () => {
+   const tracked = createAction('tracked')
+   const makeConfig = (mapper: any) =>
+      configureRootVertex({
+         slice: createSlice({ name: 'root', initialState: {}, reducers: {} })
+      }).reaction$(tracked, mapper)
+
+   it('throws at construction when the mapper returns a non-observable', () => {
+      const config = makeConfig(() => 'not an observable')
+      expect(() => createGraph({ vertices: [config] })).to.throw(
+         /reaction\$ .*must return an observable/
+      )
+   })
+
+   it('fails fast when the mapper function itself throws when called', () => {
+      const config = makeConfig(() => {
+         throw new Error('mapper-call-boom')
+      })
+      expect(() => createGraph({ vertices: [config] })).to.throw(
+         'mapper-call-boom'
+      )
    })
 })

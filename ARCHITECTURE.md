@@ -303,6 +303,13 @@ loadables.
 This re-dispatch loop is why the store stays constant through a synchronous run (§6):
 each re-dispatch is its own fresh middleware-seeded run; runs never interleave.
 
+The subscription also has an `error` handler, but it is **fail-fast observability only**:
+if a run errors (an operation let a throw or erroring stream escape), it logs a diagnostic
+and the subscription terminates — the graph stops publishing. It does *not* resubscribe.
+This is a deliberate liveness-vs-consistency choice: by the time an error reaches the
+subscription the run is already torn down, so resuming would run the app on inconsistent
+state. Operations are therefore required to contain their own runtime errors (§8.5).
+
 ---
 
 ## 8. Invariants to preserve when changing the pipeline
@@ -320,3 +327,13 @@ If you touch `src/run/` or `src/operation/`, keep these true:
    otherwise.
 4. **Sibling order is significant.** Tests that exercise loadables should cover both
    "loadable-owner registered before the plain sibling" and after.
+5. **Every operation contains its own *runtime* errors.** A throw or erroring stream from
+   a user callback must be caught *inside* the operation and degraded locally; it must not
+   propagate to `graphRunOutput$`. The one deliberate exception is a **return-contract
+   breach** — an Observable-returning loader/computer/mapper that throws when called or
+   returns a non-Observable is a programming error and *fails fast* on purpose (it is not
+   caught). The graph-level `error` handler in `createGraph` is a fail-fast tripwire (logs,
+   then the graph stops) — explicitly *not* a recovery boundary (§7). The full rules (field
+   ops → `error`-status field, no logging; effect ops → log and skip; return-contract
+   breaches → fail fast), invariants, and the required full-graph error test are the single
+   source of truth in **`src/operation/OPERATION_CONTRACT.md`**.

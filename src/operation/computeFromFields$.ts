@@ -1,9 +1,11 @@
 import {
+   catchError,
    combineLatest,
    filter,
    isObservable,
    map,
    merge,
+   of,
    ReplaySubject,
    share,
    tap
@@ -32,6 +34,12 @@ export const computeFromFields$ =
       let latestInputFields: VertexFields | undefined = undefined
       let latestOutputFields = loadingFields
 
+      // Fields whose computer stream errored terminally. Such a branch is dead
+      // and will never emit again, so on subsequent input changes we keep the
+      // field in `error` rather than resetting it to `loading` — otherwise it
+      // would be stranded in a perpetual loading state. (Mirrors loadFromFields$.)
+      const deadFields: VertexFields = {}
+
       const inputFieldsMaybeChangedAndLoaded$ = data$.pipe(
          tap(data => {
             latestInputFields = data.fields
@@ -56,29 +64,41 @@ export const computeFromFields$ =
          filter(_ => _.fieldsHaveChanged),
          filter(_ => !_.fieldsAreLoaded),
          map(({ data }): VertexRunData => {
+            const reloadingFields: VertexFields = {}
             const changedLoadingFields: VertexChangedFields = {}
             computedFieldNames.forEach(fieldName => {
-               if (
-                  data.initialRun ||
-                  latestOutputFields[fieldName].status !== 'loading'
-               ) {
-                  changedLoadingFields[fieldName] = true
+               const deadField = deadFields[fieldName]
+               if (deadField !== undefined) {
+                  // Terminally errored: keep it in error, don't reload.
+                  reloadingFields[fieldName] = deadField
+               } else {
+                  reloadingFields[fieldName] = loadingFields[fieldName]
+                  if (
+                     data.initialRun ||
+                     latestOutputFields[fieldName].status !== 'loading'
+                  ) {
+                     changedLoadingFields[fieldName] = true
+                  }
                }
             })
+            latestOutputFields = reloadingFields
             return {
                ...data,
-               fields: { ...data.fields, ...loadingFields },
+               fields: { ...data.fields, ...reloadingFields },
                changedFields: { ...data.changedFields, ...changedLoadingFields }
             }
-         }),
-         tap(() => (latestOutputFields = loadingFields))
+         })
       )
 
       const changedLoadedInputFields$ = inputFieldsMaybeChangedAndLoaded$.pipe(
          filter(_ => _.fieldsHaveChanged),
          filter(_ => _.fieldsAreLoaded),
          map(({ data }) => pickFields(fields, data.fields)),
-         map(fields => toVertexState(fields))
+         map(fields => toVertexState(fields)),
+         // Shared & future-only: a `catchError` resubscribe (below) must not
+         // replay the input value that just made the computer throw, or it would
+         // loop forever on a synchronously-erroring computer.
+         share()
       )
 
       const computed$ = merge(
@@ -86,11 +106,28 @@ export const computeFromFields$ =
             const result$ = computers[fieldName](changedLoadedInputFields$)
             if (!isObservable(result$))
                throw new Error(
-                  `Loader for value "${fieldName}" must return an observable, received "${result$}" instead.`
+                  `Computer for value "${fieldName}" must return an observable, received "${result$}" instead.`
                )
+            const emitOutput = (): VertexRunData => ({
+               action: undefined,
+               initialRun: false,
+               reactions: [],
+               fieldsReactions: [],
+               sideEffects: [],
+               fields: {
+                  ...latestInputFields,
+                  ...latestOutputFields
+               },
+               changedFields: {
+                  [fieldName]: true
+               }
+            })
             return combineLatest([result$, inputDataReceived$]).pipe(
                map(_ => _[0]),
                tap(result => {
+                  // A successful recompute clears any prior dead-branch error so
+                  // `loading$` resumes its normal loading behavior for this field.
+                  delete deadFields[fieldName]
                   latestOutputFields = {
                      ...latestOutputFields,
                      [fieldName]: {
@@ -100,22 +137,27 @@ export const computeFromFields$ =
                      }
                   }
                }),
-               map(
-                  (): VertexRunData => ({
-                     action: undefined,
-                     initialRun: false,
-                     reactions: [],
-                     fieldsReactions: [],
-                     sideEffects: [],
-                     fields: {
-                        ...latestInputFields,
-                        ...latestOutputFields
-                     },
-                     changedFields: {
-                        [fieldName]: true
-                     }
-                  })
-               )
+               map((): VertexRunData => emitOutput()),
+               // A computer error becomes an error field for THAT field only,
+               // leaving the merged stream (and every other field) alive. We
+               // record it in `deadFields` so `loading$` keeps it in error on
+               // later input changes instead of resetting it to `loading`, then
+               // resubscribe (returning `caught`) to the shared, future-only
+               // input so a LATER valid input still recomputes the field. The
+               // `share()` above guarantees the erroring value is not replayed.
+               catchError((error, caught) => {
+                  const errorField = {
+                     status: 'error' as const,
+                     value: undefined,
+                     errors: [error]
+                  }
+                  deadFields[fieldName] = errorField
+                  latestOutputFields = {
+                     ...latestOutputFields,
+                     [fieldName]: errorField
+                  }
+                  return merge(of(emitOutput()), caught)
+               })
             )
          })
       )

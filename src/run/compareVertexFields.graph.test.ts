@@ -3,17 +3,17 @@ import { expect } from 'chai'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from '../graph/createGraph'
 
-// H3 — when a computed field stays status:'error' but the error object changes
-// from one run to the next, compareVertexFields (which compares only `status`
-// and `value`) fails to mark the field changed. pick([field]) is gated on the
-// picked field changing (createVertexInstance: filter on changedFields[field]),
-// so it never re-emits — while currentLoadableState, pushed on every run because
-// the raw `n` field changed, shows the fresh error. Two public reads of the same
-// vertex disagree.
+// When a computed field stays status:'error' but the error object changes from
+// one run to the next, compareVertexFields must still mark the field changed — it
+// compares `errors` as well as `status` and `value`. Otherwise pick([field]),
+// gated on the picked field changing (createVertexInstance: filter on
+// changedFields[field]), never re-emits, while currentLoadableState — pushed on
+// every run because the raw `n` field changed — shows the fresh error, so two
+// public reads of the same vertex would disagree.
 //
-// Full-graph public-API guard. Fails on the current tree; fails on revert of the
-// errors-comparison fix in compareVertexFields.ts.
-describe('error→error transition is observable through pick (H3)', () => {
+// Full-graph public-API guard: fails on revert of the errors-comparison in
+// compareVertexFields.ts.
+describe('error→error transition is observable through pick', () => {
    const makeGraph = () => {
       const slice = createSlice({
          name: 'root',
@@ -48,8 +48,8 @@ describe('error→error transition is observable through pick (H3)', () => {
       expect(
          (vertex.currentLoadableState.fields as any).c.errors[0].message
       ).to.equal('err-2')
-      // ...and pick must agree. PRE-FIX: stale (c never marked changed, so
-      // pick re-emitted nothing after the initial err-0).
+      // ...and pick must agree: c is marked changed when its error object
+      // changes, so pick re-emits the latest error.
       expect(seen[seen.length - 1]).to.deep.equal(['err-2'])
    })
 })

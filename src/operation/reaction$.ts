@@ -4,6 +4,7 @@ import {
    Observable,
    catchError,
    filter,
+   isObservable,
    map,
    merge,
    share,
@@ -35,7 +36,20 @@ export const reaction$ =
                data.action.type === trackedAction.type
          ),
          map(data => new Reaction$Input(data.action!.payload, data.fields)),
-         input$ => mapper(input$ as any),
+         // The mapper is contracted to return an Observable. Throwing when called
+         // or returning a non-Observable is a return-contract breach (a
+         // programming error, not a runtime stream error), so — like every other
+         // Observable-returning callback — it is left to fail fast rather than be
+         // contained by the catchError below, which only handles errors delivered
+         // THROUGH the returned stream.
+         input$ => {
+            const output$ = mapper(input$ as any)
+            if (!isObservable(output$))
+               throw new Error(
+                  `reaction$ mapper for "${trackedAction.type}" must return an observable, received "${output$}" instead.`
+               )
+            return output$
+         },
          map(
             (outputAction): VertexRunData => ({
                fields: latestInputFields,

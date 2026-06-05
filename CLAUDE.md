@@ -26,6 +26,10 @@ See `claude-code-plugin/example-check/README.md` for what it covers.
 
 `ISSUES.md` documents only **currently existing** issues. Once an issue is resolved, remove it from `ISSUES.md` entirely — do not keep it marked as resolved.
 
+## ROADMAP.md
+
+`ROADMAP.md` tracks **planned work** not yet done — features to build and fixes to make (it points back to `ISSUES.md` for defect detail). Check it at the start of a session to see what was planned but not finished; remove items as they land. The operation error-handling rules it refers to live in `src/operation/OPERATION_CONTRACT.md`.
+
 ## Architecture
 
 `verdux` is a state-management library layering a reactive DAG of "vertices" on top of a single `@reduxjs/toolkit` store and `rxjs`. Mental model: one Redux store holds a nested tree of reducer states; an RxJS pipeline transforms each Redux action into a *graph run* that flows through vertices in topological order, producing per-vertex `fields` (state + computed + loaded data).
@@ -46,6 +50,12 @@ User-facing config is built fluently but dispatch of operations is deferred so d
 - `VertexConfigImpl.resolveOperations(dependencies)` is called once per vertex during `computeGraphCoreInfo`, replaying those closures against a `VertexOperationsBuilder` to produce the actual RxJS operators (`VertexRun[]`) and the list of `trackedActions`.
 - `configureDownstreamVertex` on an existing config wires a child with optional `upstreamFields` (tracked for change detection) and `dependencies` (derived from the parent's dependency object). `injectedWith(partialDeps)` wraps a config for test/DI overrides; `createGraph` accepts either bare configs or injected wrappers — see `isInjectedConfig`.
 - Individual operation implementations live in `src/operation/`. Each is a small RxJS operator over `VertexRunData` (one file per operation, plus its `.test.ts`). Look here when changing semantics of `load`, `computeFromFields`, etc.
+
+### Operation error-handling contract
+
+**Every operation must contain its own *runtime* errors** — an error from user-supplied code that escapes an operation reaches the single graph subscription, which is fail-fast (it logs, then the **whole graph stops**; it is not a recovery boundary). Field-producing ops degrade to an `error`-status field (no logging); effect/reaction ops log a `[verdux] … threw` diagnostic and skip. The one deliberate exception is a **return-contract breach** — an Observable-returning loader/computer/mapper that throws when called or returns a non-Observable is a programming error and *fails fast* on purpose, never contained. Every operation ships a full-graph error test.
+
+The full rules, invariants, out-of-scope cases, and review checklist live in the single source of truth: **[`src/operation/OPERATION_CONTRACT.md`](src/operation/OPERATION_CONTRACT.md)** (pointed to by `src/operation/CLAUDE.md`).
 
 ### Fields vs. Redux state
 

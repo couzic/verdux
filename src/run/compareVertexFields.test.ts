@@ -89,7 +89,7 @@ describe(sut.name, () => {
             added: true
          })
       })
-      it('detects a changed error while status and value stay the same (H3)', () => {
+      it('detects a changed error while status and value stay the same', () => {
          const previous: VertexFields = {
             c: { status: 'error', value: undefined, errors: [new Error('a')] }
          }
@@ -97,7 +97,7 @@ describe(sut.name, () => {
             c: { status: 'error', value: undefined, errors: [new Error('b')] }
          }
          // status ('error') and value (undefined) are identical; only the error
-         // object differs. PRE-FIX: {} — the field was wrongly deemed unchanged.
+         // object differs, so the field must still be marked changed.
          expect(compareVertexFields(previous, next)).to.deep.equal({ c: true })
       })
       it('keeps gating two empty-error fields as unchanged', () => {

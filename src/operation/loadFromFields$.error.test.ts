@@ -1,5 +1,16 @@
+import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
-import { Observable, Subject, defer, switchMap, tap, throwError } from 'rxjs'
+import {
+   Observable,
+   Subject,
+   defer,
+   map,
+   switchMap,
+   tap,
+   throwError
+} from 'rxjs'
+import { configureRootVertex } from '../config/configureRootVertex'
+import { createGraph } from '../graph/createGraph'
 import { VertexRunData } from '../run/RunData'
 import { loadFromFields$ } from './loadFromFields$'
 
@@ -138,5 +149,125 @@ describe('loadFromFields$() loader error', () => {
             errors: []
          })
       })
+   })
+})
+
+// Full-graph counterpart: drive the failure through the PUBLIC API only
+// (createGraph + dispatch + currentLoadableState/currentState), exactly as a UI
+// component would consume it. Proves the op contains its own stream error:
+// degrades only its field to status:'error', keeps the sibling loaded and the
+// graph alive, never logs, and (because the errored branch is terminal — its
+// loader factory runs once at construction) keeps the field in error across a
+// later input change instead of flipping it back to loading.
+describe('loadFromFields$() loader error — full graph', () => {
+   const makeSlice = () =>
+      createSlice({
+         name: 'root',
+         initialState: { name: 'John', other: '' },
+         reducers: {
+            setName: (state, action: PayloadAction<string>) => {
+               state.name = action.payload
+            },
+            setOther: (state, action: PayloadAction<string>) => {
+               state.other = action.payload
+            }
+         }
+      })
+
+   let graph: ReturnType<typeof createGraph>
+   let vertex: ReturnType<typeof graph.getVertexInstance>
+   let setName: (name: string) => PayloadAction<string>
+   let setOther: (other: string) => PayloadAction<string>
+   let consoleError: typeof console.error
+   let consoleErrorCalls: any[][]
+
+   beforeEach(() => {
+      consoleErrorCalls = []
+      consoleError = console.error
+      console.error = (...args: any[]) => {
+         consoleErrorCalls.push(args)
+      }
+
+      const slice = makeSlice()
+      setName = slice.actions.setName
+      setOther = slice.actions.setOther
+      const rootVertexConfig = configureRootVertex({ slice }).loadFromFields$(
+         ['name'],
+         {
+            // The loader is given an input$ stream; switchMap to an erroring
+            // inner so the stream produces an error notification per input.
+            upper: name$ =>
+               name$.pipe(switchMap(() => throwError(() => new Error('boom')))),
+            // Healthy sibling in the SAME loadFromFields$ map.
+            lower: name$ => name$.pipe(map(({ name }) => name.toLowerCase()))
+         }
+      )
+      graph = createGraph({ vertices: [rootVertexConfig] })
+      vertex = graph.getVertexInstance(rootVertexConfig)
+   })
+
+   afterEach(() => {
+      console.error = consoleError
+   })
+
+   it('degrades ONLY the failing field to error, sibling stays loaded', () => {
+      const ls = vertex.currentLoadableState
+      expect(ls.fields.upper.status).to.equal('error')
+      expect(ls.fields.upper.value).to.equal(undefined)
+      expect(ls.fields.upper.errors.map(e => e.message)).to.deep.equal(['boom'])
+      expect(ls.fields.lower.status).to.equal('loaded')
+      expect(ls.fields.lower.value).to.equal('john')
+   })
+
+   it('keeps the graph alive: a later unrelated dispatch is still processed', () => {
+      graph.dispatch(setOther('alive'))
+      expect(vertex.currentState.other).to.equal('alive')
+      // The errored field and sibling are still readable: nothing was torn down.
+      expect(vertex.currentLoadableState.fields.upper.status).to.equal('error')
+      expect(vertex.currentLoadableState.fields.lower.status).to.equal('loaded')
+   })
+
+   it('keeps the field in error (not back to loading) after a later input change', () => {
+      expect(vertex.currentLoadableState.fields.upper.status).to.equal('error')
+      graph.dispatch(setName('Jane'))
+      const field = vertex.currentLoadableState.fields.upper
+      expect(field.status).to.equal('error')
+      expect(field.errors.map(e => e.message)).to.deep.equal(['boom'])
+   })
+
+   it('does NOT log for the degraded load (field-producing op)', () => {
+      // Trigger another input change too, to be sure no diagnostic is emitted.
+      graph.dispatch(setName('Jane'))
+      const verduxLogs = consoleErrorCalls.filter(
+         args =>
+            typeof args[0] === 'string' && args[0].includes('[verdux]')
+      )
+      expect(verduxLogs).to.deep.equal([])
+   })
+})
+
+// A loadFromFields$ loader is contracted to RETURN an Observable. Throwing when
+// called or returning a non-Observable is a return-contract breach (a programming
+// error), so it fails fast (throws eagerly at createGraph), not degraded.
+describe('loadFromFields$ return-contract breach fails fast', () => {
+   const makeConfig = (loader: any) =>
+      configureRootVertex({
+         slice: createSlice({ name: 'root', initialState: { x: 0 }, reducers: {} })
+      }).loadFromFields$(['x'], { up: loader })
+
+   it('throws at construction when the loader returns a non-observable', () => {
+      const config = makeConfig(() => 'not an observable')
+      expect(() => createGraph({ vertices: [config] })).to.throw(
+         /must return an observable/
+      )
+   })
+
+   it('fails fast when the loader itself throws when called', () => {
+      const config = makeConfig(() => {
+         throw new Error('loader-call-boom')
+      })
+      expect(() => createGraph({ vertices: [config] })).to.throw(
+         'loader-call-boom'
+      )
    })
 })

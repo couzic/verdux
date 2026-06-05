@@ -89,16 +89,23 @@ export const loadFromFields =
             }
 
             const loaders$ = loadableFieldNames.map(fieldName => {
+               // A loader's contract is to return an Observable. Failing to —
+               // throwing synchronously, or returning a non-Observable — never
+               // produced an Observable, which is a programming error, not a
+               // runtime data failure: it is NOT contained, it escapes to the
+               // graph-level handler and fails fast and loud. Only an error
+               // delivered THROUGH the returned Observable (below) is a runtime
+               // error and degrades the field.
                const result$ = loaders[fieldName](state)
                if (!isObservable(result$))
                   throw new Error(
                      `Loader for value "${fieldName}" must return an observable, received "${result$}" instead.`
                   )
-               // A loader error is captured as an error field for this field
-               // only, leaving every other field and the vertex stream alive.
-               // The errored source is terminal (we do NOT re-subscribe), but
-               // this operation rebuilds its loaders on the next input change,
-               // so a later successful run restores `loaded`.
+               // An error from the returned stream becomes an error field for
+               // this field only, leaving every other field and the vertex
+               // stream alive. The errored source is terminal (we do NOT
+               // re-subscribe), but this operation rebuilds its loaders on the
+               // next input change, so a later successful run restores `loaded`.
                return result$.pipe(
                   map(value => ({
                      fieldName,

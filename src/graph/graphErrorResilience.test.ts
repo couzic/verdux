@@ -1,17 +1,18 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
+import { map } from 'rxjs'
 import * as sinon from 'sinon'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from './createGraph'
 
-// C1 — a single unguarded throw must not permanently kill the whole graph.
-// Each repro drives a throw through a full graph and asserts, on the PUBLIC
-// surface, both that the graph is still alive (a LATER dispatch is processed)
-// and that it published the right thing. These are fail-on-revert guards:
-// reverting fieldsReaction's try/catch (C1b) or compareVertexFields' per-field
-// existence guard (C1c) makes the corresponding block go red.
+// A single unguarded throw from user-supplied code must not permanently kill the
+// whole graph. Each block drives a throw through a full graph and asserts, on the
+// PUBLIC surface, both that the graph is still alive (a LATER dispatch is
+// processed) and that it published the right thing. These are fail-on-revert
+// guards: reverting the fieldsReaction try/catch, or compareVertexFields'
+// per-field existence guard, makes the corresponding block go red.
 describe('graph error resilience', () => {
-   describe('C1b — a throwing fieldsReaction mapper does not kill the graph', () => {
+   describe('a throwing fieldsReaction mapper does not kill the graph', () => {
       // the mapper throws on purpose in these tests; stub console.error so the
       // (intentional) diagnostic doesn't pollute the suite output, and so the
       // logging test below can assert on it.
@@ -51,7 +52,6 @@ describe('graph error resilience', () => {
          const { graph, slice, vertex } = makeGraph()
          graph.dispatch(slice.actions.setName('boom')) // triggers the throwing mapper
          graph.dispatch(slice.actions.setOther('hello')) // later, unrelated dispatch
-         // CURRENT (pre-fix): '' — graph is dead, this dispatch was dropped.
          expect(vertex.currentState.other).to.equal('hello')
       })
 
@@ -66,14 +66,13 @@ describe('graph error resilience', () => {
       it('logs the swallowed error (does not fail silently)', () => {
          const { graph, slice } = makeGraph()
          graph.dispatch(slice.actions.setName('boom')) // throws inside the mapper
-         // CURRENT (pre-fix): not called — the error vanishes with no trace.
          expect(
             errorStub.calledWithMatch('fieldsReaction on fields [name]')
          ).to.equal(true)
       })
    })
 
-   describe('C1c — a newly added top-level slice key does not kill the graph', () => {
+   describe('a newly added top-level slice key does not kill the graph', () => {
       const makeGraph = () => {
          const slice = createSlice({
             name: 'root',
@@ -94,23 +93,21 @@ describe('graph error resilience', () => {
 
       it('still processes a later, unrelated dispatch', () => {
          const { graph, slice, vertex } = makeGraph()
-         graph.dispatch(slice.actions.addKey('b')) // previous fields lack 'b' → throws pre-fix
+         graph.dispatch(slice.actions.addKey('b')) // adds a key absent from prior fields
          graph.dispatch(slice.actions.bump())
-         // CURRENT (pre-fix): 1 — graph is dead. EXPECTED: 2.
          expect(vertex.currentState.count).to.equal(2)
       })
 
       it('reflects the newly added field in published state', () => {
          const { graph, slice, vertex } = makeGraph()
          graph.dispatch(slice.actions.addKey('b'))
-         // CURRENT (pre-fix): throws on the new key → nothing published.
          expect(vertex.currentState).to.deep.equal({ count: 1, b: 0 })
       })
    })
 
-   // M1 — a throwing reaction mapper / sideEffect callback must be logged (not
+   // A throwing reaction mapper / sideEffect callback must be logged (not
    // silently swallowed, not left uncaught) while the graph stays alive.
-   describe('M1 — a throwing reaction mapper is logged, not swallowed silently', () => {
+   describe('a throwing reaction mapper is logged, not swallowed silently', () => {
       let errorStub: sinon.SinonStub
       beforeEach(() => {
          errorStub = sinon.stub(console, 'error')
@@ -156,7 +153,65 @@ describe('graph error resilience', () => {
       })
    })
 
-   describe('M1 — a throwing sideEffect callback is logged, not left uncaught', () => {
+   // computeFromFields$ is a FIELD-PRODUCING operation, so when its inner
+   // observable errors it must CONTAIN the error itself (per the operation
+   // contract): degrade the affected field to `error` status, keep the graph
+   // alive, and NOT log (the error-status field IS the report). Nothing escapes
+   // to the graph-level fail-fast handler, so no diagnostic is logged and a later
+   // dispatch still flows. (That handler still exists for genuinely-escaped
+   // errors; this contained case never reaches it.)
+   describe('a computeFromFields$ inner-stream error is contained, not escaped', () => {
+      let errorStub: sinon.SinonStub
+      beforeEach(() => {
+         errorStub = sinon.stub(console, 'error')
+      })
+      afterEach(() => {
+         errorStub.restore()
+      })
+
+      const makeGraph = () => {
+         const slice = createSlice({
+            name: 'root',
+            initialState: { n: 0, other: '' },
+            reducers: {
+               setN: (s, a: PayloadAction<number>) => {
+                  s.n = a.payload
+               },
+               setOther: (s, a: PayloadAction<string>) => {
+                  s.other = a.payload
+               }
+            }
+         })
+         const config = configureRootVertex({ slice }).computeFromFields$(['n'], {
+            doubled: (fields$: any) =>
+               fields$.pipe(
+                  map(({ n }: any) => {
+                     if (n === 99) throw new Error('compute$ exploded')
+                     return n * 2
+                  })
+               )
+         })
+         const graph = createGraph({ vertices: [config] })
+         return { graph, slice, vertex: graph.getVertexInstance(config) }
+      }
+
+      it('does NOT log a graph-level escaped-error diagnostic (the field carries the error)', () => {
+         const { graph, slice } = makeGraph()
+         graph.dispatch(slice.actions.setN(99)) // inner observable errors
+         expect(
+            errorStub.calledWithMatch('escaped all operation-level handling')
+         ).to.equal(false)
+      })
+
+      it('stays alive: a later, unrelated dispatch IS reflected', () => {
+         const { graph, slice, vertex } = makeGraph()
+         graph.dispatch(slice.actions.setN(99)) // contained → graph stays alive
+         graph.dispatch(slice.actions.setOther('alive')) // still processed
+         expect((vertex.currentState as any).other).to.equal('alive')
+      })
+   })
+
+   describe('a throwing sideEffect callback is logged, not left uncaught', () => {
       let errorStub: sinon.SinonStub
       beforeEach(() => {
          errorStub = sinon.stub(console, 'error')
