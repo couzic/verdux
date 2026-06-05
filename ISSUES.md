@@ -17,51 +17,6 @@ it is removed from this file.
 
 ## Medium
 
-### H2 — `addUpstreamVertex` mistypes unpulled upstream fields as present (type-safety)
-
-`src/config/VertexConfigBuilder.ts:19-28` types the result over the full
-`keyof UpstreamFields` regardless of the `fields` subset actually pulled — and pulls
-_none_ when `fields` is omitted (`VertexConfigBuilderImpl.ts:50`; runtime copy at
-`extractVertexFields.ts:25-29`). So an unpulled field type-checks but is `undefined`
-at runtime — `inst.currentState.b.toUpperCase()` compiles and crashes. Same bug class
-already fixed + regression-tested on the dependencies side (`PulledDependencies` +
-`multiUpstreamDependencies.test.ts`); the fields side was missed. Single-parent
-`configureDownstreamVertex` is unaffected (returns `any`); the hole is the explicit
-`configureVertex(...).addUpstreamVertex(...)` builder.
-
-**Fix.** Add a `PulledFields extends keyof UpstreamFields` generic (honest default
-`never`, matching the runtime), key the merged `Fields` off it, and reconcile the
-omitted-`fields` runtime/type disagreement. Add a fields analog of
-`multiUpstreamDependencies.test.ts`.
-
-**Repro (verified).** Runtime fact (passes today, confirming the mismatch):
-
-```ts
-const upstream = configureRootVertex({
-   slice: createSlice({
-      name: 'up',
-      initialState: { a: 1, b: 'hello' },
-      reducers: {}
-   })
-})
-const down = configureVertex(
-   { slice: createSlice({ name: 'down', initialState: {}, reducers: {} }) },
-   _ => _.addUpstreamVertex(upstream, { fields: ['a'] }) // pulls ONLY `a`
-)
-const inst = createGraph({ vertices: [upstream, down] }).getVertexInstance(down)
-expect(inst.currentState.a).to.equal(1)
-expect('b' in inst.currentState).to.equal(false) // `b` absent at runtime…
-```
-
-The actual defect is the **type**: `inst.currentState.b` is typed `string` though it's
-`undefined`. Pin it with a compile-time check run via `npx tsc --noEmit` (and the
-plugin example-check harness) — after the fix the directive activates:
-
-```ts
-// @ts-expect-error  ← currently reported UNUSED (TS2578): `b` wrongly types as string
-const b: string = inst.currentState.b
-```
-
 ### M3 — DevTools graph structure has `fields: undefined` for a multi-upstream edge
 
 `src/devtools/serializeGraphStructure.ts:24-33` walks the redux/execution tree

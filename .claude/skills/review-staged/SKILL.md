@@ -2,7 +2,7 @@
 name: review-staged
 description: Read-only review of the full staged diff through five parallel lenses (correctness, operation-contract, test-integrity, dead-code, doc-sync); reports findings as hypotheses without fixing or reproducing.
 disable-model-invocation: true
-allowed-tools: Bash(git diff --cached *), Bash(git ls-files *), Read, Agent
+allowed-tools: Agent, Grep, Read, Bash(git diff *), Bash(git show *), Bash(git ls-files *)
 ---
 
 # /review-staged
@@ -10,17 +10,25 @@ allowed-tools: Bash(git diff --cached *), Bash(git ls-files *), Read, Agent
 Review the **entire staged** diff for correctness, and additionally audit any
 touched `src/operation/` file against the operation-error-handling contract.
 
-The fan-out is **by review dimension, not by file**: each subagent reads the
-*whole* staged diff but hunts for one class of issue. The agent count is fixed
-(it does not scale with the number of staged files), and the two concerns this
-repo cares about most — operation-contract compliance and whether each fix
+The fan-out is **by review dimension, not by file**: each subagent receives the
+*whole* staged diff inline but hunts for one class of issue. The agent count is
+fixed (it does not scale with the number of staged files), and the two concerns
+this repo cares about most — operation-contract compliance and whether each fix
 actually ships a test that guards it — are cross-file lenses that a per-file
 split could not express.
 
-The command is strictly **read-only**: it surfaces findings as hypotheses and
-never edits, reproduces, or runs anything. Confirming a behavioral hypothesis
-(reproducing it on a full graph) and fixing it are deliberate follow-ups you
-decide on after reading the report.
+The command is strictly **read-only — enforced by construction, not by prose.**
+Only this orchestrator touches git, and its `allowed-tools` permit *read-only*
+git alone (`git diff`, `git show`, `git ls-files`) — no mutation. The review
+subagents (up to five) run as the `staged-reviewer` agent, which has **no Bash and no
+write tools at all** (`tools: Read, Grep`): they physically cannot run git, run
+tests, run the graph, or edit/stash/checkout/reset anything. The orchestrator
+feeds each one the staged diff inline. So the read-only guarantee rests on tool
+grants on both sides, not on instructions a subagent could ignore.
+
+The command surfaces findings as hypotheses and never reproduces or fixes
+anything. Confirming a behavioral hypothesis (reproducing it on a full graph)
+and fixing it are deliberate follow-ups you decide on after reading the report.
 
 ## Staged diff summary (all files)
 
@@ -38,6 +46,13 @@ decide on after reading the report.
 
 !`git ls-files '*.md'`
 
+## Full staged diff
+
+This is the single source the subagents review — pass it to each one inline
+(they cannot run git themselves).
+
+!`git diff --cached`
+
 ## The contract
 
 The operation-error-handling contract — including its **Review checklist** — lives
@@ -47,31 +62,48 @@ reads it on demand; it is **not** inlined here.
 ## What to do
 
 1. **Scope.** Use the staged file list above. If nothing is staged, say so and
-   stop. Note the subset of staged files under `src/operation/` — the
-   operation-contract lens (step 2b) audits those.
+   stop. Note the subset of staged files under `src/operation/` that are
+   operation **implementations** (exclude `*.test.ts`) — the operation-contract
+   lens (step 2b) audits exactly those. **If that subset is empty, lens 2b has
+   nothing to do: skip it entirely** and fan out only the other four.
 
-2. **Fan out — five dimension subagents, all in parallel.** Each reads the
-   **full staged diff** (`git diff --cached`) and reads surrounding code as
-   needed. Each is **read-only and static**: it must **not** edit any file,
-   **not** run tests or mocha, and **not** run the graph. Each does a
-   **whole-diff scan** — read the diff holistically through its one lens and
-   report what stands out (not an exhaustive file-by-file walk). Every code-lens
-   agent classifies each finding as **behavioral** (wrong runtime behavior — an
-   error escapes or is mis-contained, a stream completes when it shouldn't, a
-   field or effect degrades wrongly, a wrong value is produced) or
-   **non-behavioral** (style, missing test, comment/doc), cites `file:line`, and
-   returns a compact structured list — this is data for a synthesizer, not a
-   human-facing message.
+2. **Fan out — up to five dimension subagents, all in parallel.** Spawn the
+   **applicable** lenses as the `staged-reviewer` agent
+   (`subagent_type: staged-reviewer`) in one batch: **2a, 2c, 2d, 2e always; 2b
+   only if step 1 found a staged operation implementation** (otherwise omit it —
+   don't spawn an agent that has nothing to audit). That agent is
+   `tools: Read, Grep` — no Bash — so **you** are the only actor with git access;
+   the subagents get their inputs from you.
+
+   Into **every** subagent's prompt, paste:
+
+   - the **Full staged diff** from the section above (their primary source — its
+     `-` lines are the pre-change source, its `+` lines the post-change source);
+   - the **one lens** below (2a–2e) telling it what to hunt for;
+   - for the lenses that name extra inputs (2b the contract path, 2e the doc
+     list, 2c any pre-change context), the material that lens calls for — see
+     each lens. Where a lens needs code **outside** the diff hunks, fetch it
+     yourself with `git show HEAD:<path>` and paste it in; never ask the subagent
+     to run git.
+
+   Each subagent does a holistic **whole-diff scan** through its one lens (not an
+   exhaustive file-by-file walk), uses Read/Grep for surrounding unchanged code,
+   classifies every finding as **behavioral** (wrong runtime behavior — an error
+   escapes or is mis-contained, a stream completes when it shouldn't, a field or
+   effect degrades wrongly, a wrong value is produced) or **non-behavioral**
+   (style, missing test, comment/doc), cites `file:line`, and returns a compact
+   structured list — data for the synthesizer, not a human-facing message.
 
    **2a. Correctness / behavioral.**
 
-   > Scan the full staged diff for correctness bugs and regressions: broken or
-   > unstated invariants, mishandled edge cases and error paths, type-safety
-   > holes, races/ordering issues, resource/subscription leaks, and plain wrong
-   > values. Report each with `file:line` and a one-line explanation of the
-   > wrong behavior.
+   > Scan the full staged diff for correctness bugs and regressions: broken
+   > invariants (including ones the diff implicitly relies on), mishandled edge
+   > cases and error paths, type-safety holes, races/ordering issues,
+   > resource/subscription leaks, and plain wrong values. Report each with
+   > `file:line` and a one-line explanation of the wrong behavior.
 
-   **2b. Operation-contract.**
+   **2b. Operation-contract.** *(Only spawned when a `src/operation/`
+   implementation is staged — see step 1.)*
 
    > Read `src/operation/OPERATION_CONTRACT.md`. For each staged
    > `src/operation/` file that is an operation **implementation** (not a
@@ -86,7 +118,10 @@ reads it on demand; it is **not** inlined here.
    > For each staged behavioral fix, does it ship a **full-graph public-API**
    > test (`createGraph` + `dispatch` + a public read) that would actually go
    > **red** without the source change — or is the test tautological / asserting
-   > nothing real? Flag fixes landing with no guarding test, tests that pass
+   > nothing real? Reason **statically** from the diff — its `-` lines are the
+   > pre-change source. (If judging this needs code outside the hunks, the
+   > orchestrator pastes the relevant `git show HEAD:<path>` excerpt in; you never
+   > run git yourself.) Flag fixes landing with no guarding test, tests that pass
    > regardless of the fix, and any test carrying issue IDs (C2, O1, H3…) or
    > "pre-fix"/historical narration (violates code-is-timeless). Report each with
    > `file:line`.
@@ -100,26 +135,26 @@ reads it on demand; it is **not** inlined here.
 
    **2e. Doc sync.**
 
-   > Read the **full staged diff** (`git diff --cached`) and the tracked `.md`
-   > docs listed above (the authoritative set from `git ls-files '*.md'` —
+   > Using the staged diff you were given and the tracked `.md` docs listed above
+   > — the authoritative `git ls-files '*.md'` set the orchestrator pasted in,
    > including but not limited to `ARCHITECTURE.md`, `CLAUDE.md`, `ISSUES.md`,
    > `ROADMAP.md`, `src/operation/OPERATION_CONTRACT.md`,
-   > `src/operation/CLAUDE.md`, and any `README*` / `claude-code-plugin/**`
-   > docs). For each doc, decide whether the staged changes make it **stale,
-   > contradicted, or incomplete** — e.g. an operation's error-handling changed
+   > `src/operation/CLAUDE.md`, and any `README*` / `claude-code-plugin/**` docs;
+   > open each with Read — decide for each doc whether the staged changes make it
+   > **stale, contradicted, or incomplete** — e.g. an operation's error-handling changed
    > but `OPERATION_CONTRACT.md` / the operation CLAUDE.md still describe the old
    > behavior; a runtime change under `src/run/` or `src/operation/` that
    > `ARCHITECTURE.md` documents; a resolved defect still listed in `ISSUES.md`;
    > a landed item still in `ROADMAP.md`; a new command/skill or API not
-   > reflected in `README`/`CLAUDE.md`. Read-only: do not edit any doc, do not
-   > run tests. Report per doc: IN-SYNC or STALE, and for each STALE the specific
+   > reflected in `README`/`CLAUDE.md`. Report per doc: IN-SYNC or STALE, and
+   > for each STALE the specific
    > doc section + the staged change that contradicts it + the one-line edit it
    > needs. Also enforce the repo's doc-discipline rules: `ISSUES.md` lists only
    > **currently existing** issues (resolved ones removed, not ticked);
    > `ROADMAP.md` holds only **not-yet-done** work (landed items deleted, no
-   > "done" section). This is data for a synthesizer, not a human-facing message.
+   > "done" section).
 
-3. **Synthesize.** Merge the five reports into one review grouped by file,
+3. **Synthesize.** Merge the lens reports into one review grouped by file,
    ordered behavioral hypotheses first (including any operation-contract DRIFT),
    then doc staleness, then non-behavioral findings, then a clean-files line.
    **Dedup across lenses** — one defect can surface under more than one lens
