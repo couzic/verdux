@@ -1,10 +1,33 @@
-import { createAction } from '@reduxjs/toolkit'
+import { createAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { of } from 'rxjs'
+import { configureRootVertex } from '../config/configureRootVertex'
 import { VertexRunData } from '../run/RunData'
 import { VertexFields } from '../run/VertexFields'
 import { VertexStatus } from '../vertex/VertexStatus'
 import { fieldsReaction } from './fieldsReaction'
+
+// The `fieldsReaction` mapper must type a loadable field's picked value as status-aware
+// (`value | undefined`), not as the always-loaded value. Never called — its sole purpose
+// is to be type-checked. The `@ts-expect-error` goes red as TS2578 ("unused directive")
+// if the type is too loose and the loadable-field access compiles.
+export function _fieldsReactionPickedTypeProbe() {
+   const root = configureRootVertex({
+      slice: createSlice({
+         name: 'root',
+         initialState: { name: 'Bob' },
+         reducers: {}
+      })
+   }).load({ data: of({ n: 1 }) })
+
+   root.fieldsReaction(['name', 'data'], picked => {
+      // Non-loadable slice field: always present, must stay non-undefined.
+      picked.name.toUpperCase()
+      // @ts-expect-error loadable field is `undefined` when loading/error
+      picked.data.n
+      return null
+   })
+}
 
 const createRunData = (fieldValues: Record<string, any>): VertexRunData => {
    const fields: VertexFields = {}

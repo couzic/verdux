@@ -48,7 +48,6 @@ Operation error-handling semantics live in
 | ID | Issue | Verified | Area | Severity |
 |----|-------|----------|------|----------|
 | [BUG-3](#bug-3--devtools-provideforcegraphrunoutput-crashes-when-a-run-omits-a-vertex) | devtools `provideForceGraphRunOutput` crashes on omitted vertex | `run` | devtools | Medium |
-| [TYPE-1](#type-1--fieldsreaction-mapper-value-type-is-not-status-aware) | `fieldsReaction` mapper value type is not status-aware | `run` (tsc) | config types | Medium |
 | [ROB-1](#rob-1--extractreduxstate-assumes-every-downstream-step-exists) | `extractReduxState` assumes every `.downstream[name]` exists | `reasoned` | run | Low |
 | [ROB-2](#rob-2--no-cycle-detection) | No cycle detection (not constructible via public API) | `reasoned` | config | Low |
 | [API-1](#api-1--internal-surface-leaks-from-the-public-types) | Internal surface leaks from the public types | `static` | public API | Medium |
@@ -113,39 +112,6 @@ Operation error-handling semantics live in
   return`): a vertex always has slice-derived state, so clearing to `{}` would push an
   unreachable, invalid empty-fields state through `toVertexLoadableState` into subscribers —
   trading a loud crash for silent corruption. Revisit when the devtools code is in-repo.
-
-## TYPE-1 — `fieldsReaction` mapper value type is not status-aware
-
-- **Verified:** `run` (tsc)
-- **Location:** `src/config/VertexConfig.ts:275-283`. The mapper `pickedState` is typed
-  `{ [PK in K]: Fields[PK]['value'] }` — non-`undefined` even for loadable fields.
-- **Symptom:** For a loadable field that may be `loading`/`error` when the reaction fires,
-  the picked value is typed as the loaded value (never `undefined`), so user code can read
-  `picked.field.deep` with no compile error and hit a runtime `undefined`.
-- **Reproduction (compile-time probe; never called):**
-  ```ts
-  import { createSlice } from '@reduxjs/toolkit'
-  import { Subject } from 'rxjs'
-  import { configureRootVertex } from './config/configureRootVertex'
-
-  export function _probe() {
-     const data$ = new Subject<{ n: number }>()
-     const root = configureRootVertex({
-        slice: createSlice({ name: 'root', initialState: {}, reducers: {} })
-     }).load({ data: data$ })
-
-     root.fieldsReaction(['data'], picked => {
-        const n: number = picked.data.n // compiles, but data is undefined when loading/error
-        void n
-        return null
-     })
-  }
-  ```
-  `npm run typecheck` reports **no error** on `picked.data.n` → the type is too loose.
-- **Fix direction:** Type `pickedState` status-aware, mirroring `VertexState` (loadable
-  fields → `value | undefined`); reuse `VertexState<Pick<Fields, K>>` if it fits. Guard
-  the test with the project's type-safety pattern: a never-called fn holding a
-  `@ts-expect-error` (compile-time red, TS2578) plus a runtime parity `it()`.
 
 ## ROB-1 — `extractReduxState` assumes every `.downstream[name]` step exists
 
