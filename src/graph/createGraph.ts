@@ -36,7 +36,7 @@ export const createGraph = (options: {
 
    const rootVertexConfig = vertexConfigs[0]
 
-   const verduxMiddleware: Middleware = store => next => action => {
+   const verduxMiddleware: Middleware = () => next => action => {
       const result = next(action)
       graphRunInput$.next({
          action: action as UnknownAction,
