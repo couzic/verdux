@@ -12,6 +12,7 @@ import {
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from '../graph/createGraph'
 import { VertexRunData } from '../run/RunData'
+import { makeLogger } from '../test/makeLogger'
 import { loadFromFields$ } from './loadFromFields$'
 
 const createInitialRunData = (fields: Record<string, any>): VertexRunData => {
@@ -178,15 +179,11 @@ describe('loadFromFields$() loader error — full graph', () => {
    let vertex: ReturnType<typeof graph.getVertexInstance>
    let setName: (name: string) => PayloadAction<string>
    let setOther: (other: string) => PayloadAction<string>
-   let consoleError: typeof console.error
-   let consoleErrorCalls: any[][]
+   let loggedMessages: string[]
 
    beforeEach(() => {
-      consoleErrorCalls = []
-      consoleError = console.error
-      console.error = (...args: any[]) => {
-         consoleErrorCalls.push(args)
-      }
+      const { logger, messages } = makeLogger()
+      loggedMessages = messages
 
       const slice = makeSlice()
       setName = slice.actions.setName
@@ -202,12 +199,8 @@ describe('loadFromFields$() loader error — full graph', () => {
             lower: name$ => name$.pipe(map(({ name }) => name.toLowerCase()))
          }
       )
-      graph = createGraph({ vertices: [rootVertexConfig] })
+      graph = createGraph({ vertices: [rootVertexConfig], logger })
       vertex = graph.getVertexInstance(rootVertexConfig)
-   })
-
-   afterEach(() => {
-      console.error = consoleError
    })
 
    it('degrades ONLY the failing field to error, sibling stays loaded', () => {
@@ -238,10 +231,7 @@ describe('loadFromFields$() loader error — full graph', () => {
    it('does NOT log for the degraded load (field-producing op)', () => {
       // Trigger another input change too, to be sure no diagnostic is emitted.
       graph.dispatch(setName('Jane'))
-      const verduxLogs = consoleErrorCalls.filter(
-         args =>
-            typeof args[0] === 'string' && args[0].includes('[verdux]')
-      )
+      const verduxLogs = loggedMessages.filter(m => m.includes('[verdux]'))
       expect(verduxLogs).to.deep.equal([])
    })
 })

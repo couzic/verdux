@@ -18,7 +18,6 @@ code/tests themselves; that is the single source of truth for what shipped. If y
 
 ## Fixes to make (detail + verified repros in `ISSUES.md`)
 
-- **O5** — pluggable diagnostics channel (replace hardcoded `console.error`).
 - **H2** — `addUpstreamVertex` field type-safety.
 - **M3** — devtools multi-upstream edge `fields: undefined`.
 - **M4** — diamond DAG runtime test gap.

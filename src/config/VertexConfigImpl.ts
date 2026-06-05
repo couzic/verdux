@@ -2,6 +2,7 @@ import { Reducer, Slice, UnknownAction } from '@reduxjs/toolkit'
 import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { ReducerWithInitialState } from '@reduxjs/toolkit/dist/createReducer'
 import { Observable } from 'rxjs'
+import { VerduxLogger } from '../graph/VerduxLogger'
 import { VertexRun } from '../run/VertexRun'
 import { VertexId } from '../vertex/VertexId'
 import { VertexConfig, VertexOperationsOnly } from './VertexConfig'
@@ -32,11 +33,14 @@ export class VertexConfigImpl<
       ) => VertexOperationsOnly<any, any>
    > = []
 
-   resolveOperations(dependencies: Dependencies): {
+   resolveOperations(
+      dependencies: Dependencies,
+      logger?: VerduxLogger
+   ): {
       operations: [VertexRun]
       trackedActions: BaseActionCreator<any, any>[]
    } {
-      let operationsBuilder = new VertexOperationsBuilder()
+      let operationsBuilder = new VertexOperationsBuilder(logger)
       this._operationsToInject.forEach(operationToInject => {
          operationsBuilder = operationToInject(
             dependencies,

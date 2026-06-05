@@ -80,6 +80,13 @@ On any error from the user's mapper or callback:
   `fieldsReaction`, the watched field list (e.g. `fields [name]`). The trailing
   sentence (what was skipped) is free-form — only the prefix and the error object
   are mandated.
+  - **Route the log through the configured logger, never `console.error`
+    directly.** Every diagnostic goes through `reportError(logger, message, error)`
+    (`src/graph/VerduxLogger.ts`), which calls the `logger.error` injected via
+    `createGraph({ logger })` and falls back to `console.error` when none was
+    provided. The logger is threaded to each operation at construction
+    (`VertexOperationsBuilder` → the op factory's trailing `logger?` param). This is
+    the single diagnostics seam — the same one the fail-fast graph handler uses.
 - Skip just that action/effect (do not re-dispatch the action / do not run the
   side effect).
 - The stream stays alive.
@@ -168,9 +175,19 @@ return contract**, which are programming errors and must **fail fast and loud**
 Every operation ships **full-graph** coverage of its error path — a colocated
 `*.error.test.ts` (or equivalent block in `graphErrorResilience.test.ts`) that,
 through the public API only (`createGraph` + `dispatch` + a public read:
-`currentState` / `currentLoadableState`, or a `console.error` spy), proves an
+`currentState` / `currentLoadableState`, or an observed diagnostic), proves an
 erroring callback degrades **as specified above** *without killing the graph*.
 Per CLAUDE.md: write the failing full-graph test first, watch it go red, then fix.
+
+To observe a diagnostic, **inject a capturing logger** —
+`createGraph({ vertices, logger })` (full-graph) or pass it as the operation
+factory's trailing `logger` argument (operation-unit) — and assert on its messages.
+This is the standard across the error tests (`graphErrorResilience.test.ts`,
+`reaction$.error.test.ts`, `loaderError.test.ts`, the field-op `*.error.test.ts`
+"does not log" assertions, …); it replaces the old global `console.error` spy.
+The **only** sanctioned `console.error` spy lives in `src/graph/logger.test.ts`,
+which owns the single test for the non-breaking default: with no `logger`, a
+diagnostic must still reach `console.error` unchanged.
 
 A **return-contract breach** (a factory that throws or returns a non-Observable) is
 covered the other way: a test asserting it **fails fast** — the graph stops and the
@@ -186,7 +203,8 @@ For each operation file:
   non-Observable there must fail fast (see Out of scope).
 - Every user-supplied Observable merged into the output has a `catchError`.
 - **Field op** → degrades to an `error`-status field; **no** logging.
-- **Effect op** → logs the `[verdux] … threw` diagnostic and skips; produces no
+- **Effect op** → logs the `[verdux] … threw` diagnostic via
+  `reportError(logger, …)` (never `console.error` directly) and skips; produces no
   field.
 - The stream stays alive after containment (no completion, no rethrow).
 - Containment is local (siblings / other vertices untouched).

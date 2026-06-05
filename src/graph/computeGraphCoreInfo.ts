@@ -9,9 +9,11 @@ import {
 import { VertexRun } from '../run/VertexRun'
 import { VertexId } from '../vertex/VertexId'
 import { GraphCoreInfo } from './GraphCoreInfo'
+import { VerduxLogger } from './VerduxLogger'
 
 export const computeGraphCoreInfo = (
-   vertexConfigs: Array<VertexInjectableConfig>
+   vertexConfigs: Array<VertexInjectableConfig>,
+   logger?: VerduxLogger
 ): GraphCoreInfo => {
    if ((vertexConfigs || []).length === 0)
       throw new Error('createGraph() requires a non-empty vertices array')
@@ -134,7 +136,8 @@ export const computeGraphCoreInfo = (
          injectedDependenciesByVertexId[config.id]
       )
       const { operations, trackedActions } = config.resolveOperations(
-         dependenciesByVertexId[config.id]
+         dependenciesByVertexId[config.id],
+         logger
       )
       operationsByVertexId[config.id] = operations
       trackedActionsByVertexId[config.id] = trackedActions

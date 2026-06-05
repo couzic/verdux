@@ -1,10 +1,15 @@
 import { map } from 'rxjs'
+import { VerduxLogger, reportError } from '../graph/VerduxLogger'
 import { VertexRun } from '../run/VertexRun'
 import { LazyVertexLoadableState } from '../state/LazyVertexLoadableState'
 import { pickFields } from '../state/pickFields'
 import { toVertexState } from '../state/toVertexState'
 
-export const fieldsReaction = (fields: string[], mapper: any): VertexRun =>
+export const fieldsReaction = (
+   fields: string[],
+   mapper: any,
+   logger?: VerduxLogger
+): VertexRun =>
    map(data => {
       if (data.initialRun || !fields.some(field => data.changedFields[field])) {
          return data
@@ -23,7 +28,8 @@ export const fieldsReaction = (fields: string[], mapper: any): VertexRun =>
             fieldsReactions: [...data.fieldsReactions, reaction]
          }
       } catch (e: any) {
-         console.error(
+         reportError(
+            logger,
             `[verdux] fieldsReaction on fields [${fields.join(', ')}] threw an error. ` +
                'The graph stays alive; future field changes will still be processed.',
             e

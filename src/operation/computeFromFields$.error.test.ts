@@ -1,24 +1,17 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { map } from 'rxjs'
-import * as sinon from 'sinon'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from '../graph/createGraph'
+import { makeLogger } from '../test/makeLogger'
 
 // computeFromFields$ is a FIELD-PRODUCING operation. When the user's inner
 // stream errors it must degrade ONLY the affected field to `error` status, keep
 // the graph alive (later dispatches still flow), NOT log, and recompute the
 // field back to `loaded` on a later valid input. Full-graph public-API coverage.
 describe('computeFromFields$ error handling', () => {
-   let errorStub: sinon.SinonStub
-   beforeEach(() => {
-      errorStub = sinon.stub(console, 'error')
-   })
-   afterEach(() => {
-      errorStub.restore()
-   })
-
    const makeGraph = () => {
+      const { logger, messages: loggedMessages } = makeLogger()
       const slice = createSlice({
          name: 'root',
          initialState: { n: 0, other: '' },
@@ -40,8 +33,8 @@ describe('computeFromFields$ error handling', () => {
                })
             )
       })
-      const graph = createGraph({ vertices: [config] })
-      return { graph, slice, vertex: graph.getVertexInstance(config) }
+      const graph = createGraph({ vertices: [config], logger })
+      return { graph, slice, vertex: graph.getVertexInstance(config), loggedMessages }
    }
 
    it('keeps the graph alive: a later, unrelated dispatch is still reflected', () => {
@@ -59,9 +52,9 @@ describe('computeFromFields$ error handling', () => {
    })
 
    it('does not log (the error-status field is the report)', () => {
-      const { graph, slice } = makeGraph()
+      const { graph, slice, loggedMessages } = makeGraph()
       graph.dispatch(slice.actions.setN(99))
-      expect(errorStub.called).to.equal(false)
+      expect(loggedMessages).to.deep.equal([])
    })
 
    it('recomputes the field back to loaded for a later valid input', () => {

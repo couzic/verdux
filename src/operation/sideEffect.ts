@@ -1,12 +1,14 @@
 import { BaseActionCreator } from '@reduxjs/toolkit/dist/createAction'
 import { map } from 'rxjs'
+import { VerduxLogger, reportError } from '../graph/VerduxLogger'
 import { VertexRun } from '../run/VertexRun'
 import { VertexLoadableState } from '../state/VertexLoadableState'
 import { ReactionInput } from './ReactionInput'
 
 export const sideEffect = (
    trackedAction: BaseActionCreator<any, any>,
-   callback: (input: VertexLoadableState<any> & { payload: any }) => void
+   callback: (input: VertexLoadableState<any> & { payload: any }) => void,
+   logger?: VerduxLogger
 ): VertexRun =>
    map(data => {
       if (!data.action || data.action.type !== trackedAction.type) {
@@ -24,7 +26,8 @@ export const sideEffect = (
                try {
                   callback(input as any)
                } catch (e: any) {
-                  console.error(
+                  reportError(
+                     logger,
                      `[verdux] sideEffect on "${trackedAction.type}" threw an error. ` +
                         'The side effect is skipped; future matching actions will still be processed.',
                      e

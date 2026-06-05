@@ -140,6 +140,23 @@ const appGraph = createGraph({
 const rootVertex = appGraph.getVertexInstance(rootVertexConfig)
 ```
 
+**Options**
+
+- `vertices` — the vertex configurations that make up the graph.
+- `logger` (optional) — a sink for verdux's internal diagnostics (the `[verdux] …
+  threw` messages emitted when a reaction/sideEffect/fieldsReaction callback throws,
+  or when the graph fails fast). Any object with an `error(message, error?)` method
+  satisfies it — including `console` (the default), `winston`, or `pino`. Every
+  method is optional and falls back to the matching `console` method, so a partial
+  logger is fine.
+
+```ts
+const appGraph = createGraph({
+   vertices: [rootVertexConfig],
+   logger: { error: (message, error) => myLogger.error(message, error) }
+})
+```
+
 ### Computed values (synchronous)
 
 #### `computeFromFields()`

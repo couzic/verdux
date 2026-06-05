@@ -1,8 +1,8 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
-import * as sinon from 'sinon'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from '../graph/createGraph'
+import { makeLogger } from '../test/makeLogger'
 
 // computeFromFields is a FIELD-PRODUCING operation. When the user's compute
 // function throws it must degrade ONLY that field to `error` status (with the
@@ -10,15 +10,8 @@ import { createGraph } from '../graph/createGraph'
 // graph alive (later dispatches still flow), NOT log, and recompute the field
 // back to `loaded` on a later valid input. Full-graph public-API coverage.
 describe('computeFromFields error handling', () => {
-   let errorStub: sinon.SinonStub
-   beforeEach(() => {
-      errorStub = sinon.stub(console, 'error')
-   })
-   afterEach(() => {
-      errorStub.restore()
-   })
-
    const makeGraph = () => {
+      const { logger, messages: loggedMessages } = makeLogger()
       const slice = createSlice({
          name: 'root',
          initialState: { n: 0, other: '' },
@@ -38,8 +31,8 @@ describe('computeFromFields error handling', () => {
          },
          tripled: ({ n }: any) => n * 3
       })
-      const graph = createGraph({ vertices: [config] })
-      return { graph, slice, vertex: graph.getVertexInstance(config) }
+      const graph = createGraph({ vertices: [config], logger })
+      return { graph, slice, vertex: graph.getVertexInstance(config), loggedMessages }
    }
 
    it('degrades only the throwing field to error, sibling stays loaded', () => {
@@ -72,8 +65,8 @@ describe('computeFromFields error handling', () => {
    })
 
    it('does not log (the error-status field is the report)', () => {
-      const { graph, slice } = makeGraph()
+      const { graph, slice, loggedMessages } = makeGraph()
       graph.dispatch(slice.actions.setN(99))
-      expect(errorStub.called).to.equal(false)
+      expect(loggedMessages).to.deep.equal([])
    })
 })

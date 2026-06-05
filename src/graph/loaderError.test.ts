@@ -1,8 +1,8 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { of, throwError } from 'rxjs'
-import * as sinon from 'sinon'
 import { configureRootVertex } from '../config/configureRootVertex'
+import { makeLogger } from '../test/makeLogger'
 import { createGraph } from './createGraph'
 
 // End-to-end test: a failing loader is per-field and non-fatal. A loader that
@@ -127,15 +127,8 @@ describe('createGraph loader error contract', () => {
    // degrades one field and recovers), this is NOT contained: it fails fast and
    // loud — escaping to the graph-level handler, which logs and stops the graph.
    describe('loadFromFields(): a loader that does not return an Observable fails fast', () => {
-      let errorStub: sinon.SinonStub
-      beforeEach(() => {
-         errorStub = sinon.stub(console, 'error')
-      })
-      afterEach(() => {
-         errorStub.restore()
-      })
-
       const makeGraph = (up: (input: { trigger: number }) => any) => {
+         const { logger, messages: loggedMessages } = makeLogger()
          const slice = createSlice({
             name: 'root',
             initialState: { trigger: 0, other: '' },
@@ -152,8 +145,13 @@ describe('createGraph loader error contract', () => {
             ['trigger'],
             { up }
          )
-         const graph = createGraph({ vertices: [config] })
-         return { graph, slice, vertex: graph.getVertexInstance(config) }
+         const graph = createGraph({ vertices: [config], logger })
+         return {
+            graph,
+            slice,
+            vertex: graph.getVertexInstance(config),
+            loggedMessages
+         }
       }
 
       // Each loader is healthy on the initial run, then breaks its return
@@ -176,11 +174,11 @@ describe('createGraph loader error contract', () => {
       cases.forEach(([label, up]) => {
          describe(`a loader that ${label}`, () => {
             it('logs the escaped-error diagnostic (does not silently contain it)', () => {
-               const { graph, slice } = makeGraph(up)
+               const { graph, slice, loggedMessages } = makeGraph(up)
                graph.dispatch(slice.actions.setTrigger(1))
                expect(
-                  errorStub.calledWithMatch(
-                     'escaped all operation-level handling'
+                  loggedMessages.some(m =>
+                     m.includes('escaped all operation-level handling')
                   )
                ).to.equal(true)
             })

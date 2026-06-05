@@ -2,6 +2,7 @@ import { createAction } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { of } from 'rxjs'
 import { VertexRunData } from '../run/RunData'
+import { makeLogger } from '../test/makeLogger'
 import { reaction } from './reaction'
 
 const sut = reaction
@@ -40,9 +41,15 @@ describe(sut.name, () => {
          initialRun: true
       }
       let lastOutput: any = undefined
-      reaction(trackedAction, () => {
-         throw new Error('error')
-      })(of(input)).subscribe(output => (lastOutput = output))
+      const { logger, logged } = makeLogger()
+      reaction(
+         trackedAction,
+         () => {
+            throw new Error('error')
+         },
+         logger
+      )(of(input)).subscribe(output => (lastOutput = output))
       expect(lastOutput).to.deep.equal(input)
+      expect(logged('reaction on "trackedAction" threw')).to.equal(true)
    })
 })

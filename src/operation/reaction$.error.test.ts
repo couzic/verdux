@@ -1,10 +1,10 @@
 import { PayloadAction, createAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { Subject, map, mergeMap, of, throwError } from 'rxjs'
-import * as sinon from 'sinon'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { createGraph } from '../graph/createGraph'
 import { VertexRunData } from '../run/RunData'
+import { makeLogger } from '../test/makeLogger'
 import { reaction$ } from './reaction$'
 
 const createInput = (action: any): VertexRunData => ({
@@ -27,6 +27,7 @@ describe('reaction$() mapper error', () => {
    let latestOutputData: VertexRunData | undefined
    let outputStreamErrored: boolean
    let outputStreamCompleted: boolean
+   let logged: (fragment: string) => boolean
 
    describe('when the mapper throws synchronously', () => {
       beforeEach(() => {
@@ -34,6 +35,8 @@ describe('reaction$() mapper error', () => {
          outputStreamErrored = false
          outputStreamCompleted = false
          inputData$ = new Subject()
+         const captured = makeLogger()
+         logged = captured.logged
 
          let callCount = 0
          const outputData$ = reaction$(
@@ -47,7 +50,8 @@ describe('reaction$() mapper error', () => {
                      }
                      return outputAction('recovered')
                   })
-               )
+               ),
+            captured.logger
          )(inputData$)
 
          outputData$.subscribe({
@@ -61,6 +65,11 @@ describe('reaction$() mapper error', () => {
          inputData$.next(createInput(trackedAction('first')))
          expect(outputStreamErrored).to.be.false
          expect(outputStreamCompleted).to.be.false
+      })
+
+      it('logs the error through the injected logger', () => {
+         inputData$.next(createInput(trackedAction('first')))
+         expect(logged('reaction$ on "trackedAction" threw')).to.equal(true)
       })
 
       it('still reacts to a later tracked action after the error', () => {
@@ -78,6 +87,8 @@ describe('reaction$() mapper error', () => {
          outputStreamErrored = false
          outputStreamCompleted = false
          inputData$ = new Subject()
+         const captured = makeLogger()
+         logged = captured.logged
 
          let callCount = 0
          const outputData$ = reaction$(
@@ -91,7 +102,8 @@ describe('reaction$() mapper error', () => {
                      }
                      return of(outputAction('recovered'))
                   })
-               )
+               ),
+            captured.logger
          )(inputData$)
 
          outputData$.subscribe({
@@ -105,6 +117,11 @@ describe('reaction$() mapper error', () => {
          inputData$.next(createInput(trackedAction('first')))
          expect(outputStreamErrored).to.be.false
          expect(outputStreamCompleted).to.be.false
+      })
+
+      it('logs the error through the injected logger', () => {
+         inputData$.next(createInput(trackedAction('first')))
+         expect(logged('reaction$ on "trackedAction" threw')).to.equal(true)
       })
 
       it('still reacts to a later tracked action after the error', () => {
@@ -123,18 +140,8 @@ describe('reaction$() mapper error', () => {
 // reaction/sideEffect blocks in graph/graphErrorResilience.test.ts. This is a
 // fail-on-revert guard: removing reaction$.ts's catchError makes it red.
 describe('reaction$() full-graph error resilience', () => {
-   // the mapper stream errors on purpose; stub console.error so the
-   // (intentional) diagnostic doesn't pollute the suite output, and so the
-   // logging test can assert on it.
-   let errorStub: sinon.SinonStub
-   beforeEach(() => {
-      errorStub = sinon.stub(console, 'error')
-   })
-   afterEach(() => {
-      errorStub.restore()
-   })
-
    const makeGraph = () => {
+      const { logger, logged } = makeLogger()
       const slice = createSlice({
          name: 'root',
          initialState: { n: 0 },
@@ -159,16 +166,14 @@ describe('reaction$() full-graph error resilience', () => {
                })
             )
       )
-      const graph = createGraph({ vertices: [config] })
-      return { graph, slice, vertex: graph.getVertexInstance(config) }
+      const graph = createGraph({ vertices: [config], logger })
+      return { graph, slice, vertex: graph.getVertexInstance(config), logged }
    }
 
    it('logs the error', () => {
-      const { graph, slice } = makeGraph()
+      const { graph, slice, logged } = makeGraph()
       graph.dispatch(slice.actions.trig())
-      expect(
-         errorStub.calledWithMatch('reaction$ on "root/trig" threw')
-      ).to.equal(true)
+      expect(logged('reaction$ on "root/trig" threw')).to.equal(true)
    })
 
    it('keeps the graph alive: a later unrelated dispatch is still processed', () => {

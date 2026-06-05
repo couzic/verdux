@@ -12,6 +12,7 @@ import { VertexOperationsOnly } from './VertexConfig'
 
 import { UnknownAction } from '@reduxjs/toolkit'
 import { Observable } from 'rxjs'
+import { VerduxLogger } from '../graph/VerduxLogger'
 import { VertexRun } from '../run/VertexRun'
 import { VertexLoadableState } from '../state/VertexLoadableState'
 
@@ -19,6 +20,8 @@ export class VertexOperationsBuilder implements VertexOperationsOnly<any, any> {
    public readonly trackedActions: BaseActionCreator<any, any>[] = []
 
    private readonly _operations: [VertexRun] = [] as any
+
+   constructor(private readonly logger?: VerduxLogger) {}
 
    get operations(): [VertexRun] {
       return this._operations
@@ -59,7 +62,7 @@ export class VertexOperationsBuilder implements VertexOperationsOnly<any, any> {
       if (!this.trackedActions.includes(actionCreator)) {
          this.trackedActions.push(actionCreator)
       }
-      this._operations.push(reaction(actionCreator, mapper))
+      this._operations.push(reaction(actionCreator, mapper, this.logger))
       return this
    }
 
@@ -70,7 +73,7 @@ export class VertexOperationsBuilder implements VertexOperationsOnly<any, any> {
       if (!this.trackedActions.includes(actionCreator)) {
          this.trackedActions.push(actionCreator)
       }
-      this._operations.push(reaction$(actionCreator, mapper))
+      this._operations.push(reaction$(actionCreator, mapper, this.logger))
       return this
    }
 
@@ -81,7 +84,7 @@ export class VertexOperationsBuilder implements VertexOperationsOnly<any, any> {
          vertex: VertexLoadableState<any>
       ) => UnknownAction
    ) {
-      this._operations.push(fieldsReaction(fields, mapper))
+      this._operations.push(fieldsReaction(fields, mapper, this.logger))
       return this
    }
 
@@ -96,7 +99,7 @@ export class VertexOperationsBuilder implements VertexOperationsOnly<any, any> {
       if (!this.trackedActions.includes(actionCreator)) {
          this.trackedActions.push(actionCreator)
       }
-      this._operations.push(sideEffect(actionCreator, callback))
+      this._operations.push(sideEffect(actionCreator, callback, this.logger))
       return this
    }
 }

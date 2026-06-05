@@ -112,29 +112,6 @@ const rootToC = captured.edges.find(
 expect(rootToC.fields).to.deep.equal([]) // ACTUAL: undefined
 ```
 
-### O5 — Diagnostics are hardcoded to `console.error`; need a pluggable mechanism
-
-Error/diagnostic reporting is currently scattered as raw `console.error(...)` calls:
-the four effect ops (`src/operation/reaction.ts:26`, `reaction$.ts:51`,
-`fieldsReaction.ts:26`, `sideEffect.ts:27`) and the fail-fast graph subscription
-(`src/graph/createGraph.ts:144`). This is not good enough:
-
-- **Not configurable.** A consumer can't silence, redirect, or structure the output —
-  no way to route to a real logger, a monitoring sink, or the devtools hook.
-- **Not testable cleanly.** Full-graph error tests have to spy on the global
-  `console.error` to assert a diagnostic fired (the contract even bakes this in —
-  `OPERATION_CONTRACT.md:102`), coupling tests to a global.
-- **Inconsistent.** There's no single place that defines severity, prefix, or payload
-  shape.
-
-**Fix (design needed).** Introduce a single diagnostics channel — e.g. an injectable
-reporter on `createGraph({ onError /* or logger */ })` that defaults to `console.error`,
-threaded to every operation and the graph subscription — so all `[verdux] … threw`
-diagnostics flow through one configurable seam. Decide the interface (severity levels?
-structured payload vs. string? relation to the existing `devtools` hook?) when
-implementing. Once it exists, error tests assert against the injected reporter instead of
-spying on `console`.
-
 ---
 
 ## Test gap (not a bug — missing coverage of a verified-working path)

@@ -10,6 +10,7 @@ import {
    share,
    tap
 } from 'rxjs'
+import { VerduxLogger, reportError } from '../graph/VerduxLogger'
 import { VertexRunData } from '../run/RunData'
 import { VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
@@ -21,7 +22,8 @@ export const reaction$ =
       trackedAction: BaseActionCreator<any, any>,
       mapper: (
          input$: Observable<VertexLoadableState<any> & { payload: any }>
-      ) => Observable<UnknownAction>
+      ) => Observable<UnknownAction>,
+      logger?: VerduxLogger
    ): VertexRun =>
    data$ => {
       let latestInputFields: VertexFields
@@ -62,7 +64,8 @@ export const reaction$ =
             })
          ),
          catchError((error, caught) => {
-            console.error(
+            reportError(
+               logger,
                `[verdux] reaction$ on "${trackedAction.type}" threw an error. ` +
                   'The reaction stream stays alive; future matching actions will still be processed.',
                error

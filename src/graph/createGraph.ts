@@ -4,6 +4,7 @@ import { VertexConfig } from '../config/VertexConfig'
 import { VertexConfigImpl } from '../config/VertexConfigImpl'
 import { VertexInjectableConfig } from '../config/VertexInjectableConfig'
 import { VerduxDevTools } from '../devtools/VerduxDevTools'
+import { VerduxLogger, reportError } from './VerduxLogger'
 import { serializeGraphRunData } from '../devtools/serializeGraphRunData'
 import { serializeGraphStructure } from '../devtools/serializeGraphStructure'
 import { GraphRunData } from '../run/RunData'
@@ -18,11 +19,12 @@ import { computeGraphCoreInfo } from './computeGraphCoreInfo'
 export const createGraph = (options: {
    vertices: Array<VertexInjectableConfig<any>>
    devtools?: VerduxDevTools
+   logger?: VerduxLogger
    excludeDefaultReduxMiddleware?: boolean
 }): Graph => {
-   const { devtools } = options
+   const { devtools, logger } = options
 
-   const coreInfo = computeGraphCoreInfo(options.vertices)
+   const coreInfo = computeGraphCoreInfo(options.vertices, logger)
    const { vertexConfigs, rootReducer } = coreInfo
    if (devtools) {
       const graphStructure = serializeGraphStructure(coreInfo)
@@ -141,7 +143,8 @@ export const createGraph = (options: {
       // diagnostic while Redux keeps mutating. If this ever fires,
       // it is a bug: find the unguarded throw site and add a per-operation guard.
       error: error => {
-         console.error(
+         reportError(
+            logger,
             '[verdux] a graph run threw an error that escaped all ' +
                'operation-level handling. The graph has STOPPED and will no ' +
                'longer publish state updates (dispatches will still mutate ' +
