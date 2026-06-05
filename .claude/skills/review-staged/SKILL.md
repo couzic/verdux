@@ -169,6 +169,26 @@ reads it on demand; it is **not** inlined here.
    **code-reading hypothesis, not a confirmed defect**. Report each as such, with
    a one-line **suggested repro** (the vertices + `dispatch` + public read it
    would take to confirm). Whether to actually reproduce any hypothesis is a
-   **separate follow-up the user opts into** — not part of this command. End with:
-   behavioral hypotheses (each with its suggested repro), stale docs (section +
-   the one-line edit each needs), non-behavioral findings, and clean files.
+   **separate follow-up the user opts into** — not part of this command. Report
+   the findings in this order: behavioral hypotheses (each with its suggested
+   repro), stale docs (section + the one-line edit each needs), non-behavioral
+   findings, and clean files.
+
+5. **Close with a verdict — what, if anything, to do next.** After the findings,
+   end the report with an explicit **Conclusion** that states the bottom line and
+   the concrete next actions. Don't make the user infer it from the list above.
+
+   - If there is **nothing actionable** (no behavioral hypotheses, no stale docs,
+     only optional/defensible non-behavioral notes): say so plainly — e.g. *"Clean
+     — ready to commit; the N non-behavioral notes are optional, I'd leave them."*
+   - If there **are** things to do: list them as a short, ordered **to-do list**,
+     each item naming the `file:line`, what the action is (confirm-via-repro / fix
+     / doc edit), and whether it **blocks committing** or is a follow-up. Group by
+     urgency: must-do-before-commit first, then opt-in follow-ups (reproductions,
+     optional cleanups). Be specific enough that the user can act on each item
+     without re-reading the whole report.
+
+   This step stays within the read-only contract — it **recommends** actions and
+   never takes them: it does not fix, reproduce, stage, or commit. Acting on any
+   to-do item (including the suggested repros from step 4) remains a separate,
+   user-initiated follow-up.

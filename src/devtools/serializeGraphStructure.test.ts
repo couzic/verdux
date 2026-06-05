@@ -2,7 +2,11 @@ import { createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { VertexConfig } from '../config/VertexConfig'
 import { configureRootVertex } from '../config/configureRootVertex'
+import { configureVertex } from '../config/configureVertex'
 import { computeGraphCoreInfo } from '../graph/computeGraphCoreInfo'
+import { createGraph } from '../graph/createGraph'
+import { SerializedGraphStructure } from './SerializedGraphStructure'
+import { VerduxDevTools } from './VerduxDevTools'
 import { serializeGraphStructure } from './serializeGraphStructure'
 
 const createSimpleSlice = (name: string) =>
@@ -178,5 +182,42 @@ describe(sut.name, () => {
             }
          ]
       })
+   })
+
+   it('gives a multi-upstream edge an empty (not undefined) fields list', () => {
+      // Diamond: c pulls from a and b, whose closest common ancestor is the
+      // root — so the execution tree puts the edge at root → c, but c's tracked
+      // fields are keyed by a and b. The root → c edge must still honour the
+      // non-optional `fields: string[]` shape rather than leaking `undefined`.
+      let captured: SerializedGraphStructure | undefined
+      const devtools: VerduxDevTools = {
+         sendGraphStructure: s => {
+            captured = s
+         },
+         sendGraphRunOutput: () => {},
+         provideForceGraphRunOutput: () => {},
+         provideSerializeGraphRunData: () => {}
+      }
+      const root = configureRootVertex({
+         slice: createSlice({ name: 'root', initialState: {}, reducers: {} })
+      })
+      const a = root.configureDownstreamVertex({
+         slice: createSlice({ name: 'a', initialState: { av: 1 }, reducers: {} })
+      })
+      const b = root.configureDownstreamVertex({
+         slice: createSlice({ name: 'b', initialState: { bv: 2 }, reducers: {} })
+      })
+      const c = configureVertex(
+         { slice: createSlice({ name: 'c', initialState: {}, reducers: {} }) },
+         _ =>
+            _.addUpstreamVertex(a, { fields: ['av'] }).addUpstreamVertex(b, {
+               fields: ['bv']
+            })
+      )
+      createGraph({ vertices: [root, a, b, c], devtools })
+      const rootToC = captured!.edges.find(
+         e => e.downstream === c.id && e.upstream === root.id
+      )
+      expect(rootToC!.fields).to.deep.equal([])
    })
 })

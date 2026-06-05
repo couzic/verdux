@@ -28,7 +28,7 @@ export const serializeGraphStructure = (
             fields:
                downstreamVertexConfig.builder.fieldsByUpstreamVertexId[
                   vertexConfig.id
-               ]
+               ] || []
          })
       })
    })
