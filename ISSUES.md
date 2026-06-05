@@ -50,7 +50,6 @@ Operation error-handling semantics live in
 | [BUG-3](#bug-3--devtools-provideforcegraphrunoutput-crashes-when-a-run-omits-a-vertex) | devtools `provideForceGraphRunOutput` crashes on omitted vertex | `run` | devtools | Medium |
 | [ROB-1](#rob-1--extractreduxstate-assumes-every-downstream-step-exists) | `extractReduxState` assumes every `.downstream[name]` exists | `reasoned` | run | Low |
 | [ROB-2](#rob-2--no-cycle-detection) | No cycle detection (not constructible via public API) | `reasoned` | config | Low |
-| [API-1](#api-1--internal-surface-leaks-from-the-public-types) | Internal surface leaks from the public types | `static` | public API | Medium |
 | [DEAD-1](#dead-1--dead-code) | Dead code | `static` | cleanup | Low |
 | [PERF-1](#perf-1--avoidable-recomputation--allocation) | Avoidable recomputation / allocation | `static` + `reasoned` | run/config | Low |
 | [DOC-1](#doc-1--stale-doc-symbols--broken-readme-anchor) | Stale doc symbols & broken README anchor | `static` | docs | Low |
@@ -136,22 +135,6 @@ Operation error-handling semantics live in
   `addUpstreamVertex` / `configureDownstreamVertex` both take an already-built config, so
   the graph is acyclic by construction. No public trigger exists. Keep only as a note;
   there is nothing to test through the public API.
-
-## API-1 — Internal surface leaks from the public types
-
-- **Verified:** `static`
-- **Locations & specifics:**
-  - `src/vertex/VertexInstance.ts:27-30` — `__pushFields(fields, changedFields)` is a
-    member of the **exported** `VertexInstance` interface, pulling run-internal
-    `VertexFields` / `VertexChangedFields` into the public surface.
-  - `PickedLoadableVertexState` (referenced at `VertexInstance.ts:26` in `pick`'s return)
-    and `VertexFieldState` (via `VertexFields`) are part of public types but **not
-    exported** from `src/index.ts`, so consumers can't name them.
-- **Fix direction:** Move `__pushFields` to an internal interface the instance also
-  satisfies (keep it off the public `VertexInstance`), **or** export it deliberately if it
-  is truly public. Export `PickedLoadableVertexState` and `VertexFieldState` from
-  `src/index.ts` (or stop referencing them in public types). No behaviour change — verify
-  with `npm run typecheck` and a check that `src/index.ts` re-exports the names.
 
 ## DEAD-1 — Dead code
 

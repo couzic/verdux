@@ -6,7 +6,7 @@ import { VertexLoadableState } from '../state/VertexLoadableState'
 import { VertexState } from '../state/VertexState'
 import { toVertexLoadableState } from '../state/toVertexLoadableState'
 import { pickLoadableState } from '../state/pickLoadableState'
-import { VertexInstance } from './VertexInstance'
+import { InternalVertexInstance } from './InternalVertexInstance'
 
 export const createVertexInstance = <
    Fields extends VertexFieldsDefinition,
@@ -14,7 +14,7 @@ export const createVertexInstance = <
 >(
    config: VertexConfig<Fields, Dependencies>,
    dependencies: Dependencies
-): VertexInstance<Fields, Dependencies> => {
+): InternalVertexInstance<Fields, Dependencies> => {
    let lastPushed:
       | {
            loadableState: VertexLoadableState<Fields>

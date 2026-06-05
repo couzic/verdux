@@ -11,6 +11,7 @@ import { GraphRunData } from '../run/RunData'
 import { runSubgraph } from '../run/runSubgraph'
 import { createFIFO } from '../util/FIFO'
 import { VertexId } from '../vertex/VertexId'
+import { InternalVertexInstance } from '../vertex/InternalVertexInstance'
 import { VertexInstance } from '../vertex/VertexInstance'
 import { createVertexInstance } from '../vertex/createVertexInstance'
 import { Graph } from './Graph'
@@ -68,7 +69,10 @@ export const createGraph = (options: {
    const reactionsFIFO = createFIFO<UnknownAction>()
    const sideEffectsFIFO = createFIFO<() => void>()
 
-   const vertexInstanceById: Record<VertexId, VertexInstance<any, any>> = {}
+   const vertexInstanceById: Record<
+      VertexId,
+      InternalVertexInstance<any, any>
+   > = {}
    vertexConfigs.forEach(config => {
       vertexInstanceById[config.id] = createVertexInstance(
          config,
@@ -175,7 +179,7 @@ export const createGraph = (options: {
                   vertexConfig.id.toString() +
                   '. Did you forget to register it ?'
             )
-         return vertexInstance
+         return vertexInstance as VertexInstance<any, any>
       }
    }
 

@@ -1,6 +1,5 @@
 import { Observable } from 'rxjs'
 import { VertexFieldsDefinition } from '../config/VertexFieldsDefinition'
-import { VertexChangedFields, VertexFields } from '../run/VertexFields'
 import { PickedLoadableVertexState } from '../state/PickedLoadableVertexState'
 import { VertexLoadableState } from '../state/VertexLoadableState'
 import { VertexState } from '../state/VertexState'
@@ -24,8 +23,4 @@ export interface VertexInstance<
    pick<K extends keyof Fields>(
       fields: K[]
    ): Observable<PickedLoadableVertexState<Fields, K>>
-   __pushFields(
-      fields: VertexFields,
-      changedFields: VertexChangedFields | undefined
-   ): void
 }
