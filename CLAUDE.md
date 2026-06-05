@@ -4,12 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-- `npm test` — run the full mocha test suite (dot reporter). Tests are colocated as `*.test.ts` under `src/` and executed via `ts-node/register`.
+- `npm test` — run the full mocha test suite (dot reporter). Tests are colocated as `*.test.ts` under `src/` and executed via `ts-node/register/transpile-only` — types are **stripped, not checked**, so `npm test` passing does **not** mean the code compiles. This is deliberate: it cuts suite startup from ~18s to ~3s. Type errors are caught separately by `npm run typecheck` (and by `tsc` in `npm run build`).
+- `npm run typecheck` — `tsc -p tsconfig.typecheck.json` (`--noEmit` over **all** of `src/`, tests included; `skipLibCheck` on). This is the only thing in the test/check loop that actually validates types. The root `tsconfig.json` only compiles the `src/index.ts` entrypoint, so plain `tsc --noEmit` would silently ignore type errors in test files — always use the `typecheck` script.
 - `npm run tdd` — mocha watch mode.
-- Run a single test file: `npx mocha --require ts-node/register src/path/to/thing.test.ts`. Filter by name with `--grep "<pattern>"`.
-- `npm run build` — runs `npm test` first, clears `./lib`, then `tsc` + `doctoc`. There is no separate lint step; Prettier config lives in `.prettierrc` (3-space tabs, no semis, single quotes, no trailing commas).
+- Run a single test file: `npx mocha src/path/to/thing.test.ts`. Filter by name with `--grep "<pattern>"`.
+- `npm run build` — runs `npm test` first, clears `./lib`, then `tsc` + `doctoc`. The build's `tsc` type-checks (and emits) the `src/index.ts` library graph but **not** the tests. There is no separate lint step; Prettier config lives in `.prettierrc` (3-space tabs, no semis, single quotes, no trailing commas).
 
-TS config extends `config/base/tsconfig.json` and only compiles from the `src/index.ts` entrypoint (target es5, lib es2015, strict on). Don't rely on newer lib types without updating the base config.
+**Before handing control back to the user, always run BOTH `npm test` and `npm run typecheck`** when you've touched any code — tests no longer type-check, so green tests alone can hide a compile error. The two are independent, so run them **in parallel** (e.g. both in a single batch of tool calls, or `npm test & npm run typecheck & wait`). Report both results.
+
+TS config extends `config/base/tsconfig.json` and only compiles from the `src/index.ts` entrypoint (target es5, lib es2015, strict on). Don't rely on newer lib types without updating the base config. `tsconfig.typecheck.json` widens the include to all of `src/**` for the `typecheck` script.
 
 ### Plugin example code is checked separately
 

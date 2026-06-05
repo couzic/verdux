@@ -1,0 +1,9 @@
+{
+  "extends": "./config/base/tsconfig",
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "files": [],
+  "include": ["src/**/*.ts"]
+}

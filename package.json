@@ -27,6 +27,7 @@
       "build": "tsc && npm run doctoc",
       "prepare": "npm run build",
       "doctoc": "doctoc README.md --notitle --maxlevel 4",
+      "typecheck": "tsc -p tsconfig.typecheck.json",
       "test": "clear && mocha",
       "tdd": "clear && mocha --watch"
    },
@@ -37,7 +38,7 @@
    "main": "lib/index.js",
    "types": "lib/index.d.ts",
    "mocha": {
-      "require": "ts-node/register",
+      "require": "ts-node/register/transpile-only",
       "extension": [
          "ts"
       ],
