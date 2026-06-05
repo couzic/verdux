@@ -1,5 +1,8 @@
+import { createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
 import { NEVER, Subject, from, of, tap } from 'rxjs'
+import { configureRootVertex } from '../config/configureRootVertex'
+import { createGraph } from '../graph/createGraph'
 import { VertexRunData } from '../run/RunData'
 import { loadFromFields } from './loadFromFields'
 
@@ -513,6 +516,40 @@ describe(loadFromFields.name, () => {
       expect(latestOutputData!.changedFields).to.deep.equal({
          irrelevant: true
       })
+   })
+})
+
+// A loader re-emitting a reference-identical value must NOT flag its field
+// changed: an unchanged value is a no-op, so change-gated reads (`pick`) do not
+// re-fire and downstream subgraphs do not re-run. A genuine change (a new
+// reference) must still propagate. Asserted full-graph through the public `pick`.
+describe('loadFromFields() change detection on re-emission (full graph)', () => {
+   it('skips the no-op re-emit but still propagates a real change', () => {
+      const obj = { n: 1 }
+      const other = { n: 2 }
+      const data$ = new Subject<{ n: number }>()
+      const root = configureRootVertex({
+         slice: createSlice({
+            name: 'root',
+            initialState: { id: '1' },
+            reducers: {}
+         })
+      }).loadFromFields(['id'], { data: () => data$ })
+      const graph = createGraph({ vertices: [root] })
+      const vertex = graph.getVertexInstance(root)
+
+      const picked: any[] = []
+      vertex.pick(['data']).subscribe(_ => picked.push(_.fields.data))
+
+      data$.next(obj) // loading -> loaded(obj)
+      data$.next(obj) // identical reference: must be a no-op
+      data$.next(other) // genuine change: must propagate
+
+      expect(picked).to.deep.equal([
+         { status: 'loading', value: undefined, errors: [] },
+         { status: 'loaded', value: obj, errors: [] },
+         { status: 'loaded', value: other, errors: [] }
+      ])
    })
 })
 

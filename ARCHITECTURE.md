@@ -236,7 +236,7 @@ emits, produces a fresh `VertexRunData` carrying the new value:
 { action: undefined, initialRun: false, fields: { …latestInputFields, …outputFields }, … }
 ```
 
-Three facts about that injected emission:
+Four facts about that injected emission:
 
 - **It is injected between `runVertex`'s input map and its output map** — inside the
   operations — so it does *not* pass back through the input map. `latestInput`
@@ -247,6 +247,13 @@ Three facts about that injected emission:
   every wrapper *after* the emitter — the emitter's own children plus its
   later-registered siblings and their subtrees — never back to earlier wrappers. (This
   is why sibling registration order matters.)
+- **Its `changedFields` is computed, not assumed.** A loader flags its field changed
+  only when the new value actually differs from the field's previous status / value /
+  errors — via `compareVertexFields`, the same helper `computeFromFields` uses. A loader
+  re-emitting a **reference-identical** value therefore produces an **empty**
+  `changedFields`: the downstream gate (§4) skips and change-gated reads (`pick`) do not
+  re-fire. Identical re-emission is a no-op, and must stay one — all three loaders
+  (`load`, `loadFromFields`, `loadFromFields$`) share this rule.
 
 ### Redux state on a partial run
 
@@ -321,7 +328,9 @@ If you touch `src/run/` or `src/operation/`, keep these true:
    state. Don't add per-vertex copies that could drift from it.
 2. **Change-detection gating must stay reference-based and side-effect-free**
    (the `shouldRun` computation in `runSubgraph`); don't make it depend on mutable
-   captured state that async emissions can desync.
+   captured state that async emissions can desync. A field-producing operation flags a
+   field changed only when it *actually* changed (`compareVertexFields`), so re-emitting
+   a reference-identical value is a no-op — see §5's fourth fact.
 3. **The pipeline is forward-only and topologically ordered.** An async emission
    reaches later siblings but not earlier ones — don't write operations that assume
    otherwise.

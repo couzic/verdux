@@ -21,3 +21,16 @@ for operation error handling. In short:
 
 See the contract for the exact rules, invariants, out-of-scope cases, and review
 checklist.
+
+## Field change-detection: compute, don't assume
+
+A **field-producing** operation must flag a field changed only when it *actually*
+changed — never hardcode `changedFields: { [fieldName]: true }`. Compute it with
+`compareVertexFields(latestOutputFields, { [fieldName]: field })` (`src/run/`),
+the same helper `computeFromFields` uses, which diffs status, value, and errors
+against the previous field. A loader re-emitting a **reference-identical** value
+therefore produces an **empty** `changedFields`: the downstream gate skips and
+change-gated reads (`pick`) do not re-fire. Identical re-emission is a no-op, and
+must stay one — `load`, `loadFromFields`, and `loadFromFields$` all share this
+rule. See `ARCHITECTURE.md` §5 (the "fourth fact" about the injected emission)
+and invariant #2.

@@ -12,6 +12,8 @@ import {
 import { VertexRunData } from '../run/RunData'
 import { VertexChangedFields, VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
+import { compareVertexFields } from '../run/compareVertexFields'
+import { VertexFieldState } from '../state/VertexFieldState'
 import { pickFields } from '../state/pickFields'
 import { toVertexLoadableState } from '../state/toVertexLoadableState'
 
@@ -107,28 +109,38 @@ export const loadFromFields =
                // re-subscribe), but this operation rebuilds its loaders on the
                // next input change, so a later successful run restores `loaded`.
                return result$.pipe(
-                  map(value => ({
-                     fieldName,
-                     field: { status: 'loaded' as const, value, errors: [] }
-                  })),
-                  catchError(error =>
-                     of({
-                        fieldName,
-                        field: {
-                           status: 'error' as const,
-                           value: undefined,
-                           errors: [error]
-                        }
-                     })
-                  )
+                  map(value => {
+                     const field: VertexFieldState = {
+                        status: 'loaded',
+                        value,
+                        errors: []
+                     }
+                     return { fieldName, field }
+                  }),
+                  catchError(error => {
+                     const field: VertexFieldState = {
+                        status: 'error',
+                        value: undefined,
+                        errors: [error]
+                     }
+                     return of({ fieldName, field })
+                  })
                )
             })
             const loaded$ = merge(...loaders$).pipe(
                map(({ fieldName, field }): VertexRunData => {
+                  // Flag the field changed only when it actually changed: a
+                  // loader re-emitting a reference-identical value is a no-op,
+                  // so we must not mark it changed or change-gated reads (pick)
+                  // would re-fire and downstream subgraphs would re-run for
+                  // nothing.
+                  const changedFields = compareVertexFields(latestOutputFields, {
+                     [fieldName]: field
+                  })
                   const outputFields = {
                      ...latestOutputFields,
                      [fieldName]: field
-                  } as VertexFields
+                  }
                   latestOutputFields = outputFields
                   return {
                      action: undefined,
@@ -136,7 +148,7 @@ export const loadFromFields =
                         ...latestInputFields,
                         ...outputFields
                      },
-                     changedFields: { [fieldName]: true },
+                     changedFields,
                      reactions: [],
                      fieldsReactions: [],
                      sideEffects: [],

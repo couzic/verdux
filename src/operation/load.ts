@@ -12,6 +12,8 @@ import {
 import { VertexRunData } from '../run/RunData'
 import { VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
+import { compareVertexFields } from '../run/compareVertexFields'
+import { VertexFieldState } from '../state/VertexFieldState'
 
 export const load =
    (loaders: any): VertexRun =>
@@ -59,35 +61,44 @@ export const load =
          // stays in error (we deliberately do NOT re-subscribe, which would loop
          // on a synchronously-erroring source).
          return result$.pipe(
-            map(value => ({
-               fieldName,
-               field: { status: 'loaded' as const, value, errors: [] }
-            })),
-            catchError(error =>
-               of({
-                  fieldName,
-                  field: {
-                     status: 'error' as const,
-                     value: undefined,
-                     errors: [error]
-                  }
-               })
-            )
+            map(value => {
+               const field: VertexFieldState = {
+                  status: 'loaded',
+                  value,
+                  errors: []
+               }
+               return { fieldName, field }
+            }),
+            catchError(error => {
+               const field: VertexFieldState = {
+                  status: 'error',
+                  value: undefined,
+                  errors: [error]
+               }
+               return of({ fieldName, field })
+            })
          )
       })
 
       const loaded$ = merge(...loaders$).pipe(
          map(({ fieldName, field }): VertexRunData => {
+            // Flag the field changed only when it actually changed: a loader
+            // re-emitting a reference-identical value is a no-op, so we must not
+            // mark it changed or change-gated reads (pick) would re-fire and
+            // downstream subgraphs would re-run for nothing.
+            const changedFields = compareVertexFields(latestOutputFields, {
+               [fieldName]: field
+            })
             const outputFields = {
                ...latestOutputFields,
                [fieldName]: field
-            } as VertexFields
+            }
             latestOutputFields = outputFields
             return {
                action: undefined,
                initialRun: false,
                fields: { ...latestInputFields, ...outputFields },
-               changedFields: { [fieldName]: true as const },
+               changedFields,
                reactions: [],
                sideEffects: [],
                fieldsReactions: []

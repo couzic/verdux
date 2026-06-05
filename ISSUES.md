@@ -47,9 +47,7 @@ Operation error-handling semantics live in
 
 | ID | Issue | Verified | Area | Severity |
 |----|-------|----------|------|----------|
-| [BUG-1](#bug-1--loaders-mark-a-field-changed-on-every-emission) | Loaders mark a field changed on every emission | `run` | operation/run | Medium |
 | [BUG-3](#bug-3--devtools-provideforcegraphrunoutput-crashes-when-a-run-omits-a-vertex) | devtools `provideForceGraphRunOutput` crashes on omitted vertex | `run` | devtools | Medium |
-| [BUG-4](#bug-4--pickloadablestate-rebuilds-a-new-reference-on-every-emission) | `pickLoadableState` rebuilds a new reference every emission | `run` | state | Low |
 | [TYPE-1](#type-1--fieldsreaction-mapper-value-type-is-not-status-aware) | `fieldsReaction` mapper value type is not status-aware | `run` (tsc) | config types | Medium |
 | [ROB-1](#rob-1--extractreduxstate-assumes-every-downstream-step-exists) | `extractReduxState` assumes every `.downstream[name]` exists | `reasoned` | run | Low |
 | [ROB-2](#rob-2--no-cycle-detection) | No cycle detection (not constructible via public API) | `reasoned` | config | Low |
@@ -58,51 +56,9 @@ Operation error-handling semantics live in
 | [PERF-1](#perf-1--avoidable-recomputation--allocation) | Avoidable recomputation / allocation | `static` + `reasoned` | run/config | Low |
 | [DOC-1](#doc-1--stale-doc-symbols--broken-readme-anchor) | Stale doc symbols & broken README anchor | `static` | docs | Low |
 | [BUILD-1](#build-1--mocha-glob-has-no-ignore) | Mocha glob has no `--ignore` | `static` | build | Low |
+| [TEST-1](#test-1--load--loadfromfields-error-paths-lack-a-full-graph-error-test) | `load` / `loadFromFields` error paths lack a full-graph error test | `static` | testing | Low |
 
 ---
-
-## BUG-1 — Loaders mark a field changed on every emission
-
-- **Verified:** `run`
-- **Location:** `src/operation/load.ts:79-96` (`changedFields: { [fieldName]: true }`),
-  `src/operation/loadFromFields.ts:~139`, `src/operation/loadFromFields$.ts:~128`.
-- **Symptom:** A loader marks its output field as changed on **every** emission, with no
-  comparison against the previous value. Re-emitting a reference-identical value still
-  flags the field changed, which propagates as a needless partial run (and re-fires
-  `pick`/subscriptions, causing avoidable re-renders downstream).
-- **Reproduction (full graph):**
-  ```ts
-  import { createSlice } from '@reduxjs/toolkit'
-  import { Subject } from 'rxjs'
-  import { configureRootVertex } from './config/configureRootVertex'
-  import { createGraph } from './graph/createGraph'
-
-  const data$ = new Subject<any>()
-  const root = configureRootVertex({
-     slice: createSlice({ name: 'root', initialState: {}, reducers: {} })
-  }).load({ data: data$ })
-
-  const graph = createGraph({ vertices: [root] })
-  const v = graph.getVertexInstance(root)
-
-  const picks: any[] = []
-  v.pick(['data']).subscribe(p => picks.push(p))
-
-  const obj = { n: 1 }
-  data$.next(obj) // pick emits (loading → loaded)
-  const afterFirst = picks.length
-  data$.next(obj) // SAME object reference again
-  // OBSERVED: picks.length > afterFirst — pick re-fires though the value is identical.
-  ```
-- **Fix direction:** Before setting `changedFields[fieldName] = true`, compare the new
-  field against the previous (`latestOutputFields[fieldName]`) — skip the change flag when
-  the status is unchanged **and** the value is reference-equal. A `loading → loaded` (or
-  `→ error`) transition must still count as changed. Apply consistently across `load`,
-  `loadFromFields`, `loadFromFields$`. Decide explicitly whether identical re-emission is
-  meant to be a no-op (it should be) and document it in OPERATION_CONTRACT.md.
-- **Related:** [BUG-4](#bug-4--pickloadablestate-rebuilds-a-new-reference-on-every-emission)
-  — once BUG-1 stops flagging identical re-emits, `pick` won't re-fire, so BUG-4's new
-  reference stops being observable for loaders.
 
 ## BUG-3 — devtools `provideForceGraphRunOutput` crashes when a run omits a vertex
 
@@ -144,21 +100,19 @@ Operation error-handling semantics live in
 - **Fix direction:** Guard the lookup — `if (!fields) return` (skip vertices absent from
   the forced output) or default to `{}`. Decide whether an omitted vertex should keep its
   current fields or be cleared.
-
-## BUG-4 — `pickLoadableState` rebuilds a new reference on every emission
-
-- **Verified:** `run`
-- **Location:** `src/state/pickLoadableState.ts` → always returns a fresh object via
-  `toVertexLoadableState`. Surfaced through `src/vertex/createVertexInstance.ts` `pick(...)`.
-- **Symptom:** Each `pick` emission yields a brand-new object reference even when the picked
-  values are identical, defeating reference-equality memoization downstream (e.g. React).
-  `pick` already gates on `changedFields`, so this is only *observable* when a field is
-  flagged changed without a real value change — i.e. driven by [BUG-1](#bug-1--loaders-mark-a-field-changed-on-every-emission).
-- **Reproduction:** same script as BUG-1 — the two `picks` entries are reference-distinct
-  while their `.state.data` is the identical object.
-- **Fix direction:** Primarily fix BUG-1 (stop flagging identical re-emits). Optionally add
-  a value-equality short-circuit so `pick` re-emits the previous reference when picked
-  values are unchanged. Lower priority than BUG-1.
+- **Status — deferred (pending devtools return).** The crash is reachable **only** from the
+  devtools forced-replay path (`createGraph.ts:82`). The normal dispatch path is
+  structurally immune: every run output rebuilds `fieldsByVertexId` as
+  `{ ...latestInputFieldsByVertexId, ...latestOutputFieldsByVertexId }`
+  (`runSubgraph.ts:98-105`), so it always carries every vertex, and the `sendGraphRunOutput`
+  payload devtools captures is therefore never partial. An omitted vertex is thus never a
+  faithfully-captured graph state — so no non-devtools user can hit this, and it stays latent
+  until the devtools (currently a prototype in a separate folder) is brought back into this
+  repo. The skip-vs-clear choice depends on that devtools' actual replay contract, which we
+  can read directly once it lands rather than guessing now. Leaning **skip** (`if (!fields)
+  return`): a vertex always has slice-derived state, so clearing to `{}` would push an
+  unreachable, invalid empty-fields state through `toVertexLoadableState` into subscribers —
+  trading a loud crash for silent corruption. Revisit when the devtools code is in-repo.
 
 ## TYPE-1 — `fieldsReaction` mapper value type is not status-aware
 
@@ -286,3 +240,27 @@ Operation error-handling semantics live in
   throwaway repro file would execute). Low impact but a footgun.
 - **Fix direction:** Decide whether to constrain the glob / add an ignore for scratch
   files, or leave as-is and rely on discipline. Lowest priority.
+
+## TEST-1 — `load` / `loadFromFields` error paths lack a full-graph error test
+
+- **Verified:** `static`
+- **Location:** `src/operation/load.error.test.ts`, `src/operation/loadFromFields.error.test.ts`
+  (and the leftover `// TODO when loader throws error` at `src/operation/load.test.ts:240`).
+- **Symptom:** [`OPERATION_CONTRACT.md`](src/operation/OPERATION_CONTRACT.md) §Testing
+  requirement mandates that **every** operation ship a **full-graph** error test —
+  `createGraph` + `dispatch`/loader emission + a public read (`currentLoadableState`) —
+  proving the error path degrades to an `error`-status field without killing the graph.
+  `load.error.test.ts` and `loadFromFields.error.test.ts` cover the loader-error path
+  only at the **operation level**: they feed `VertexRunData` straight through the
+  `load()` / `loadFromFields()` operator and read the emitted run data, never going
+  through the public API. The sibling field ops already comply
+  (`loadFromFields$.error.test.ts`, `computeFromFields.error.test.ts`,
+  `computeFromFields$.error.test.ts` all build a graph via `createGraph`). So `load`
+  and `loadFromFields` are the two field ops missing the contract-required full-graph
+  coverage.
+- **Fix direction:** Add a full-graph `createGraph({ vertices: [...] })` error test to
+  each — a root vertex with a loader whose source errors, asserting the field degrades
+  to `{ status: 'error', value: undefined, errors: [error] }` via `currentLoadableState`
+  while siblings and the graph stay alive — mirroring `loadFromFields$.error.test.ts`.
+  Remove the `// TODO when loader throws error` placeholder once `load`'s test lands.
+  Keep the existing operation-level tests as the narrow complement.

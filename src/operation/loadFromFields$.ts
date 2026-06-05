@@ -11,6 +11,8 @@ import {
 import { VertexRunData } from '../run/RunData'
 import { VertexChangedFields, VertexFields } from '../run/VertexFields'
 import { VertexRun } from '../run/VertexRun'
+import { compareVertexFields } from '../run/compareVertexFields'
+import { VertexFieldState } from '../state/VertexFieldState'
 import { pickFields } from '../state/pickFields'
 import { toVertexLoadableState } from '../state/toVertexLoadableState'
 import { toVertexState } from '../state/toVertexState'
@@ -114,7 +116,15 @@ export const loadFromFields$ =
                throw new Error(
                   `Loader for value "${fieldName}" must return an observable, received "${result$}" instead.`
                )
-            const emitOutput = (): VertexRunData => ({
+            // Flag the field changed only when it actually changed: a loader
+            // re-emitting a reference-identical value is a no-op, so we must not
+            // mark it changed or change-gated reads (pick) would re-fire and
+            // downstream subgraphs would re-run for nothing. The caller computes
+            // `changedFields` against the previous `latestOutputFields` BEFORE
+            // overwriting it with the new field below.
+            const emitOutput = (
+               changedFields: VertexChangedFields
+            ): VertexRunData => ({
                action: undefined,
                initialRun: false,
                reactions: [],
@@ -124,9 +134,7 @@ export const loadFromFields$ =
                   ...latestInputFields,
                   ...latestOutputFields
                },
-               changedFields: {
-                  [fieldName]: true
-               }
+               changedFields
             })
             // A loader error becomes an error field for THAT field only,
             // leaving the merged stream (and every other field) alive.
@@ -138,15 +146,19 @@ export const loadFromFields$ =
             // synchronously-erroring source).
             return result$.pipe(
                map(value => {
+                  const field: VertexFieldState = {
+                     status: 'loaded',
+                     value,
+                     errors: []
+                  }
+                  const changedFields = compareVertexFields(latestOutputFields, {
+                     [fieldName]: field
+                  })
                   latestOutputFields = {
                      ...latestOutputFields,
-                     [fieldName]: {
-                        status: 'loaded' as const,
-                        value,
-                        errors: []
-                     }
+                     [fieldName]: field
                   }
-                  return emitOutput()
+                  return emitOutput(changedFields)
                }),
                catchError(error => {
                   const errorField = {
@@ -154,6 +166,9 @@ export const loadFromFields$ =
                      value: undefined,
                      errors: [error]
                   }
+                  const changedFields = compareVertexFields(latestOutputFields, {
+                     [fieldName]: errorField
+                  })
                   // Branch is now dead; keep this field in error across later
                   // input changes instead of letting loading$ reset it.
                   deadFields[fieldName] = errorField
@@ -161,7 +176,7 @@ export const loadFromFields$ =
                      ...latestOutputFields,
                      [fieldName]: errorField
                   }
-                  return of(emitOutput())
+                  return of(emitOutput(changedFields))
                })
             )
          })
