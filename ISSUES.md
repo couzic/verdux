@@ -54,7 +54,6 @@ Operation error-handling semantics live in
 | [PERF-1](#perf-1--avoidable-recomputation--allocation) | Avoidable recomputation / allocation | `static` + `reasoned` | run/config | Low |
 | [DOC-1](#doc-1--stale-doc-symbols--broken-readme-anchor) | Stale doc symbols & broken README anchor | `static` | docs | Low |
 | [BUILD-1](#build-1--mocha-glob-has-no-ignore) | Mocha glob has no `--ignore` | `static` | build | Low |
-| [TEST-1](#test-1--load--loadfromfields-error-paths-lack-a-full-graph-error-test) | `load` / `loadFromFields` error paths lack a full-graph error test | `static` | testing | Low |
 
 ---
 
@@ -189,27 +188,3 @@ Operation error-handling semantics live in
   throwaway repro file would execute). Low impact but a footgun.
 - **Fix direction:** Decide whether to constrain the glob / add an ignore for scratch
   files, or leave as-is and rely on discipline. Lowest priority.
-
-## TEST-1 — `load` / `loadFromFields` error paths lack a full-graph error test
-
-- **Verified:** `static`
-- **Location:** `src/operation/load.error.test.ts`, `src/operation/loadFromFields.error.test.ts`
-  (and the leftover `// TODO when loader throws error` at `src/operation/load.test.ts:240`).
-- **Symptom:** [`OPERATION_CONTRACT.md`](src/operation/OPERATION_CONTRACT.md) §Testing
-  requirement mandates that **every** operation ship a **full-graph** error test —
-  `createGraph` + `dispatch`/loader emission + a public read (`currentLoadableState`) —
-  proving the error path degrades to an `error`-status field without killing the graph.
-  `load.error.test.ts` and `loadFromFields.error.test.ts` cover the loader-error path
-  only at the **operation level**: they feed `VertexRunData` straight through the
-  `load()` / `loadFromFields()` operator and read the emitted run data, never going
-  through the public API. The sibling field ops already comply
-  (`loadFromFields$.error.test.ts`, `computeFromFields.error.test.ts`,
-  `computeFromFields$.error.test.ts` all build a graph via `createGraph`). So `load`
-  and `loadFromFields` are the two field ops missing the contract-required full-graph
-  coverage.
-- **Fix direction:** Add a full-graph `createGraph({ vertices: [...] })` error test to
-  each — a root vertex with a loader whose source errors, asserting the field degrades
-  to `{ status: 'error', value: undefined, errors: [error] }` via `currentLoadableState`
-  while siblings and the graph stay alive — mirroring `loadFromFields$.error.test.ts`.
-  Remove the `// TODO when loader throws error` placeholder once `load`'s test lands.
-  Keep the existing operation-level tests as the narrow complement.

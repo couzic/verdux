@@ -1,6 +1,10 @@
+import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
-import { Observable, Subject, defer, tap, throwError } from 'rxjs'
+import { Observable, Subject, defer, of, tap, throwError } from 'rxjs'
+import { configureRootVertex } from '../config/configureRootVertex'
+import { createGraph } from '../graph/createGraph'
 import { VertexRunData } from '../run/RunData'
+import { makeLogger } from '../test/makeLogger'
 import { load } from './load'
 
 const createInitialRunData = (fields: Record<string, any>): VertexRunData => {
@@ -106,5 +110,77 @@ describe('load() loader error', () => {
             errors: []
          })
       })
+   })
+})
+
+// Full-graph counterpart: drive the failure through the PUBLIC API only
+// (createGraph + dispatch + currentLoadableState/currentState), exactly as a UI
+// component would consume it. Proves the op contains its own stream error:
+// degrades only its field to status:'error', keeps the sibling loaded and the
+// graph alive, and never logs (a field-producing op carries the error in the
+// field). `load` builds its loaders once, so the errored field stays in error.
+describe('load() loader error — full graph', () => {
+   const makeSlice = () =>
+      createSlice({
+         name: 'root',
+         initialState: { other: '' },
+         reducers: {
+            setOther: (state, action: PayloadAction<string>) => {
+               state.other = action.payload
+            }
+         }
+      })
+
+   let graph: ReturnType<typeof createGraph>
+   let vertex: ReturnType<typeof graph.getVertexInstance>
+   let setOther: (other: string) => PayloadAction<string>
+   let loggedMessages: string[]
+
+   beforeEach(() => {
+      const { logger, messages } = makeLogger()
+      loggedMessages = messages
+
+      const slice = makeSlice()
+      setOther = slice.actions.setOther
+      const rootVertexConfig = configureRootVertex({ slice }).load({
+         // Erroring source: degrades to an error field, leaving the sibling and
+         // the graph alive.
+         upper: throwError(() => new Error('boom')),
+         // Healthy sibling in the SAME load() map.
+         lower: of('healthy')
+      })
+      graph = createGraph({ vertices: [rootVertexConfig], logger })
+      vertex = graph.getVertexInstance(rootVertexConfig)
+   })
+
+   it('degrades ONLY the failing field to error, sibling stays loaded', () => {
+      const ls = vertex.currentLoadableState
+      expect(ls.fields.upper.status).to.equal('error')
+      expect(ls.fields.upper.value).to.equal(undefined)
+      expect(ls.fields.upper.errors.map(e => e.message)).to.deep.equal(['boom'])
+      expect(ls.fields.lower.status).to.equal('loaded')
+      expect(ls.fields.lower.value).to.equal('healthy')
+   })
+
+   it('keeps the graph alive: a later unrelated dispatch is still processed', () => {
+      graph.dispatch(setOther('alive'))
+      expect(vertex.currentState.other).to.equal('alive')
+      // The errored field and sibling are still readable: nothing was torn down.
+      expect(vertex.currentLoadableState.fields.upper.status).to.equal('error')
+      expect(vertex.currentLoadableState.fields.lower.status).to.equal('loaded')
+   })
+
+   it('keeps the field in error (load builds its loaders once) after a later dispatch', () => {
+      expect(vertex.currentLoadableState.fields.upper.status).to.equal('error')
+      graph.dispatch(setOther('alive'))
+      const field = vertex.currentLoadableState.fields.upper
+      expect(field.status).to.equal('error')
+      expect(field.errors.map(e => e.message)).to.deep.equal(['boom'])
+   })
+
+   it('does NOT log for the degraded load (field-producing op)', () => {
+      graph.dispatch(setOther('alive'))
+      const verduxLogs = loggedMessages.filter(m => m.includes('[verdux]'))
+      expect(verduxLogs).to.deep.equal([])
    })
 })

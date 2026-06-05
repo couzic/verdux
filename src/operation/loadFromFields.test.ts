@@ -552,5 +552,3 @@ describe('loadFromFields() change detection on re-emission (full graph)', () => 
       ])
    })
 })
-
-// TODO when loader throws error
