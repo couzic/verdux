@@ -1,6 +1,6 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 import { expect } from 'chai'
-import { Subject, of } from 'rxjs'
+import { Subject, map, of } from 'rxjs'
 import { configureRootVertex } from '../config/configureRootVertex'
 import { Vertex } from '../vertex/Vertex'
 import { createGraph } from './createGraph'
@@ -371,5 +371,51 @@ describe(createGraph.name, () => {
       const vertex = graph.getVertexInstance(periodSliderVertexConfig)
 
       expect(vertex.currentState.startYear).to.equal('2014')
+   })
+
+   it('.computeFromFields$() resets a recomputed field to loading instead of exposing a stale value', () => {
+      const rootSlice = createSlice({
+         name: 'root',
+         initialState: { x: 1 },
+         reducers: {
+            setX: (state, action: PayloadAction<number>) => {
+               state.x = action.payload
+            }
+         }
+      })
+      const root = configureRootVertex({ slice: rootSlice }).computeFromFields$(
+         ['x'],
+         {
+            doubled: x$ => x$.pipe(map(({ x }) => x * 2))
+         }
+      )
+
+      const graph = createGraph({ vertices: [root] })
+      const rootInstance = graph.getVertexInstance(root)
+
+      const picks: any[] = []
+      rootInstance.pick(['x', 'doubled']).subscribe(pick =>
+         picks.push({
+            x: { status: pick.fields.x.status, value: pick.fields.x.value },
+            doubled: {
+               status: pick.fields.doubled.status,
+               value: pick.fields.doubled.value
+            }
+         })
+      )
+
+      graph.dispatch(rootSlice.actions.setX(5))
+
+      const loading = { status: 'loading', value: undefined }
+      const loaded = (value: number) => ({ status: 'loaded', value })
+      // The initial run has already settled before we can
+      // subscribe, so the first emission is loaded. On the x change, doubled
+      // resets to loading before the recomputed value lands — it never pairs the
+      // new x = 5 with the stale doubled = 2.
+      expect(picks).to.deep.equal([
+         { x: loaded(1), doubled: loaded(2) },
+         { x: loaded(5), doubled: loading },
+         { x: loaded(5), doubled: loaded(10) }
+      ])
    })
 })

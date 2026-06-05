@@ -2,12 +2,14 @@ import {
    catchError,
    combineLatest,
    filter,
+   ignoreElements,
    isObservable,
    map,
    merge,
    of,
    ReplaySubject,
    share,
+   take,
    tap
 } from 'rxjs'
 import { VertexRunData } from '../run/RunData'
@@ -16,6 +18,19 @@ import { VertexRun } from '../run/VertexRun'
 import { pickFields } from '../state/pickFields'
 import { toVertexState } from '../state/toVertexState'
 
+/**
+ * Reactive variant of `computeFromFields`: each computer maps an Observable of
+ * the picked input state to an Observable of its computed value, so it can debounce,
+ * switchMap to async work, etc. The computed field is a loadable field.
+ *
+ * Emission contract — the operation emits, per computed field, the loadable
+ * lifecycle `loading → loaded`/`error`, and re-enters `loading` on every input
+ * change. For a single input tick where the tracked input fields are loaded and
+ * changed, it emits TWICE, in this order:
+ *
+ *   1. a `loading` reset (the previously computed value is now stale), then
+ *   2. the recomputed `loaded` (or `error`) value.
+ */
 export const computeFromFields$ =
    (fields: string[], computers: any): VertexRun =>
    data$ => {
@@ -29,7 +44,6 @@ export const computeFromFields$ =
          }
       })
 
-      let inputDataReceived = false
       const inputDataReceived$ = new ReplaySubject<true>(1)
       let latestInputFields: VertexFields | undefined = undefined
       let latestOutputFields = loadingFields
@@ -41,13 +55,7 @@ export const computeFromFields$ =
       const deadFields: VertexFields = {}
 
       const inputFieldsMaybeChangedAndLoaded$ = data$.pipe(
-         tap(data => {
-            latestInputFields = data.fields
-            if (inputDataReceived === false) {
-               inputDataReceived = true
-               inputDataReceived$.next(true)
-            }
-         }),
+         tap(data => (latestInputFields = data.fields)),
          map(data => ({
             data,
             fieldsHaveChanged: fields.some(
@@ -62,7 +70,6 @@ export const computeFromFields$ =
 
       const loading$ = inputFieldsMaybeChangedAndLoaded$.pipe(
          filter(_ => _.fieldsHaveChanged),
-         filter(_ => !_.fieldsAreLoaded),
          map(({ data }): VertexRunData => {
             const reloadingFields: VertexFields = {}
             const changedLoadingFields: VertexChangedFields = {}
@@ -88,6 +95,23 @@ export const computeFromFields$ =
                changedFields: { ...data.changedFields, ...changedLoadingFields }
             }
          })
+      )
+
+      // Arms computers that ignore their input observable and emit synchronously
+      // (e.g. `() => of('x')`): the `combineLatest(..., inputDataReceived$)` gate
+      // below holds their value until the first input has arrived. This branch
+      // emits no output of its own; it only fires the signal. It MUST sit AFTER
+      // `loading$` in the final merge so that, on a tick where the tracked fields
+      // are loaded and changed, `loading$` resets the field to `loading` BEFORE
+      // the gated computer emits — otherwise the synchronous value would land
+      // first and `loading$` would clobber it back to `loading`.
+      // `take(1)` arms the gate exactly once — firing `inputDataReceived$.next`
+      // again would make the `combineLatest` below re-emit; `ignoreElements()`
+      // keeps the branch output-free, contributing only the signal, never a value.
+      const firstInputReceived$ = inputFieldsMaybeChangedAndLoaded$.pipe(
+         take(1),
+         tap(() => inputDataReceived$.next(true)),
+         ignoreElements()
       )
 
       const changedLoadedInputFields$ = inputFieldsMaybeChangedAndLoaded$.pipe(
@@ -163,12 +187,12 @@ export const computeFromFields$ =
       )
 
       const passingThrough$ = inputFieldsMaybeChangedAndLoaded$.pipe(
-         filter(_ => !_.fieldsHaveChanged || _.fieldsAreLoaded),
+         filter(_ => !_.fieldsHaveChanged),
          map(({ data }) => ({
             ...data,
             fields: { ...data.fields, ...latestOutputFields }
          }))
       )
 
-      return merge(loading$, passingThrough$, computed$)
+      return merge(loading$, firstInputReceived$, passingThrough$, computed$)
    }

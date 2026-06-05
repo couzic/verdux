@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { isObservable, map, Observable, of } from 'rxjs'
+import { isObservable, map, Observable, of, Subject } from 'rxjs'
 import { VertexRunData } from '../run/RunData'
 import { computeFromFields$ } from './computeFromFields$'
 
@@ -23,8 +23,7 @@ const createInitialRunData = (fields: Record<string, any>): VertexRunData => {
 
 describe(sut.name, () => {
    it('computes from picked loaded field', () => {
-      let outputCount = 0
-      let latestOutput: any
+      const outputs: any[] = []
       const inputData = createInitialRunData({
          name: {
             status: 'loaded',
@@ -45,18 +44,17 @@ describe(sut.name, () => {
             })
             return fields$.pipe(map(fields => fields.name.toUpperCase()))
          }
-      })(of(inputData)).subscribe(output => {
-         outputCount++
-         latestOutput = output
-      })
-      expect(outputCount).to.equal(2)
-      expect(latestOutput.changedFields.uppercaseName).to.be.true
-      expect(latestOutput.fields.uppercaseName.value).to.equal('JOHN')
+      })(of(inputData)).subscribe(output => outputs.push(output))
+      expect(
+         outputs.map(output => output.fields.uppercaseName)
+      ).to.deep.equal([
+         { status: 'loading', value: undefined, errors: [] },
+         { status: 'loaded', value: 'JOHN', errors: [] }
+      ])
    })
 
    it('handles loading field', () => {
-      let outputCount = 0
-      let latestOutput: any
+      const outputs: any[] = []
       const inputData = createInitialRunData({
          name: {
             status: 'loading',
@@ -67,17 +65,14 @@ describe(sut.name, () => {
       sut(['name'], {
          uppercaseName: (fields$: Observable<{ name: string }>) =>
             fields$.pipe(map(fields => fields.name.toUpperCase()))
-      })(of(inputData)).subscribe(output => {
-         outputCount++
-         latestOutput = output
-      })
-      expect(outputCount).to.equal(1)
-      expect(latestOutput.fields.uppercaseName.status).to.equal('loading')
+      })(of(inputData)).subscribe(output => outputs.push(output))
+      expect(
+         outputs.map(output => output.fields.uppercaseName.status)
+      ).to.deep.equal(['loading'])
    })
 
    it('handles immediately emitting computer', () => {
-      let outputCount = 0
-      let latestOutput: any
+      const outputs: any[] = []
       const inputData = createInitialRunData({
          name: {
             status: 'loading',
@@ -87,11 +82,52 @@ describe(sut.name, () => {
       })
       sut(['name'], {
          uppercaseName: () => of('DEFAULT')
-      })(of(inputData)).subscribe(output => {
-         outputCount++
-         latestOutput = output
+      })(of(inputData)).subscribe(output => outputs.push(output))
+      expect(
+         outputs.map(output => output.fields.uppercaseName)
+      ).to.deep.equal([
+         { status: 'loading', value: undefined, errors: [] },
+         { status: 'loaded', value: 'DEFAULT', errors: [] }
+      ])
+   })
+
+   it('resets the computed field to loading on every input change, before the recomputed value', () => {
+      const input$ = new Subject<VertexRunData>()
+      const outputs: any[] = []
+      sut(['x'], {
+         doubled: (fields$: Observable<{ x: number }>) =>
+            fields$.pipe(map(({ x }) => x * 2))
+      })(input$).subscribe(output => outputs.push(output))
+
+      input$.next(
+         createInitialRunData({ x: { status: 'loaded', value: 1, errors: [] } })
+      )
+      input$.next({
+         action: undefined,
+         fields: { x: { status: 'loaded', value: 5, errors: [] } },
+         changedFields: { x: true },
+         fieldsReactions: [],
+         reactions: [],
+         sideEffects: [],
+         initialRun: false
       })
-      expect(outputCount).to.equal(2)
-      expect(latestOutput.fields.uppercaseName.status).to.equal('loaded')
+
+      const loading = { status: 'loading', value: undefined }
+      const loaded = (value: number) => ({ status: 'loaded', value })
+      const statusAndValue = (field: any) => ({
+         status: field.status,
+         value: field.value
+      })
+      expect(
+         outputs.map(output => ({
+            x: statusAndValue(output.fields.x),
+            doubled: statusAndValue(output.fields.doubled)
+         }))
+      ).to.deep.equal([
+         { x: loaded(1), doubled: loading },
+         { x: loaded(1), doubled: loaded(2) },
+         { x: loaded(5), doubled: loading },
+         { x: loaded(5), doubled: loaded(10) }
+      ])
    })
 })
