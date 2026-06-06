@@ -48,8 +48,6 @@ Operation error-handling semantics live in
 | ID | Issue | Verified | Area | Severity |
 |----|-------|----------|------|----------|
 | [BUG-3](#bug-3--devtools-provideforcegraphrunoutput-crashes-when-a-run-omits-a-vertex) | devtools `provideForceGraphRunOutput` crashes on omitted vertex | `run` | devtools | Medium |
-| [ROB-1](#rob-1--extractreduxstate-assumes-every-downstream-step-exists) | `extractReduxState` assumes every `.downstream[name]` exists | `reasoned` | run | Low |
-| [ROB-2](#rob-2--no-cycle-detection) | No cycle detection (not constructible via public API) | `reasoned` | config | Low |
 
 ---
 
@@ -106,28 +104,3 @@ Operation error-handling semantics live in
   return`): a vertex always has slice-derived state, so clearing to `{}` would push an
   unreachable, invalid empty-fields state through `toVertexLoadableState` into subscribers —
   trading a loud crash for silent corruption. Revisit when the devtools code is in-repo.
-
-## ROB-1 — `extractReduxState` assumes every `.downstream[name]` step exists
-
-- **Verified:** `reasoned` (no public trigger found)
-- **Location:** `src/run/extractReduxState.ts:~19` —
-  `reduxState = reduxState.downstream[reduxPath[i].name]` with no missing-key guard; a
-  missing step yields `undefined` and the next iteration throws on `.downstream`.
-- **Status:** The structural gap is real, but no public-API path was found that produces a
-  malformed `reduxPath`. Per CLAUDE.md, find a full-graph trigger before treating it as a
-  bug; if none exists, this is a defensive hardening, not a defect.
-- **Fix direction (if pursued):** add a guard/clear error naming the missing step, or prove
-  the path is always well-formed and drop the concern.
-
-## ROB-2 — No cycle detection
-
-- **Verified:** `reasoned` (not reproducible)
-- **Location:** the recursive `vertexId` getter
-  (`src/config/VertexConfigBuilderImpl.ts:24-29`) would recurse unboundedly on a dependency
-  cycle, surfacing as `RangeError: Maximum call stack size exceeded` rather than a clear
-  error.
-- **Status:** **A cycle is not constructible through the public builder** —
-  `addUpstreamVertex` / `configureDownstreamVertex` both take an already-built config, so
-  the graph is acyclic by construction. No public trigger exists. Keep only as a note;
-  there is nothing to test through the public API.
-
