@@ -114,7 +114,8 @@ flowchart TD
 ```ts
 pipe(
    runVertex(config, …),
-   ...children.map(child => childWrapperGraphRun(child))
+   // one inline wrapper per direct child — each an unnamed `GraphRun`:
+   ...children.map((child): GraphRun => data$ => { … })
 )
 ```
 
@@ -122,10 +123,10 @@ It chains the vertex's own run, then one wrapper per direct child, in topologica
 order (children are grouped by closest common ancestor in `computeGraphCoreInfo`).
 Each child wrapper:
 
-1. Decides whether the child subgraph should run at all:
+1. Decides whether the child subgraph should run at all (the local `shouldRun`):
    ```ts
-   subgraphShouldRun(data) =
-        reduxStateHasChanged(data)              // child's slice subtree changed by reference
+   const shouldRun =
+        reduxState !== latestReduxState         // child's slice subtree changed by reference
      || hasTrackedAction(data)                  // action ∈ trackedActionsInSubgraph[child]
      || trackedUpstreamFieldHasChanged(child, data)  // an upstream field the child tracks changed
    ```
@@ -138,9 +139,9 @@ This gate is *the* mechanism that prevents needless recomputation and re-render:
 a vertex is skipped unless its own Redux slice changed, an action it tracks fired,
 or an upstream field it depends on changed.
 
-`reduxStateHasChanged` is a **reference** comparison of the child's slice subtree —
-`extractReduxState(getRootReduxState(), reduxPath[child])`, §2 — against the last one the
-wrapper saw (`latestReduxState`). Immer/RTK give a new reference only for slices that
+The `reduxState !== latestReduxState` check is a **reference** comparison of the child's
+slice subtree — `extractReduxState(getRootReduxState(), reduxPath[child])`, §2 — against the
+last one the wrapper saw (`latestReduxState`). Immer/RTK give a new reference only for slices that
 actually changed, so an unrelated action leaves a sibling's subtree reference intact
 and the sibling is skipped. (The walk is O(depth) and allocation-free.) A vertex's
 slice subtree reference changes

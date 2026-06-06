@@ -23,17 +23,26 @@
     - [`createGraph()`](#creategraph)
   - [Computed values (synchronous)](#computed-values-synchronous)
     - [`computeFromFields()`](#computefromfields)
+    - [`computeFromFields$()` (async)](#computefromfields-async)
   - [Loading data](#loading-data)
     - [`load()`](#load)
     - [`loadFromFields()`](#loadfromfields)
+    - [`loadFromFields$()` (async)](#loadfromfields-async)
     - [Loadable status & error handling](#loadable-status--error-handling)
   - [Consuming the state](#consuming-the-state)
     - [`vertex.currentState`](#vertexcurrentstate)
     - [`vertex.state$`](#vertexstate)
   - [Actions and Reactions](#actions-and-reactions)
     - [`reaction()`](#reaction)
-    - [`reaction$()`](#reaction)
+    - [`reaction$()` (async)](#reaction-async)
+    - [`fieldsReaction()`](#fieldsreaction)
     - [`sideEffect()`](#sideeffect)
+  - [Downstream vertices](#downstream-vertices)
+    - [`configureDownstreamVertex()`](#configuredownstreamvertex)
+    - [`configureVertex()`](#configurevertex)
+  - [Dependency injection](#dependency-injection)
+    - [`withDependencies()`](#withdependencies)
+    - [`injectedWith()`](#injectedwith)
 - [Testing](#testing)
   - [Test Setup](#test-setup)
 
@@ -181,6 +190,38 @@ const userVertexConfig = configureRootVertex({
 })
 ```
 
+#### `computeFromFields$()` (async)
+
+The asynchronous sibling of `computeFromFields()`. Each computer receives an
+**Observable** of the picked fields and returns an **Observable** of the computed
+value, so you can apply any RxJS operator (debounce, throttle, `combineLatest`, …).
+
+```ts
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { debounceTime, map } from 'rxjs'
+import { configureRootVertex } from 'verdux'
+
+const searchVertexConfig = configureRootVertex({
+   slice: createSlice({
+      name: 'search',
+      initialState: {
+         query: ''
+      },
+      reducers: {
+         queryChanged: (state, action: PayloadAction<string>) => {
+            state.query = action.payload
+         }
+      }
+   })
+}).computeFromFields$(['query'], {
+   debouncedQuery: query$ =>
+      query$.pipe(
+         debounceTime(300),
+         map(({ query }) => query.trim())
+      )
+})
+```
+
 ### Loading data
 
 #### `load()`
@@ -218,6 +259,40 @@ const todoVertexConfig = configureRootVertex({
    })
 }).loadFromFields(['id'], {
    details: ({ id }) => ajax.getJSON(`https://www.base.url/todos/${id}`)
+})
+```
+
+#### `loadFromFields$()` (async)
+
+The asynchronous sibling of `loadFromFields()`. Each loader receives an
+**Observable** of the picked fields instead of a single snapshot, so you control how
+overlapping inputs are handled — `switchMap` cancels the in-flight request when the
+input changes again before it resolves.
+
+```ts
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { debounceTime, switchMap } from 'rxjs'
+import { ajax } from 'rxjs/ajax'
+import { configureRootVertex } from 'verdux'
+
+const todoVertexConfig = configureRootVertex({
+   slice: createSlice({
+      name: 'todo',
+      initialState: {
+         id: '123'
+      },
+      reducers: {
+         idChanged: (state, action: PayloadAction<string>) => {
+            state.id = action.payload
+         }
+      }
+   })
+}).loadFromFields$(['id'], {
+   details: id$ =>
+      id$.pipe(
+         debounceTime(300),
+         switchMap(({ id }) => ajax.getJSON(`https://www.base.url/todos/${id}`))
+      )
 })
 ```
 
@@ -286,7 +361,7 @@ export const counterVertexConfig = configureRootVertex({
 }).reaction(buttonClicked, () => increment())
 ```
 
-#### `reaction$()`
+#### `reaction$()` (async)
 
 Handle asynchronous reactions with RxJS.
 
@@ -321,6 +396,39 @@ export const counterVertexConfig = configureRootVertex({
 )
 ```
 
+#### `fieldsReaction()`
+
+React to **field changes** rather than to an action: whenever one of the listed
+fields changes (and once on the initial run), the mapper runs and the action it
+returns is dispatched. Return `null` to dispatch nothing.
+
+```ts
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { configureRootVertex } from 'verdux'
+
+const slice = createSlice({
+   name: 'user',
+   initialState: {
+      name: 'John',
+      nameLength: 0
+   },
+   reducers: {
+      setName: (state, action: PayloadAction<string>) => {
+         state.name = action.payload
+      },
+      setNameLength: (state, action: PayloadAction<number>) => {
+         state.nameLength = action.payload
+      }
+   }
+})
+
+const { setNameLength } = slice.actions
+
+export const userVertexConfig = configureRootVertex({
+   slice
+}).fieldsReaction(['name'], ({ name }) => setNameLength(name.length))
+```
+
 #### `sideEffect()`
 
 Declare side effects to be synchronously executed in response to actions.
@@ -344,6 +452,151 @@ export const analyticsVertexConfig = configureRootVertex({
    trackingApi.sendEvent(action.payload)
 })
 ```
+
+### Downstream vertices
+
+A graph is more than one root vertex. A **downstream** vertex owns its own slice
+and pulls selected fields from its parent(s), forming the directed acyclic graph
+at the heart of `verdux`. Every vertex config — root or downstream — must be passed
+to `createGraph({ vertices: [...] })`.
+
+#### `configureDownstreamVertex()`
+
+Wire a child onto a parent. List the parent fields the child depends on in
+`upstreamFields`: those fields become readable on the child, and the child's
+subgraph re-runs whenever one of them changes. Omit `upstreamFields` and parent
+changes won't reach the child.
+
+```ts
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { ajax } from 'rxjs/ajax'
+import { configureRootVertex } from 'verdux'
+
+const rootVertexConfig = configureRootVertex({
+   slice: createSlice({
+      name: 'root',
+      initialState: {
+         userId: '123'
+      },
+      reducers: {
+         userIdChanged: (state, action: PayloadAction<string>) => {
+            state.userId = action.payload
+         }
+      }
+   })
+})
+
+export const profileVertexConfig = rootVertexConfig.configureDownstreamVertex({
+   slice: createSlice({
+      name: 'profile',
+      initialState: {},
+      reducers: {}
+   }),
+   // Pull `userId` from the parent — it is now a field on this vertex, usable in
+   // any operation, and a change to it re-runs this subgraph.
+   upstreamFields: ['userId']
+}).loadFromFields(['userId'], {
+   profile: ({ userId }) => ajax.getJSON(`https://www.base.url/users/${userId}`)
+})
+```
+
+#### `configureVertex()`
+
+When a vertex has **more than one** upstream (a true DAG, not a tree), build it
+with `configureVertex` and declare each parent via `addUpstreamVertex(config, {
+fields })`.
+
+```ts
+import { createSlice } from '@reduxjs/toolkit'
+import { configureRootVertex, configureVertex } from 'verdux'
+
+const rootVertexConfig = configureRootVertex({
+   slice: createSlice({ name: 'root', initialState: {}, reducers: {} })
+})
+
+const userVertexConfig = rootVertexConfig.configureDownstreamVertex({
+   slice: createSlice({
+      name: 'user',
+      initialState: { name: 'John' },
+      reducers: {}
+   })
+})
+
+const cartVertexConfig = rootVertexConfig.configureDownstreamVertex({
+   slice: createSlice({
+      name: 'cart',
+      initialState: { itemCount: 0 },
+      reducers: {}
+   })
+})
+
+// Pulls `name` from one parent and `itemCount` from another.
+export const summaryVertexConfig = configureVertex(
+   { slice: createSlice({ name: 'summary', initialState: {}, reducers: {} }) },
+   builder =>
+      builder
+         .addUpstreamVertex(userVertexConfig, { fields: ['name'] })
+         .addUpstreamVertex(cartVertexConfig, { fields: ['itemCount'] })
+).computeFromFields(['name', 'itemCount'], {
+   summary: ({ name, itemCount }) => `${name} has ${itemCount} item(s)`
+})
+```
+
+### Dependency injection
+
+Instead of importing services directly, a vertex declares its dependencies as
+**factories** and receives the resolved instances at graph-creation time. This is
+what makes a vertex testable — the same config runs against real services in
+production and fakes in tests.
+
+#### `withDependencies()`
+
+Declare dependencies on the config, then consume them: the callback receives the
+resolved instances plus a `vertex` you chain operations onto. Everything inside
+uses injected services rather than hardcoded imports.
+
+```ts
+import { createSlice } from '@reduxjs/toolkit'
+import { configureRootVertex } from 'verdux'
+import { createApiClient } from './apiClient'
+
+export const userVertexConfig = configureRootVertex({
+   slice: createSlice({
+      name: 'user',
+      initialState: {
+         id: '123'
+      },
+      reducers: {}
+   }),
+   dependencies: {
+      // A factory: an arrow returning the service instance.
+      apiClient: createApiClient
+   }
+}).withDependencies(({ apiClient }, vertex) =>
+   vertex.loadFromFields(['id'], {
+      details: ({ id }) => apiClient.getUser(id)
+   })
+)
+```
+
+A downstream vertex derives its own dependencies from its parent's via the
+`dependencies` option of `configureDownstreamVertex()`, so injected services flow
+down the graph.
+
+#### `injectedWith()`
+
+Swap a vertex's real dependencies for fakes — most often in tests — without
+touching the config. It takes a partial dependency object; anything omitted keeps
+its declared factory. Pass the wrapped config to `createGraph`.
+
+```ts
+const graph = createGraph({
+   vertices: [userVertexConfig.injectedWith({ apiClient: fakeApiClient })]
+})
+```
+
+Injected dependencies are inherited by downstream vertices, so injecting once at
+the root is enough to stub a service for the whole subgraph.
 
 ## Testing
 

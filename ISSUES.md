@@ -50,8 +50,6 @@ Operation error-handling semantics live in
 | [BUG-3](#bug-3--devtools-provideforcegraphrunoutput-crashes-when-a-run-omits-a-vertex) | devtools `provideForceGraphRunOutput` crashes on omitted vertex | `run` | devtools | Medium |
 | [ROB-1](#rob-1--extractreduxstate-assumes-every-downstream-step-exists) | `extractReduxState` assumes every `.downstream[name]` exists | `reasoned` | run | Low |
 | [ROB-2](#rob-2--no-cycle-detection) | No cycle detection (not constructible via public API) | `reasoned` | config | Low |
-| [DOC-1](#doc-1--stale-doc-symbols--broken-readme-anchor) | Stale doc symbols & broken README anchor | `static` | docs | Low |
-| [BUILD-1](#build-1--mocha-glob-has-no-ignore) | Mocha glob has no `--ignore` | `static` | build | Low |
 
 ---
 
@@ -133,26 +131,3 @@ Operation error-handling semantics live in
   the graph is acyclic by construction. No public trigger exists. Keep only as a note;
   there is nothing to test through the public API.
 
-## DOC-1 — Stale doc symbols & broken README anchor
-
-- **Verified:** `static`
-- **Items:**
-  - `CLAUDE.md` and `ARCHITECTURE.md` §4 name pseudo-code symbols that don't exist as real
-    identifiers: `subgraphShouldRun`, `reduxStateHasChanged`, `childWrapperGraphRun`
-    (grep of `src/` finds none).
-  - `README.md` TOC has two entries pointing at `#reaction` (for `reaction()` and
-    `reaction$()`), so the `reaction$()` link misnavigates — the second should target
-    `#reaction-1`.
-- **Fix direction:** Either rename the pseudo-code to match real identifiers or clearly
-  mark it as illustrative pseudo-code; fix the README anchor. Re-run `doctoc` if it manages
-  the TOC.
-
-## BUILD-1 — Mocha glob has no `--ignore`
-
-- **Verified:** `static`
-- **Location:** `package.json` mocha config — `spec: ["src/**/*.test.ts"]`, no `--ignore`,
-  no `.mocharc`.
-- **Symptom:** Any stray/untracked `*.test.ts` under `src/` is swept into the run (e.g. a
-  throwaway repro file would execute). Low impact but a footgun.
-- **Fix direction:** Decide whether to constrain the glob / add an ignore for scratch
-  files, or leave as-is and rely on discipline. Lowest priority.

@@ -46,6 +46,9 @@
       "spec": [
          "src/**/*.test.ts"
       ],
+      "ignore": [
+         "src/**/*.scratch.test.ts"
+      ],
       "reporter": "dot"
    },
    "peerDependencies": {
