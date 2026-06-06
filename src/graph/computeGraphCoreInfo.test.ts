@@ -325,6 +325,45 @@ describe(sut.name, () => {
       })
    })
 
+   it('does not duplicate a tracked action shared by sibling vertices', () => {
+      const trackedAction = createAction('trackedAction')
+      const rootVertexConfig = configureRootVertex({
+         slice: createSimpleSlice('root')
+      })
+      const firstSlice = createSlice({
+         name: 'first',
+         initialState: { name: '' },
+         reducers: {
+            setName: (state, action: PayloadAction<string>) => {
+               state.name = action.payload
+            }
+         }
+      })
+      const secondSlice = createSlice({
+         name: 'second',
+         initialState: { name: '' },
+         reducers: {
+            setName: (state, action: PayloadAction<string>) => {
+               state.name = action.payload
+            }
+         }
+      })
+      const firstVertexConfig = rootVertexConfig
+         .configureDownstreamVertex({ slice: firstSlice as any })
+         .reaction(trackedAction, () => firstSlice.actions.setName('Bob'))
+      const secondVertexConfig = rootVertexConfig
+         .configureDownstreamVertex({ slice: secondSlice as any })
+         .reaction(trackedAction, () => secondSlice.actions.setName('Alice'))
+      const graphConfig = sut([
+         rootVertexConfig,
+         firstVertexConfig,
+         secondVertexConfig
+      ])
+      expect(
+         graphConfig.trackedActionsInSubgraph[rootVertexConfig.id]
+      ).to.deep.equal([trackedAction])
+   })
+
    it('indexes tracked actions', () => {
       const trackedAction = createAction('trackedAction')
       const rootVertexConfig = configureRootVertex({

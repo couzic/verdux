@@ -174,13 +174,17 @@ export const computeGraphCoreInfo = (
    > = {}
    const indexSubgraph = (config: VertexConfigImpl) => {
       const ids = [config.id]
-      const trackedActions = trackedActionsByVertexId[config.id]
+      const trackedActions: BaseActionCreator<any, any>[] = []
+      const addTrackedAction = (action: BaseActionCreator<any, any>) => {
+         if (!trackedActions.includes(action)) trackedActions.push(action)
+      }
+      trackedActionsByVertexId[config.id].forEach(addTrackedAction)
       const downstreamConfigs =
          vertexConfigsByClosestCommonAncestorId[config.id] || []
       downstreamConfigs.forEach(downstreamConfig => {
          indexSubgraph(downstreamConfig)
          ids.push(...vertexIdsInSubgraph[downstreamConfig.id])
-         trackedActions.push(...trackedActionsInSubgraph[downstreamConfig.id])
+         trackedActionsInSubgraph[downstreamConfig.id].forEach(addTrackedAction)
       })
       vertexIdsInSubgraph[config.id] = ids
       trackedActionsInSubgraph[config.id] = trackedActions

@@ -50,7 +50,6 @@ Operation error-handling semantics live in
 | [BUG-3](#bug-3--devtools-provideforcegraphrunoutput-crashes-when-a-run-omits-a-vertex) | devtools `provideForceGraphRunOutput` crashes on omitted vertex | `run` | devtools | Medium |
 | [ROB-1](#rob-1--extractreduxstate-assumes-every-downstream-step-exists) | `extractReduxState` assumes every `.downstream[name]` exists | `reasoned` | run | Low |
 | [ROB-2](#rob-2--no-cycle-detection) | No cycle detection (not constructible via public API) | `reasoned` | config | Low |
-| [PERF-1](#perf-1--avoidable-recomputation--allocation) | Avoidable recomputation / allocation | `static` + `reasoned` | run/config | Low |
 | [DOC-1](#doc-1--stale-doc-symbols--broken-readme-anchor) | Stale doc symbols & broken README anchor | `static` | docs | Low |
 | [BUILD-1](#build-1--mocha-glob-has-no-ignore) | Mocha glob has no `--ignore` | `static` | build | Low |
 
@@ -133,23 +132,6 @@ Operation error-handling semantics live in
   `addUpstreamVertex` / `configureDownstreamVertex` both take an already-built config, so
   the graph is acyclic by construction. No public trigger exists. Keep only as a note;
   there is nothing to test through the public API.
-
-## PERF-1 — Avoidable recomputation / allocation
-
-- **Verified:** `static` (structural cause) + `reasoned` (runtime effect not measured)
-- **Items:**
-  - `findClosestCommonAncestor` (`src/config/VertexConfigBuilderImpl.ts:78-127`) is
-    recursive with nested loops and **no memoization**; called per-vertex from
-    `computeGraphCoreInfo.ts:93` — ~O(N³) on deep multi-upstream graphs. `static`.
-  - `trackedActionsInSubgraph` accumulates **duplicate** actions:
-    `computeGraphCoreInfo.ts:183` does `trackedActions.push(...downstream)` per child with
-    no dedup, so a diamond pattern adds the same action twice. Structural cause `static`;
-    the runtime effect (extra tracked-action checks) was **not** observed through a public
-    read — `reasoned`.
-- **Fix direction:** Memoize `findClosestCommonAncestor` (cache by config/pair); dedup
-  tracked actions with a `Set`. These are optimizations — guard with existing
-  `computeGraphCoreInfo.test.ts` behaviour and, ideally, a test asserting no duplicate
-  tracked actions for a diamond graph.
 
 ## DOC-1 — Stale doc symbols & broken README anchor
 
