@@ -27,6 +27,8 @@ npm test            # runs the example tests
 
 See `claude-code-plugin/example-check/README.md` for what it covers.
 
+**Keep the plugin version in lockstep with the library version.** When you bump `version` in the root `package.json`, bump `version` in `claude-code-plugin/.claude-plugin/plugin.json` to the exact same value — they must always match.
+
 ## ISSUES.md
 
 `ISSUES.md` documents only **currently existing** issues. Once an issue is resolved, remove it from `ISSUES.md` entirely — do not keep it marked as resolved.
